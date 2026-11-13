@@ -4,4 +4,4 @@ the slow is sine 0.005
 the breath is sine 0.02
 slow -40> voice.pitch
 breath -> fold.amount
-voice -> fold -> lowpass -> ears
+voice -> fold -> lowpass -> out

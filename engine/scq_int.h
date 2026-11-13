@@ -7,11 +7,12 @@
 
 #define MAX_IN     10
 #define MAX_OUT    4
-#define MAX_NODES  48
-#define MAX_CORDS  160
+#define MAX_NODES  64
+#define MAX_CORDS  224
 #define MAX_STATE  24
 #define POOL_BYTES (80 * 1024)
 #define NAME_LEN   20
+#define MAX_OPT    6     /* switches and params, set when the place is named */
 
 #define B      SCQ_BLOCK
 #define SR     ((float)SCQ_RATE)
@@ -59,6 +60,8 @@ struct node {
 	uint16_t mixed;               /* bit per inlet that has to be summed each block      */
 	float    out[MAX_OUT][B];
 	float    s[MAX_STATE];
+	float    opt[MAX_OPT];         /* switch positions (0, 1, ...) or param values */
+	uint8_t  optset;              /* bit per option written in the dream */
 	uint32_t rng;
 	void    *mem;
 	uint32_t memlen;
@@ -93,5 +96,8 @@ extern world W;
 
 int place_port(const place *p, int out, const char *port, int len);
 int place_nports(const char *list);
+const char *place_renamed(const char *old, int len);
+/* "name=a|b|c" switches (default a) and "name=5" params, space separated; "" if none */
+const char *place_opts(const char *place);   /* new name of an old place, or 0 */
 
 #endif

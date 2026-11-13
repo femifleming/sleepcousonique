@@ -7,8 +7,8 @@ static inline float time01(float x) { return 0.001f * scq_exp2(scq_clamp(x, 0.f,
 
 static inline float pulse_out(float *t) { float v = *t > 0.f ? 1.f : 0.f; if (*t > 0.f) *t -= 1.f; return v; }
 
-/* sleep — falling asleep and waking: attack, decay, sustain, release (after ARP / Moog ADSR; Buchla 281) */
-static void run_sleep(node *n, const float *const in[MAX_IN])
+/* adsr — falling asleep and waking: attack, decay, sustain, release (after ARP / Moog ADSR; Buchla 281) */
+static void run_adsr(node *n, const float *const in[MAX_IN])
 {
 	float v = n->s[0], stage = n->s[1], et = n->s[3];
 	float a = 1.f / (time01(in[1][0]) * SR), d = scq_coef_time(time01(in[2][0]), SR);
@@ -26,11 +26,11 @@ static void run_sleep(node *n, const float *const in[MAX_IN])
 	n->s[0] = v; n->s[1] = stage; n->s[3] = et;
 }
 
-/* moon — the moon over the night: an LFO, four shapes, 0 to 1 (after Doepfer A-145; every modular's LFO) */
-static void run_moon(node *n, const float *const in[MAX_IN])
+/* lfo — the moon over the night: an LFO, four shapes, 0 to 1 (after Doepfer A-145; every modular's LFO) */
+static void run_lfo(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0];
-	float f = 0.05f * n->nature * scq_exp2(scq_clamp(in[0][0], 0.f, 1.f) * 10.f);
+	float f = 0.05f * n->nature * scq_exp2(scq_clamp(in[0][0], 0.f, 1.f) * 10.f) * (n->opt[0] != 0.f ? 100.f : 1.f);   /* range=lfo|audio */
 	LOOP {
 		if (edge(in[1][i], &n->s[1])) ph = 0.f;
 		ph += f * INV_SR; ph -= scq_floor(ph);
@@ -42,8 +42,8 @@ static void run_moon(node *n, const float *const in[MAX_IN])
 	n->s[0] = ph;
 }
 
-/* tram — the aboveground tram: a clock, with eighths, halves and bars (after Pamela's / Tempi / every master clock) */
-static void run_tram(node *n, const float *const in[MAX_IN])
+/* clock — the aboveground tram: a clock, with eighths, halves and bars (after Pamela's / Tempi / every master clock) */
+static void run_clock(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0], t[4] = { n->s[1], n->s[2], n->s[3], n->s[4] };
 	float count = n->s[5];
@@ -67,10 +67,10 @@ static void run_tram(node *n, const float *const in[MAX_IN])
 	}
 	n->s[0] = ph; n->s[1] = t[0]; n->s[2] = t[1]; n->s[3] = t[2]; n->s[4] = t[3]; n->s[5] = count;
 }
-static void init_tram(node *n) { n->s[0] = 0.999f; }
+static void init_clock(node *n) { n->s[0] = 0.999f; }
 
-/* floors — the elevator's floors: divides a clock by 2, 3, 4 and its nature (after Doepfer A-160; Make Noise Tempi) */
-static void run_floors(node *n, const float *const in[MAX_IN])
+/* divider — the elevator's floors: divides a clock by 2, 3, 4 and its nature (after Doepfer A-160; Make Noise Tempi) */
+static void run_divider(node *n, const float *const in[MAX_IN])
 {
 	int cnt = (int)n->s[0];
 	float t[4] = { n->s[1], n->s[2], n->s[3], n->s[4] };
@@ -86,8 +86,8 @@ static void run_floors(node *n, const float *const in[MAX_IN])
 	n->s[0] = (float)cnt; n->s[1] = t[0]; n->s[2] = t[1]; n->s[3] = t[2]; n->s[4] = t[3];
 }
 
-/* maze — the far underground maze: Euclidean rhythms, hits spread as evenly as they'll go (after Toussaint; Euclidean modules) */
-static void run_maze(node *n, const float *const in[MAX_IN])
+/* euclid — the far underground maze: Euclidean rhythms, hits spread as evenly as they'll go (after Toussaint; Euclidean modules) */
+static void run_euclid(node *n, const float *const in[MAX_IN])
 {
 	int steps = natural(n->nature, 2, 32);
 	int step = (int)n->s[0];
@@ -109,8 +109,8 @@ static void run_maze(node *n, const float *const in[MAX_IN])
 	n->s[0] = (float)step; n->s[3] = th; n->s[4] = tm;
 }
 
-/* crossroads — tight turns on the estate: each pulse goes one way or the other (after Mutable Branches; Bernoulli gates) */
-static void run_crossroads(node *n, const float *const in[MAX_IN])
+/* bernoulli — tight turns on the estate: each pulse goes one way or the other (after Mutable Branches; Bernoulli gates) */
+static void run_bernoulli(node *n, const float *const in[MAX_IN])
 {
 	int way = (int)n->s[1];
 	LOOP {
@@ -122,8 +122,8 @@ static void run_crossroads(node *n, const float *const in[MAX_IN])
 	n->s[1] = (float)way;
 }
 
-/* notebook — the pink notebook: a melody that writes itself and slowly rewrites (after Music Thing's Turing Machine) */
-static void run_notebook(node *n, const float *const in[MAX_IN])
+/* turing — the pink notebook: a melody that writes itself and slowly rewrites (after Music Thing's Turing Machine) */
+static void run_turing(node *n, const float *const in[MAX_IN])
 {
 	uint32_t reg = (uint32_t)n->s[1];
 	int len = natural(n->nature, 2, 16);
@@ -141,9 +141,9 @@ static void run_notebook(node *n, const float *const in[MAX_IN])
 	}
 	n->s[1] = (float)reg; n->s[2] = v; n->s[3] = pt;
 }
-static void init_notebook(node *n) { n->s[1] = (float)(n->rng & 0xffffu); }
+static void init_turing(node *n) { n->s[1] = (float)(n->rng & 0xffffu); }
 
-/* party — the house party you missed: kick, snare and hat patterns on a map (after Mutable Grids) */
+/* drummap — the house party you missed: kick, snare and hat patterns on a map (after Mutable Grids) */
 static const uint8_t PARTY[4][3][16] = {
 	/* four on the floor */
 	{ { 255,0,0,0, 255,0,0,0, 255,0,0,0, 255,0,0,40 },
@@ -162,7 +162,7 @@ static const uint8_t PARTY[4][3][16] = {
 	  { 0,0,0,0, 255,0,0,130, 0,110,0,0, 255,0,0,90 },
 	  { 230,120,230,120, 230,120,230,190, 230,120,230,120, 230,170,230,210 } },
 };
-static void run_party(node *n, const float *const in[MAX_IN])
+static void run_drummap(node *n, const float *const in[MAX_IN])
 {
 	int step = (int)n->s[0];
 	float t[4] = { n->s[2], n->s[3], n->s[4], n->s[5] };
@@ -185,8 +185,8 @@ static void run_party(node *n, const float *const in[MAX_IN])
 	n->s[0] = (float)step; n->s[2] = t[0]; n->s[3] = t[1]; n->s[4] = t[2]; n->s[5] = t[3];
 }
 
-/* fire — the hall on fire: a burst of pulses from one (after burst generators; Nord Modular ratchets) */
-static void run_fire(node *n, const float *const in[MAX_IN])
+/* burst — the hall on fire: a burst of pulses from one (after burst generators; Nord Modular ratchets) */
+static void run_burst(node *n, const float *const in[MAX_IN])
 {
 	float left = n->s[1], gap = n->s[2], t = n->s[3];
 	LOOP {
@@ -204,8 +204,8 @@ static void run_fire(node *n, const float *const in[MAX_IN])
 	n->s[1] = left; n->s[2] = gap; n->s[3] = t;
 }
 
-/* insomniac — lying awake in a continuous stasis: the logistic map, from order to chaos (after May's logistic map) */
-static void run_insomniac(node *n, const float *const in[MAX_IN])
+/* logistic — lying awake in a continuous stasis: the logistic map, from order to chaos (after May's logistic map) */
+static void run_logistic(node *n, const float *const in[MAX_IN])
 {
 	float x = n->s[0], ph = n->s[1], pt = n->s[3];
 	int clocked = n->patched & 1;
@@ -225,8 +225,8 @@ static void run_insomniac(node *n, const float *const in[MAX_IN])
 	n->s[0] = x; n->s[1] = ph; n->s[3] = pt;
 }
 
-/* hourglass — sand running through: a ramp from 0 to 1, at any speed up to audio (after Max/MSP and Pd's phasor~) */
-static void run_hourglass(node *n, const float *const in[MAX_IN])
+/* phasor — sand running through: a ramp from 0 to 1, at any speed up to audio (after Max/MSP and Pd's phasor~) */
+static void run_phasor(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0], pt = n->s[2];
 	const float inc = 0.01f * n->nature * scq_exp2(scq_clamp(in[0][0], 0.f, 1.f) * 17.f) * INV_SR;
@@ -240,8 +240,8 @@ static void run_hourglass(node *n, const float *const in[MAX_IN])
 	n->s[0] = ph; n->s[2] = pt;
 }
 
-/* waitingroom — waiting to be called: each pulse, again, later (after Doepfer A-162 trigger delays) */
-static void run_waitingroom(node *n, const float *const in[MAX_IN])
+/* trigdelay — waiting to be called: each pulse, again, later (after Doepfer A-162 trigger delays) */
+static void run_trigdelay(node *n, const float *const in[MAX_IN])
 {
 	float due = n->s[1], t = n->s[2];
 	LOOP {
@@ -252,8 +252,8 @@ static void run_waitingroom(node *n, const float *const in[MAX_IN])
 	n->s[1] = due; n->s[2] = t;
 }
 
-/* concierge — the hotel concierge: four things in, one out, stepping on each pulse (after Doepfer A-151; Buchla sequential switches) */
-static void run_concierge(node *n, const float *const in[MAX_IN])
+/* switch — the hotel concierge: four things in, one out, stepping on each pulse (after Doepfer A-151; Buchla sequential switches) */
+static void run_switch(node *n, const float *const in[MAX_IN])
 {
 	int at = (int)n->s[0];
 	int count = natural(n->nature, 2, 4);
@@ -266,8 +266,8 @@ static void run_concierge(node *n, const float *const in[MAX_IN])
 	n->s[0] = (float)at;
 }
 
-/* lilypads — lily pads on a flooded street, a grid that grows by rule: a cellular automaton (after Wolfram's rules; CA sequencers) */
-static void run_lilypads(node *n, const float *const in[MAX_IN])
+/* automaton — lily pads on a flooded street, a grid that grows by rule: a cellular automaton (after Wolfram's rules; CA sequencers) */
+static void run_automaton(node *n, const float *const in[MAX_IN])
 {
 	uint32_t cells = (uint32_t)n->s[1];
 	int rule = natural(n->nature, 0, 255);
@@ -292,10 +292,10 @@ static void run_lilypads(node *n, const float *const in[MAX_IN])
 	}
 	n->s[1] = (float)cells; n->s[3] = pt;
 }
-static void init_lilypads(node *n) { n->s[1] = (float)(1u << 8); }
+static void init_automaton(node *n) { n->s[1] = (float)(1u << 8); }
 
-/* wander — wandering the empty school: a random walk that turns back at the walls (after the Wogglebug; Buchla 266's stored random) */
-static void run_wander(node *n, const float *const in[MAX_IN])
+/* randomwalk — wandering the empty school: a random walk that turns back at the walls (after the Wogglebug; Buchla 266's stored random) */
+static void run_randomwalk(node *n, const float *const in[MAX_IN])
 {
 	float v = n->s[0], ph = n->s[1], target = n->s[3];
 	int clocked = n->patched & 2;
@@ -313,4 +313,4 @@ static void run_wander(node *n, const float *const in[MAX_IN])
 	}
 	n->s[0] = v; n->s[1] = ph; n->s[3] = target;
 }
-static void init_wander(node *n) { n->s[0] = n->s[3] = 0.5f; }
+static void init_randomwalk(node *n) { n->s[0] = n->s[3] = 0.5f; }

@@ -30,6 +30,20 @@ const std::vector<PlaceInfo>& catalog()
         auto lines = juce::StringArray::fromLines (juce::String::fromUTF8 (scq_catalog()));
         for (auto& l : lines)
         {
+            if (l.startsWith ("O ") && ! v.empty())
+            {
+                auto t = juce::StringArray::fromTokens (l, " ", "");
+                for (int i = 2; i < t.size(); ++i)
+                {
+                    OptSpec o;
+                    o.name = t[i].upToFirstOccurrenceOf ("=", false, false);
+                    auto vals = t[i].fromFirstOccurrenceOf ("=", false, false);
+                    if (juce::CharacterFunctions::isLetter (vals[0])) o.positions = juce::StringArray::fromTokens (vals, "|", "");
+                    o.def = o.positions.isEmpty() ? vals : o.positions[0];
+                    v.back().opts.push_back (o);
+                }
+                continue;
+            }
             if (! l.startsWith ("P ")) continue;
             auto parts = juce::StringArray::fromTokens (l, "|", "");
             if (parts.size() < 3) continue;
@@ -59,10 +73,10 @@ const PlaceInfo* findPlace (const juce::String& name)
 Signal outletSignal (const PlaceInfo& p, int port)
 {
     auto o = p.outs[port];
-    if (o == "pulse" || o == "end" || o == "up" || o == "down") return Pulse;
-    if (p.name == "door" || p.name == "wake" || p.name == "lucid") return Pulse;
+    if (o == "pulse" || o == "gate" || o == "trig" || o == "end" || o == "up" || o == "down") return Pulse;
+    if (p.name == "button" || p.name == "play" || p.name == "dots") return Pulse;
     if (p.family == Current || p.family == Hands) return Flow;
-    if (p.name == "lamp") return Flow;
+    if (p.name == "leds") return Flow;
     return Sound;
 }
 
@@ -86,7 +100,13 @@ void Document::readDescription (const char* describe, const char* msgs)
             scenes.push_back (s);
         }
         else if (t[0] == "N" && t.size() >= 6)
-            nodes.push_back ({ t[1].getIntValue(), t[2], t[4], t[3].getFloatValue(), t[5].getIntValue() });
+        {
+            NodeInfo n { t[1].getIntValue(), t[2], t[4], t[3].getFloatValue(), t[5].getIntValue(), {} };
+            if (t.size() > 6)
+                for (auto& kv : juce::StringArray::fromTokens (t[6], ",", ""))
+                    n.opts[kv.upToFirstOccurrenceOf ("=", false, false)] = kv.fromFirstOccurrenceOf ("=", false, false);
+            nodes.push_back (n);
+        }
         else if (t[0] == "C" && t.size() >= 9)
             cords.push_back ({ t[1].getIntValue(), t[2].getIntValue(), t[3].getIntValue(), t[4].getIntValue(),
                                t[5].getIntValue(), t[6].getFloatValue(), t[7].getFloatValue(), t[8].getIntValue() });
@@ -213,6 +233,41 @@ juce::String Document::addPlace (const juce::String& place)
     return name;
 }
 
+void Document::setOption (int id, const juce::String& key, const juce::String& value)
+{
+    auto* n = node (id);
+    auto* p = n ? findPlace (n->place) : nullptr;
+    if (! p || n->line < 1) return;
+    auto opts = n->opts;
+    opts[key] = value;
+    juce::String written;
+    for (auto& o : p->opts)                       // in the place's own order, defaults left out
+    {
+        auto it = opts.find (o.name);
+        if (it != opts.end() && it->second != o.def) written << " " << o.name << "=" << it->second;
+    }
+    auto ls = lines();
+    auto& l = ls.getReference (n->line - 1);
+    auto code = l.upToFirstOccurrenceOf (";", false, false), note = l.fromFirstOccurrenceOf (";", true, false);
+    auto words = juce::StringArray::fromTokens (code.upToFirstOccurrenceOf (":", false, false), " \t", "");
+    auto steps = code.fromFirstOccurrenceOf (":", true, false).trim();
+    words.removeEmptyStrings();
+    bool decl = words.size() >= 4 && (words[0] == "the" || words[0] == "The") && (words[2] == "is" || words[2] == "are");
+    if (decl)
+    {
+        juce::String head = words[0] + " " + words[1] + " " + words[2] + " " + words[3];
+        if (words.size() > 4 && words[4].isNotEmpty() && words[4].containsOnly ("0123456789.-")) head << " " << words[4];
+        l = head + written + (steps.isNotEmpty() ? juce::String (steps.startsWith (":") ? "" : " ") + steps : juce::String())
+            + (note.isNotEmpty() ? "   " + note : juce::String());
+    }
+    else                                          // used without a name: name it here
+    {
+        juce::String nat = n->name.fromFirstOccurrenceOf (n->place, false, false);
+        ls.insert (n->line - 1, "the " + n->name + " is " + n->place + (nat.isNotEmpty() ? " " + nat : juce::String()) + written);
+    }
+    setLines (ls);
+}
+
 static juce::String portName (const juce::StringArray& ports, int i)
 {
     return i > 0 && i < ports.size() ? "." + ports[i] : juce::String();
@@ -224,7 +279,7 @@ juce::String Document::cordText (const CordInfo& c) const
     auto* dp = placeOf (c.dst);
     if (! dn || ! dp) return {};
     auto dst = dn->name + portName (dp->ins, c.dport);
-    if (c.src < 0) return "bottle " + fmt (c.amt) + " -> " + dst;
+    if (c.src < 0) return "value " + fmt (c.amt) + " -> " + dst;
     auto* sn = node (c.src);
     auto* sp = placeOf (c.src);
     if (! sn || ! sp) return {};

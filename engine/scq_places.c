@@ -33,10 +33,10 @@ static inline int natural(float nature, int lo, int hi)
 
 /* ------------------------------------------------------------------ sources */
 
-/* aira — the fountain labeled aira: a pure tone at nature x 60 Hz */
-static void run_aira(node *n, const float *const in[MAX_IN])
+/* sine — the fountain labeled aira: a pure tone at nature x 60 Hz */
+static void run_sine(node *n, const float *const in[MAX_IN])
 {
-	float base = 60.f * n->nature * scq_exp2(in[0][0]), ph = n->s[0];   /* pitch per block */
+	float base = 60.f * n->nature * scq_exp2(in[0][0]) * (n->opt[0] != 0.f ? 0.01f : 1.f), ph = n->s[0];   /* pitch per block; range=audio|lfo */
 	LOOP {
 		float f = base * (1.f + in[1][i]);
 		ph += f * INV_SR;
@@ -46,8 +46,8 @@ static void run_aira(node *n, const float *const in[MAX_IN])
 	n->s[0] = ph;
 }
 
-/* twin — two partials, 60n and 60(n+1): their difference is always the hum */
-static void run_twin(node *n, const float *const in[MAX_IN])
+/* crossfm — two partials, 60n and 60(n+1): their difference is always the hum */
+static void run_crossfm(node *n, const float *const in[MAX_IN])
 {
 	float pa = n->s[0], pb = n->s[1];
 	float k = scq_exp2(in[0][0]);                                /* pitch per block */
@@ -109,8 +109,8 @@ static void run_thunder(node *n, const float *const in[MAX_IN])
 	n->s[0] = env; n->s[1] = lp; n->s[2] = lp2;
 }
 
-/* flood — water rising: noise through a resonant lowpass that climbs with the level */
-static void run_flood(node *n, const float *const in[MAX_IN])
+/* noisesweep — water rising: noise through a resonant lowpass that climbs with the level */
+static void run_noisesweep(node *n, const float *const in[MAX_IN])
 {
 	float ic1 = n->s[0], ic2 = n->s[1], wander = n->s[2], wt = n->s[3];
 	float level = scq_clamp(in[0][0], 0.f, 1.f);
@@ -154,8 +154,8 @@ static void run_wind(node *n, const float *const in[MAX_IN])
 
 /* ------------------------------------------------------------------ shapes */
 
-/* mountains — dark umber peaks: a sine wavefolder */
-static void run_mountains(node *n, const float *const in[MAX_IN])
+/* folder — dark umber peaks: a sine wavefolder */
+static void run_folder(node *n, const float *const in[MAX_IN])
 {
 	float base = 1.f + 0.5f * (n->nature - 1.f);
 	LOOP {
@@ -164,24 +164,11 @@ static void run_mountains(node *n, const float *const in[MAX_IN])
 	}
 }
 
-/* window — a lamp shining on a photocell (the lowpass gate) */
-static void run_window(node *n, const float *const in[MAX_IN])
-{
-	float v = n->s[0], l1 = n->s[1], l2 = n->s[2];
-	const float att = 1.f / (0.002f * SR), rel = 1.f / (0.25f * SR);
-	float c = scq_coef_hz(20.f * scq_exp2(v * 10.f), SR);       /* colour per block */
-	LOOP {
-		float t = scq_clamp(in[1][i], 0.f, 1.f);
-		v += (t - v) * (t > v ? att : rel * (0.3f + v));
-		l1 += c * (in[0][i] - l1);
-		l2 += c * (l1 - l2);
-		n->out[0][i] = l2 * v;
-	}
-	n->s[0] = v; n->s[1] = l1; n->s[2] = l2;
-}
+/* lpg — a lamp shining on a photocell (the lowpass gate) */
+/* run_lpg: in scq_more_classic.inc (shared with dusg / duallpg) */
 
-/* basement — the house show downstairs: a resonant lowpass, warm */
-static void run_basement(node *n, const float *const in[MAX_IN])
+/* lowpass — the house show downstairs: a resonant lowpass, warm */
+static void run_lowpass(node *n, const float *const in[MAX_IN])
 {
 	float ic1 = n->s[0], ic2 = n->s[1];
 	float fc = scq_clamp(480.f * n->nature * scq_exp2(in[1][0]), 20.f, 16000.f);
@@ -200,10 +187,10 @@ static void run_basement(node *n, const float *const in[MAX_IN])
 	n->s[0] = ic1; n->s[1] = ic2;
 }
 
-/* horns — horn-loaded speakers: eight fixed resonant bands (Serge's resonant EQ) */
+/* filterbank — horn-loaded speakers: eight fixed resonant bands (Serge's resonant EQ) */
 static const float HORN_HZ[8] = { 61.f, 115.f, 218.f, 411.f, 777.f, 1470.f, 2800.f, 5200.f };
-static uint32_t mem_horns(float nature) { (void)nature; return 8 * 5 * sizeof(float); }
-static void init_horns(node *n)
+static uint32_t mem_filterbank(float nature) { (void)nature; return 8 * 5 * sizeof(float); }
+static void init_filterbank(node *n)
 {
 	float *m = (float *)n->mem;
 	for (int b = 0; b < 8; b++) {
@@ -214,7 +201,7 @@ static void init_horns(node *n)
 		m[b * 5 + 2] = g * m[b * 5 + 1];
 	}
 }
-static void run_horns(node *n, const float *const in[MAX_IN])
+static void run_filterbank(node *n, const float *const in[MAX_IN])
 {
 	float *m = (float *)n->mem;
 	LOOP n->out[0][i] = in[0][i];
@@ -232,8 +219,8 @@ static void run_horns(node *n, const float *const in[MAX_IN])
 	}
 }
 
-/* lighter — the lighter that explodes: a flick of fire and drive */
-static void run_lighter(node *n, const float *const in[MAX_IN])
+/* saturator — the lighter that explodes: a flick of fire and drive */
+static void run_saturator(node *n, const float *const in[MAX_IN])
 {
 	float flame = n->s[0];
 	float decay = 1.f - 1.f / (0.4f * SR);
@@ -246,8 +233,8 @@ static void run_lighter(node *n, const float *const in[MAX_IN])
 	n->s[0] = flame;
 }
 
-/* copper — the grounding rod: blocks DC, lets the music through */
-static void run_copper(node *n, const float *const in[MAX_IN])
+/* dcblock — the grounding rod: blocks DC, lets the music through */
+static void run_dcblock(node *n, const float *const in[MAX_IN])
 {
 	float lp = n->s[0], c = scq_coef_hz(20.f * n->nature, SR);
 	LOOP {
@@ -257,14 +244,15 @@ static void run_copper(node *n, const float *const in[MAX_IN])
 	n->s[0] = lp;
 }
 
-/* blanket — puts the fire out: a plain amplifier */
-static void run_blanket(node *n, const float *const in[MAX_IN])
+/* vca — puts the fire out: a plain amplifier */
+static void run_vca(node *n, const float *const in[MAX_IN])
 {
-	LOOP n->out[0][i] = in[0][i] * in[1][i];
+	if (n->opt[0] != 0.f) LOOP { float g = scq_max(in[1][i], 0.f); n->out[0][i] = in[0][i] * g * g * g; }   /* response=exp */
+	else LOOP n->out[0][i] = in[0][i] * in[1][i];
 }
 
-/* crystal — the crystal matrix: four in, four out, turned by an angle */
-static void run_crystal(node *n, const float *const in[MAX_IN])
+/* matrix — the crystal matrix: four in, four out, turned by an angle */
+static void run_matrix(node *n, const float *const in[MAX_IN])
 {
 	float th = n->nature * 0.0625f + in[4][0] * 0.25f;        /* in turns */
 	float c = scq_sin2pi(th + 0.25f), s = scq_sin2pi(th);
@@ -281,9 +269,9 @@ static void run_crystal(node *n, const float *const in[MAX_IN])
 
 /* ------------------------------------------------------------------ spaces */
 
-/* tunnel — tubular architecture, tubular acoustics: a tuned comb */
-static uint32_t mem_tunnel(float nature) { (void)nature; return 2048 * sizeof(float); }
-static void run_tunnel(node *n, const float *const in[MAX_IN])
+/* comb — tubular architecture, tubular acoustics: a tuned comb */
+static uint32_t mem_comb(float nature) { (void)nature; return 2048 * sizeof(float); }
+static void run_comb(node *n, const float *const in[MAX_IN])
 {
 	float *buf = (float *)n->mem;
 	uint32_t w = (uint32_t)n->s[0];
@@ -306,9 +294,9 @@ static void run_tunnel(node *n, const float *const in[MAX_IN])
 	n->s[0] = (float)w; n->s[1] = lp;
 }
 
-/* hallway — the long grey hallway: a delay. nature x 50 ms, up to a second */
-static uint32_t mem_hallway(float nature) { return (uint32_t)natural(nature, 1, 20) * 2400 * sizeof(int16_t); }
-static void run_hallway(node *n, const float *const in[MAX_IN])
+/* delay — the long grey hallway: a delay. nature x 50 ms, up to a second */
+static uint32_t mem_delay(float nature) { return (uint32_t)natural(nature, 1, 20) * 2400 * sizeof(int16_t); }
+static void run_delay(node *n, const float *const in[MAX_IN])
 {
 	int16_t *buf = (int16_t *)n->mem;
 	uint32_t L = n->memlen / sizeof(int16_t);
@@ -329,22 +317,22 @@ static void run_hallway(node *n, const float *const in[MAX_IN])
 	}
 	n->s[0] = (float)w; n->s[1] = len;
 }
-static void init_hallway(node *n) { n->s[1] = 1.f; }
+static void init_delay(node *n) { n->s[1] = 1.f; }
 
-/* warehouse — a big room with wooden floors: four-line feedback reverb */
+/* reverb — a big room with wooden floors: four-line feedback reverb */
 static const uint16_t WH_LEN[4] = { 1447, 1811, 2137, 2551 };
 static uint32_t wh_len(float nature, int k)
 {
 	float sc = 0.6f + 0.2f * scq_clamp(nature, 1.f, 4.f);
 	return (uint32_t)((float)WH_LEN[k] * sc);
 }
-static uint32_t mem_warehouse(float nature)
+static uint32_t mem_reverb(float nature)
 {
 	uint32_t t = 0;
 	for (int k = 0; k < 4; k++) t += wh_len(nature, k);
 	return t * sizeof(int16_t);
 }
-static void run_warehouse(node *n, const float *const in[MAX_IN])
+static void run_reverb(node *n, const float *const in[MAX_IN])
 {
 	int16_t *base = (int16_t *)n->mem;
 	int16_t *line[4];
@@ -407,8 +395,8 @@ static void run_bell(node *n, const float *const in[MAX_IN])
 	}
 }
 
-/* elevator — the lift into the night sky: a tone that rises forever */
-static void run_elevator(node *n, const float *const in[MAX_IN])
+/* shepard — the lift into the night sky: a tone that rises forever */
+static void run_shepard(node *n, const float *const in[MAX_IN])
 {
 	/* s: 0 phase of the lowest octave, 8 position within the octave. Every partial is an
 	 * octave of the lowest, so one sine and cosine give them all by doubling the angle:
@@ -439,11 +427,11 @@ static void run_elevator(node *n, const float *const in[MAX_IN])
 	n->s[0] = ph;
 }
 
-/* moss — a golden square of moss in a night pond: it blooms into grains */
+/* granular — a golden square of moss in a night pond: it blooms into grains */
 #define MOSS_LEN 12000
 #define MOSS_G   6
-static uint32_t mem_moss(float nature) { (void)nature; return MOSS_LEN * sizeof(int16_t) + MOSS_G * 4 * sizeof(float); }
-static void init_moss(node *n)
+static uint32_t mem_granular(float nature) { (void)nature; return MOSS_LEN * sizeof(int16_t) + MOSS_G * 4 * sizeof(float); }
+static void init_granular(node *n)
 {
 	int16_t *buf = (int16_t *)n->mem;
 	float f = 60.f * n->nature * 4.f;
@@ -454,7 +442,7 @@ static void init_moss(node *n)
 	}
 }
 static const float MOSS_RATE[6] = { 1.f, 2.f, 0.5f, 1.5f, 1.f, 0.75f };
-static void run_moss(node *n, const float *const in[MAX_IN])
+static void run_granular(node *n, const float *const in[MAX_IN])
 {
 	int16_t *buf = (int16_t *)n->mem;
 	float *gr = (float *)(buf + MOSS_LEN);  /* per grain: pos, rate, env phase, env inc */
@@ -496,15 +484,15 @@ static void run_moss(node *n, const float *const in[MAX_IN])
 	n->s[0] = (float)w;
 }
 
-/* frog — frogs in a grid: chirping FM voices. nature = how many (1-8) */
+/* frogs — frogs in a grid: chirping FM voices. nature = how many (1-8) */
 static const float FROG_H[8] = { 9.f, 10.f, 12.f, 15.f, 16.f, 18.f, 20.f, 24.f };
-static uint32_t mem_frog(float nature) { (void)nature; return 8 * 5 * sizeof(float); }
-static void init_frog(node *n)
+static uint32_t mem_frogs(float nature) { (void)nature; return 8 * 5 * sizeof(float); }
+static void init_frogs(node *n)
 {
 	float *m = (float *)n->mem;
 	for (int k = 0; k < 8; k++) m[k * 5 + 2] = scq_rand01(&n->rng) * 2.f * SR;
 }
-static void run_frog(node *n, const float *const in[MAX_IN])
+static void run_frogs(node *n, const float *const in[MAX_IN])
 {
 	float *m = (float *)n->mem;   /* per frog: phase, mod phase, timer, freq, env */
 	int count = natural(n->nature, 1, 8);
@@ -542,41 +530,15 @@ static void run_frog(node *n, const float *const in[MAX_IN])
 
 /* ------------------------------------------------------------------ currents */
 
-/* stairs — the spiral staircase (Serge's universal slope): rises, falls, follows.
+/* slope — the spiral staircase (Serge's universal slope): rises, falls, follows.
  * Patch its end into its start and it climbs forever. */
-static void run_stairs(node *n, const float *const in[MAX_IN])
-{
-	float v = n->s[0], mode = n->s[1], et = n->s[3];
-	const float up = 1.f / (0.001f * scq_exp2(scq_clamp(in[2][0], 0.f, 1.f) * 13.3f) * SR);   /* rates per block */
-	const float dn = 1.f / (0.001f * scq_exp2(scq_clamp(in[3][0], 0.f, 1.f) * 13.3f) * SR);
-	LOOP {
-		float st = in[1][i];
-		if (edge(st, &n->s[2])) mode = 1.f;
-		if (mode == 1.f) {
-			v += up;
-			if (v >= 1.f) { v = 1.f; mode = 2.f; }
-		} else if (mode == 2.f) {
-			v -= dn;
-			if (v <= 0.f) {
-				v = 0.f; mode = 0.f; et = PULSE_SAMPLES;
-				if (st > 0.5f) mode = 1.f;
-			}
-		} else {
-			float t = in[0][i];
-			v = t > v ? scq_min(t, v + up) : scq_max(t, v - dn);
-		}
-		n->out[0][i] = v;
-		n->out[1][i] = et > 0.f ? 1.f : 0.f;
-		if (et > 0.f) et -= 1.f;
-	}
-	n->s[0] = v; n->s[1] = mode; n->s[3] = et;
-}
+/* run_slope: in scq_more_classic.inc (shared with dusg / duallpg) */
 
 /* at rest the slope has "ended": one end pulse at the start, so end -> start begins to climb */
-static void init_stairs(node *n) { n->s[3] = PULSE_SAMPLES; }
+static void init_slope(node *n) { n->s[3] = PULSE_SAMPLES; }
 
-/* jakes — they look like people but aren't: smooth wandering random */
-static void run_jakes(node *n, const float *const in[MAX_IN])
+/* smoothrandom — they look like people but aren't: smooth wandering random */
+static void run_smoothrandom(node *n, const float *const in[MAX_IN])
 {
 	float from = n->s[0], to = n->s[1], ph = n->s[2];
 	float f = 0.3f * n->nature * scq_exp2(scq_clamp(in[0][0], 0.f, 1.f) * 6.f);
@@ -591,8 +553,8 @@ static void run_jakes(node *n, const float *const in[MAX_IN])
 	n->s[0] = from; n->s[1] = to; n->s[2] = ph;
 }
 
-/* connors — the other ones: stepped random, held until the next pulse */
-static void run_connors(node *n, const float *const in[MAX_IN])
+/* steprandom — the other ones: stepped random, held until the next pulse */
+static void run_steprandom(node *n, const float *const in[MAX_IN])
 {
 	float v = n->s[0], ph = n->s[1], pt = n->s[3];
 	int clocked = n->patched & 1;
@@ -612,8 +574,8 @@ static void run_connors(node *n, const float *const in[MAX_IN])
 	n->s[0] = v; n->s[1] = ph; n->s[3] = pt;
 }
 
-/* escalator — steps that move smoothly (Serge's smooth & stepped) */
-static void run_escalator(node *n, const float *const in[MAX_IN])
+/* glide — steps that move smoothly (Serge's smooth & stepped) */
+static void run_glide(node *n, const float *const in[MAX_IN])
 {
 	float held = n->s[0], v = n->s[1];
 	const float c = scq_coef_time(scq_clamp(in[2][0], 0.f, 1.f) * 1.f, SR);   /* glide per block */
@@ -625,9 +587,9 @@ static void run_escalator(node *n, const float *const in[MAX_IN])
 	n->s[0] = held; n->s[1] = v;
 }
 
-/* train — the train and its stations. Stations are written in semitones. */
-static uint32_t mem_train(float nature) { (void)nature; return 33 * sizeof(float); }
-static void init_train(node *n)
+/* seq — the train and its stations. Stations are written in semitones. */
+static uint32_t mem_seq(float nature) { (void)nature; return 33 * sizeof(float); }
+static void init_seq(node *n)
 {
 	float *m = (float *)n->mem;
 	static const float def[8] = { 0, 3, 7, 10, 12, 10, 7, 3 };
@@ -637,7 +599,7 @@ static void init_train(node *n)
 		m[32] = (float)c;
 	}
 }
-static void run_train(node *n, const float *const in[MAX_IN])
+static void run_seq(node *n, const float *const in[MAX_IN])
 {
 	float *m = (float *)n->mem;
 	int count = (int)m[32];
@@ -658,40 +620,49 @@ static void run_train(node *n, const float *const in[MAX_IN])
 	n->s[0] = (float)at; n->s[4] = pt;
 }
 
-/* pufferfish — the wet gilled box that plays quantized notes */
-static const float PF_SCALE[5][9] = {
-	{ 7, 0, .169925f, .321928f, .415037f, .584963f, .736966f, .906891f },          /* just major  */
-	{ 7, 0, .169925f, .263034f, .415037f, .584963f, .678072f, .847997f },          /* just minor  */
-	{ 5, 0, .169925f, .321928f, .584963f, .736966f },                              /* pentatonic  */
-	{ 8, 0, .169925f, .321928f, .459432f, .584963f, .700440f, .807355f, .906891f }, /* otonal 8-15 */
-	{ 8, 0, .093109f, .192645f, .299560f, .415037f, .540568f, .678072f, .830075f }, /* utonal      */
-};
-static void run_pufferfish(node *n, const float *const in[MAX_IN])
+/* quantizer — pitch quantizer over just, tempered, equal and microtonal scales.
+ * The scale is the nature (1-38), or the scale= switch. Pitch in octaves; root transposes. */
+#include "scq_scales.inc"
+static float qz_snap(int sc, float y)
 {
-	const float *sc = PF_SCALE[natural(n->nature, 1, 5) - 1];
-	int cnt = (int)sc[0];
-	float last = n->s[0], pt = n->s[1];
-	LOOP {
-		float x = in[0][i], o = scq_floor(x), fr = x - o;
-		float best = 0.f, bd = 2.f;
-		for (int k = 0; k < cnt; k++) {
-			float d = scq_abs(fr - sc[1 + k]);
-			if (d < bd) { bd = d; best = sc[1 + k]; }
+	const float *d = QZ_DATA + QZ_AT[sc];
+	float per = d[0] * (1.f / 1200.f);
+	int cnt = (int)d[1];
+	float k = scq_floor(y / per), r = (y - k * per) * 1200.f;     /* cents into the period */
+	float q;
+	if (cnt < 0) {                                                 /* equal steps */
+		float step = d[0] / (float)(-cnt);
+		q = scq_floor(r / step + 0.5f) * step;
+	} else {
+		float bd = d[0] - r;                                       /* the next period's root */
+		q = d[0];
+		for (int j = 0; j < cnt; j++) {
+			float e = scq_abs(r - d[2 + j]);
+			if (e < bd) { bd = e; q = d[2 + j]; }
 		}
-		if (1.f - fr < bd) best = 1.f;
-		float q = o + best;
+	}
+	return k * per + q * (1.f / 1200.f);
+}
+static void run_quantizer(node *n, const float *const in[MAX_IN])
+{
+	int sc = n->opt[0] != 0.f ? (int)n->opt[0] - 1 : natural(n->nature, 1, QZ_COUNT) - 1;
+	float last = n->s[0], pt = n->s[1], lastin = n->s[2], q = n->s[3];
+	float root = in[1][0];
+	LOOP {
+		float x = in[0][i];
+		if (x != lastin || i == 0) { lastin = x; q = root + qz_snap(sc, x - root); }   /* only when it moves */
 		if (q != last) { last = q; pt = PULSE_SAMPLES; }
 		n->out[0][i] = q;
 		n->out[1][i] = pt > 0.f ? 1.f : 0.f;
 		if (pt > 0.f) pt -= 1.f;
 	}
-	n->s[0] = last; n->s[1] = pt;
+	n->s[0] = last; n->s[1] = pt; n->s[2] = lastin; n->s[3] = q;
 }
 
-/* cat — the cat that teaches expressions you mirror back: learns a gesture, repeats it */
+/* gesture — the cat that teaches expressions you mirror back: learns a gesture, repeats it */
 #define CAT_LEN 6000
-static uint32_t mem_cat(float nature) { (void)nature; return CAT_LEN * sizeof(int16_t); }
-static void run_cat(node *n, const float *const in[MAX_IN])
+static uint32_t mem_gesture(float nature) { (void)nature; return CAT_LEN * sizeof(int16_t); }
+static void run_gesture(node *n, const float *const in[MAX_IN])
 {
 	int16_t *buf = (int16_t *)n->mem;
 	/* s: 0 learning, 1 length, 2 play pos, 3 decimation, 4 smooth */
@@ -716,8 +687,8 @@ static void run_cat(node *n, const float *const in[MAX_IN])
 	n->s[4] = v;
 }
 
-/* magician — shushes you into a trance: a ducker and a slow swing */
-static void run_magician(node *n, const float *const in[MAX_IN])
+/* ducker — shushes you into a trance: a ducker and a slow swing */
+static void run_ducker(node *n, const float *const in[MAX_IN])
 {
 	float env = n->s[0], ph = n->s[1];
 	float att = scq_coef_time(0.005f, SR), rel = scq_coef_time(0.3f, SR);
@@ -732,8 +703,8 @@ static void run_magician(node *n, const float *const in[MAX_IN])
 	n->s[0] = env; n->s[1] = ph;
 }
 
-/* bottle — a kept value (the water bottle). bottle 40 = 0.40 */
-static void run_bottle(node *n, const float *const in[MAX_IN])
+/* value — a kept value (the water bottle). bottle 40 = 0.40 */
+static void run_value(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
 	LOOP n->out[0][i] = n->nature * 0.01f;
@@ -741,7 +712,7 @@ static void run_bottle(node *n, const float *const in[MAX_IN])
 
 /* ------------------------------------------------------------------ hands */
 
-static void run_lean(node *n, const float *const in[MAX_IN])
+static void run_fader(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
 	int k = natural(n->nature, 1, 4) - 1;
@@ -749,13 +720,13 @@ static void run_lean(node *n, const float *const in[MAX_IN])
 	LOOP { v += (t - v) * 0.004f; n->out[0][i] = v; }
 	n->s[0] = v;
 }
-static void run_door(node *n, const float *const in[MAX_IN])
+static void run_button(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
 	float v = W.ctl[SCQ_CTL_DOOR1 + natural(n->nature, 1, 4) - 1];
 	LOOP n->out[0][i] = v;
 }
-static void run_lift(node *n, const float *const in[MAX_IN])
+static void run_rocker(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
 	float v = W.ctl[SCQ_CTL_LIFT];
@@ -772,13 +743,13 @@ static void run_lift(node *n, const float *const in[MAX_IN])
 	}
 	n->s[1] = up; n->s[2] = dn;
 }
-static void run_wake(node *n, const float *const in[MAX_IN])
+static void run_play(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
 	float v = W.ctl[SCQ_CTL_WAKE];
 	LOOP n->out[0][i] = v;
 }
-static void run_lucid(node *n, const float *const in[MAX_IN])
+static void run_dots(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
 	float v = W.ctl[SCQ_CTL_LUCID];
@@ -789,10 +760,10 @@ static void run_lucid(node *n, const float *const in[MAX_IN])
 
 static void run_left(node *n, const float *const in[MAX_IN])  { (void)n; LOOP W.outL[i] += in[0][i]; }
 static void run_right(node *n, const float *const in[MAX_IN]) { (void)n; LOOP W.outR[i] += in[0][i]; }
-static void run_ears(node *n, const float *const in[MAX_IN])  { (void)n; LOOP { W.outL[i] += in[0][i]; W.outR[i] += in[0][i]; } }
+static void run_out(node *n, const float *const in[MAX_IN])  { (void)n; LOOP { W.outL[i] += in[0][i]; W.outR[i] += in[0][i]; } }
 
-/* lamp — red while charging, then white: the eight LEDs */
-static void run_lamp(node *n, const float *const in[MAX_IN])
+/* leds — red while charging, then white: the eight LEDs */
+static void run_leds(node *n, const float *const in[MAX_IN])
 {
 	float env = n->s[0], t1 = n->s[1], t2 = n->s[2];
 	float att = scq_coef_time(0.01f, SR), rel = scq_coef_time(0.2f, SR);
@@ -811,8 +782,8 @@ static void run_lamp(node *n, const float *const in[MAX_IN])
 	if (n->patched & 4) for (int k = 0; k < 4; k++) W.lamp[4 + k] = scq_clamp(t2 * 4.f - (float)k, 0.f, 1.f);
 }
 
-/* journey — riding between scenes. Sometimes you miss your stop. */
-static void run_journey(node *n, const float *const in[MAX_IN])
+/* scene — riding between scenes. Sometimes you miss your stop. */
+static void run_scene(node *n, const float *const in[MAX_IN])
 {
 	LOOP {
 		if (edge(in[0][i], &n->s[0])) W.want_next = 1;
@@ -828,97 +799,168 @@ static void run_journey(node *n, const float *const in[MAX_IN])
 #include "scq_more_shapes.inc"
 #include "scq_more_spaces.inc"
 #include "scq_more_currents.inc"
+#include "scq_more_classic.inc"
 
 #define P(name, fam, flags, cost, nat, ins, defs, outs, run, init, mem, help) \
 	{ name, fam, flags, cost, nat, ins, defs, outs, run, init, mem, help }
 
 const place SCQ_PLACES[] = {
-P("aira",      FAM_SOURCE, PF_DRIFT, 100, 3, "pitch fm", "0 0", "out", run_aira, 0, 0,
-  "the fountain labeled aira: a pure tone, nature x 60 Hz"),
-P("twin",      FAM_SOURCE, PF_DRIFT, 207, 3, "pitch index timbre", "0 0 0", "out a b", run_twin, 0, 0,
-  "two partials, 60n and 60(n+1); index bends a with b, timbre folds it. Their difference is the hum"),
-P("rain",      FAM_SOURCE, PF_DRIFT, 60, 1, "density", "0", "out pulse", run_rain, 0, 0,
-  "drops on tiny resonators, 8 x nature per second; pulse marks each drop"),
-P("thunder",   FAM_SOURCE, 0, 113, 1, "strike", "0", "out", run_thunder, 0, 0,
-  "a rumble when struck, and on its own about nature times a minute"),
-P("flood",     FAM_SOURCE, PF_DRIFT, 87, 1, "level", "0.5", "out", run_flood, 0, 0,
-  "rising water: noise whose band climbs with the level"),
-P("wind",      FAM_SOURCE, PF_DRIFT, 87, 1, "gust", "0.3", "out", run_wind, 0, 0,
-  "a cold draft: soft noise through a wandering band"),
-P("frog",      FAM_SOURCE, 0, 140, 3, "wake pitch", "0 0", "out pulse", run_frog, init_frog, mem_frog,
-  "nature frogs (1-8) croaking on their own; a pulse into wake makes them all croak"),
-P("elevator",  FAM_SOURCE, PF_DRIFT, 287, 1, "rate pitch", "0.1 0", "out", run_elevator, 0, 0,
-  "the lift into the night sky: rises forever (rate in octaves per second, negative falls)"),
-P("bell",      FAM_SOURCE, PF_DRIFT, 220, 1, "strike pitch decay", "0 0 0.5", "out", run_bell, 0, 0,
-  "the cargo train's deep bell: four modes, struck by edges or by sound"),
-P("mountains", FAM_SHAPE, PF_DRIFT, 87, 1, "in fold", "0 0", "out", run_mountains, 0, 0,
-  "dark umber peaks: a wavefolder. More fold, more peaks"),
-P("window",    FAM_SHAPE, 0, 73, 1, "in light", "0 1", "out", run_window, 0, 0,
-  "a lamp on a photocell (lowpass gate). Pulse the light for a pluck"),
-P("basement",  FAM_SHAPE, PF_DRIFT, 100, 1, "in cut res", "0 0 0.2", "out band", run_basement, 0, 0,
-  "the house show downstairs: a warm resonant lowpass at nature x 480 Hz"),
-P("horns",     FAM_SHAPE, PF_DRIFT, 47, 1, "in band1 band2 band3 band4 band5 band6 band7 band8",
-  "0 0 0 0 0 0 0 0 0", "out", run_horns, init_horns, mem_horns,
-  "horn-loaded speakers: eight fixed resonant bands; patch into a band to raise it"),
-P("lighter",   FAM_SHAPE, 0, 100, 1, "in flick", "0 0", "out", run_lighter, 0, 0,
-  "the lighter that explodes: a flick of fire and drive"),
-P("copper",    FAM_SHAPE, 0, 33, 1, "in", "0", "out", run_copper, 0, 0,
-  "the grounding rod: takes the DC out"),
-P("blanket",   FAM_SHAPE, 0, 33, 1, "in gain", "0 1", "out", run_blanket, 0, 0,
-  "a blanket over the sound: plain amplifier"),
-P("crystal",   FAM_SHAPE, 0, 87, 0, "in1 in2 in3 in4 turn", "0 0 0 0 0", "out1 out2 out3 out4", run_crystal, 0, 0,
-  "the crystal matrix: four in, four out, mixed by turning (nature sets the resting angle)"),
-P("tunnel",    FAM_SPACE, PF_DRIFT, 113, 2, "in pitch decay", "0 0 0.5", "out", run_tunnel, 0, mem_tunnel,
-  "tubular acoustics: a comb tuned to nature x 60 Hz. Pulses pluck it"),
-P("hallway",   FAM_SPACE, PF_DRIFT, 180, 6, "in length feedback", "0 1 0.3", "out", run_hallway, init_hallway, mem_hallway,
-  "the long grey hallway: a delay, nature x 50 ms long"),
-P("warehouse", FAM_SPACE, PF_DRIFT, 353, 2, "in size", "0 0.7", "out l r", run_warehouse, 0, mem_warehouse,
-  "a big room with wooden floors: reverb"),
-P("moss",      FAM_SPACE, 0, 360, 1, "in bloom", "0 0.3", "out", run_moss, init_moss, mem_moss,
-  "golden moss in a night pond: grains of what you plant, or of itself"),
-P("stairs",    FAM_CURRENT, 0, 100, 1, "in start rise fall", "0 0 0.3 0.5", "out end", run_stairs, init_stairs, 0,
-  "the spiral staircase (universal slope): rises and falls when started, follows otherwise; end into start cycles"),
-P("jakes",     FAM_CURRENT, PF_DRIFT, 100, 1, "rate follow", "0 0", "out", run_jakes, 0, 0,
-  "they look like people but aren't: smooth wandering random, or an imitation of follow"),
-P("connors",   FAM_CURRENT, PF_DRIFT, 47, 1, "clock", "0", "out pulse", run_connors, 0, 0,
-  "stepped random, new on each clock pulse (or nature / 2 times a second on its own)"),
-P("escalator", FAM_CURRENT, 0, 60, 1, "in clock glide", "0 0 0.2", "out", run_escalator, 0, 0,
-  "smooth & stepped: holds the input on each pulse and glides to it"),
-P("train",     FAM_CURRENT, 0, 127, 8, "next back reset", "0 0 0", "out pulse step", run_train, init_train, mem_train,
-  "the train and its stations (semitones): the train route is train 8: 0 3 7 10"),
-P("pufferfish",FAM_CURRENT, 0, 207, 1, "in", "0", "out pulse", run_pufferfish, 0, 0,
-  "plays quantized notes: just major, just minor, pentatonic, otonal, utonal (nature 1-5)"),
-P("cat",       FAM_CURRENT, 0, 33, 1, "in learn", "0 0", "out", run_cat, 0, mem_cat,
-  "learns a gesture while learn is held, then mirrors it back, over and over (up to 8 s)"),
-P("magician",  FAM_CURRENT, PF_DRIFT, 113, 1, "in shush", "0 0", "out trance", run_magician, 0, 0,
-  "shushes the sound when shush is loud; trance is a slow swing"),
-P("bottle",    FAM_CURRENT, 0, 20, 0, "", "", "out", run_bottle, 0, 0,
-  "a kept value: bottle 40 is 0.40"),
+P("sine",    FAM_SOURCE, PF_DRIFT, 100, 3, "pitch fm", "0 0", "out", run_sine, 0, 0,
+  "sine oscillator at nature x 60 Hz"),
+P("crossfm", FAM_SOURCE, PF_DRIFT, 207, 3, "pitch index fold", "0 0 0", "out a b", run_crossfm, 0, 0,
+  "two sines on harmonics n and n+1; index frequency-modulates a with b, fold wavefolds a; out is both mixed"),
+P("rain",    FAM_SOURCE, PF_DRIFT, 60, 1, "density", "0", "out pulse", run_rain, 0, 0,
+  "rain: random impulses ringing tiny resonators, 8 x nature per second; pulse marks each drop"),
+P("thunder", FAM_SOURCE, 0, 113, 1, "strike", "0", "out", run_thunder, 0, 0,
+  "thunder: a filtered noise rumble when struck, and on its own about nature times a minute"),
+P("noisesweep", FAM_SOURCE, PF_DRIFT, 87, 1, "level", "0.5", "out", run_noisesweep, 0, 0,
+  "noise through a resonant bandpass whose frequency climbs with level"),
+P("wind",    FAM_SOURCE, PF_DRIFT, 87, 1, "gust", "0.3", "out", run_wind, 0, 0,
+  "wind: soft noise through a slowly wandering bandpass"),
+P("frogs",   FAM_SOURCE, 0, 140, 3, "trig pitch", "0 0", "out pulse", run_frogs, init_frogs, mem_frogs,
+  "nature (1-8) chirping FM voices on random timers; a pulse into trig makes them all chirp"),
+P("shepard", FAM_SOURCE, PF_DRIFT, 287, 1, "rate pitch", "0.1 0", "out", run_shepard, 0, 0,
+  "Shepard-Risset glissando: rises forever (rate in octaves per second, negative falls)"),
+P("bell",    FAM_SOURCE, PF_DRIFT, 220, 1, "strike pitch decay", "0 0 0.5", "out", run_bell, 0, 0,
+  "modal bell: four inharmonic modes, struck by pulses or by sound"),
+P("folder",  FAM_SHAPE, PF_DRIFT, 87, 1, "in fold", "0 0", "out", run_folder, 0, 0,
+  "wavefolder; more fold, more folds"),
+P("lpg",     FAM_SHAPE, 0, 73, 1, "in level", "0 1", "out", run_lpg, 0, 0,
+  "lowpass gate (vactrol-style); pulse level for a pluck"),
+P("lowpass", FAM_SHAPE, PF_DRIFT, 100, 1, "in cutoff res", "0 0 0.2", "out band", run_lowpass, 0, 0,
+  "resonant 2-pole lowpass at nature x 480 Hz, with a bandpass out"),
+P("filterbank", FAM_SHAPE, PF_DRIFT, 47, 1, "in band1 band2 band3 band4 band5 band6 band7 band8",
+  "0 0 0 0 0 0 0 0 0", "out", run_filterbank, init_filterbank, mem_filterbank,
+  "fixed filter bank: eight resonant bands; patch into a band to raise it"),
+P("saturator", FAM_SHAPE, 0, 100, 1, "in burst", "0 0", "out", run_saturator, 0, 0,
+  "tanh saturator; a pulse into burst kicks the drive up with a crackle that dies away"),
+P("dcblock", FAM_SHAPE, 0, 33, 1, "in", "0", "out", run_dcblock, 0, 0,
+  "DC blocker (highpass at nature x 20 Hz)"),
+P("vca",     FAM_SHAPE, 0, 33, 1, "in gain", "0 1", "out", run_vca, 0, 0,
+  "VCA: in times gain"),
+P("matrix",  FAM_SHAPE, 0, 87, 0, "in1 in2 in3 in4 rotate", "0 0 0 0 0", "out1 out2 out3 out4", run_matrix, 0, 0,
+  "4 x 4 rotation matrix mixer; rotate turns it (nature sets the resting angle)"),
+P("comb",    FAM_SPACE, PF_DRIFT, 113, 2, "in pitch decay", "0 0 0.5", "out", run_comb, 0, mem_comb,
+  "comb filter tuned to nature x 60 Hz; pulses pluck it"),
+P("delay",   FAM_SPACE, PF_DRIFT, 180, 6, "in time feedback", "0 1 0.3", "out", run_delay, init_delay, mem_delay,
+  "delay, nature x 50 ms long; time scales it"),
+P("reverb",  FAM_SPACE, PF_DRIFT, 353, 2, "in size", "0 0.7", "out l r", run_reverb, 0, mem_reverb,
+  "stereo room reverb"),
+P("granular", FAM_SPACE, 0, 360, 1, "in density", "0 0.3", "out", run_granular, init_granular, mem_granular,
+  "granular: grains of what you patch in, or of its own buffer"),
+P("slope",   FAM_CURRENT, 0, 100, 1, "in trig rise fall", "0 0 0.3 0.5", "out end", run_slope, init_slope, 0,
+  "slope / function generator: rises and falls when triggered, follows in otherwise; end into trig cycles (after Serge DUSG)"),
+P("smoothrandom", FAM_CURRENT, PF_DRIFT, 100, 1, "rate follow", "0 0", "out", run_smoothrandom, 0, 0,
+  "smooth random voltage; with follow patched, it wanders around that instead"),
+P("steprandom", FAM_CURRENT, PF_DRIFT, 47, 1, "clock", "0", "out pulse", run_steprandom, 0, 0,
+  "stepped random, a new value on each clock pulse (or nature / 2 times a second on its own)"),
+P("glide",   FAM_CURRENT, 0, 60, 1, "in clock time", "0 0 0.2", "out", run_glide, 0, 0,
+  "sample & hold with glide: holds in on each clock pulse and slides to it (after Serge Smooth & Stepped)"),
+P("seq",     FAM_CURRENT, 0, 127, 8, "next back reset", "0 0 0", "out pulse step", run_seq, init_seq, mem_seq,
+  "step sequencer of semitones: seq 8: 0 3 7 10"),
+P("quantizer", FAM_CURRENT, 0, 120, 1, "in root", "0 0", "out pulse", run_quantizer, 0, 0,
+  "pitch quantizer (octaves in, root transposes); the scale is the nature or scale=: 1 just major, 2 just minor, 3 just pentatonic, 4 otonal 8-15, 5 utonal, 6 chromatic, 7 major, 8 minor, 9 dorian, 10 phrygian, 11 lydian, 12 mixolydian, 13 locrian, 14 harmonic minor, 15 melodic minor, 16 major pentatonic, 17 minor pentatonic, 18 blues, 19 whole tone, 20 diminished, 21 quarter tones (24-TET), 22 19-TET, 23 22-TET, 24 31-TET, 25 53-TET, 26 Bohlen-Pierce, 27-29 Carlos alpha / beta / gamma, 30 slendro, 31 pelog, 32 maqam rast, 33 maqam bayati, 34 Partch 43, 35 just chromatic, 36 Pythagorean, 37 quarter-comma meantone, 38 Werckmeister III"),
+P("gesture", FAM_CURRENT, 0, 33, 1, "in record", "0 0", "out", run_gesture, 0, mem_gesture,
+  "gesture recorder: records in while record is held, then loops it (up to 8 s)"),
+P("ducker",  FAM_CURRENT, PF_DRIFT, 113, 1, "in side", "0 0", "out lfo", run_ducker, 0, 0,
+  "ducker: turns in down when side is loud; lfo is a slow sine"),
+P("value",   FAM_CURRENT, 0, 20, 0, "", "", "out", run_value, 0, 0,
+  "a fixed value: value 40 is 0.40"),
 #include "scq_more_table.inc"
-P("lean",      FAM_HANDS, PF_SINGLE | PF_COUNTED, 20, 1, "", "", "out", run_lean, 0, 0,
-  "faders: lean1 - lean4, 0 to 1"),
-P("door",      FAM_HANDS, PF_SINGLE | PF_COUNTED, 20, 1, "", "", "out", run_door, 0, 0,
-  "track buttons: door1 - door4, 1 while held"),
-P("lift",      FAM_HANDS, PF_SINGLE, 20, 0, "", "", "out up down", run_lift, 0, 0,
+P("fader",   FAM_HANDS, PF_SINGLE | PF_COUNTED, 20, 1, "", "", "out", run_fader, 0, 0,
+  "faders: fader1 - fader4, 0 to 1"),
+P("button",  FAM_HANDS, PF_SINGLE | PF_COUNTED, 20, 1, "", "", "out", run_button, 0, 0,
+  "track buttons: button1 - button4, 1 while held"),
+P("rocker",  FAM_HANDS, PF_SINGLE, 20, 0, "", "", "out up down", run_rocker, 0, 0,
   "the rocker: out is -1, 0 or 1; up and down pulse"),
-P("wake",      FAM_HANDS, PF_SINGLE, 20, 0, "", "", "out", run_wake, 0, 0,
+P("play",    FAM_HANDS, PF_SINGLE, 20, 0, "", "", "out", run_play, 0, 0,
   "PLAY, 1 while held"),
-P("lucid",     FAM_HANDS, PF_SINGLE, 20, 0, "", "", "out", run_lucid, 0, 0,
+P("dots",    FAM_HANDS, PF_SINGLE, 20, 0, "", "", "out", run_dots, 0, 0,
   "the dots button, 1 while held"),
-P("left",      FAM_EARS, PF_SINGLE, 20, 0, "in", "0", "", run_left, 0, 0, "left ear"),
-P("right",     FAM_EARS, PF_SINGLE, 20, 0, "in", "0", "", run_right, 0, 0, "right ear"),
-P("ears",      FAM_EARS, PF_SINGLE, 20, 0, "in", "0", "", run_ears, 0, 0, "both ears"),
-P("lamp",      FAM_EARS, PF_SINGLE, 40, 0, "in track play", "0 0 0", "out", run_lamp, 0, 0,
+P("left",    FAM_EARS, PF_SINGLE, 20, 0, "in", "0", "", run_left, 0, 0, "left output"),
+P("right",   FAM_EARS, PF_SINGLE, 20, 0, "in", "0", "", run_right, 0, 0, "right output"),
+P("out",     FAM_EARS, PF_SINGLE, 20, 0, "in", "0", "", run_out, 0, 0, "both outputs"),
+P("leds",    FAM_EARS, PF_SINGLE, 40, 0, "in track play", "0 0 0", "out", run_leds, 0, 0,
   "the eight LEDs: sound lights both rows as a bar; track and play light one row each"),
-P("journey",   FAM_EARS, PF_SINGLE, 20, 0, "next back miss", "0 0 0", "", run_journey, 0, 0,
-  "rides to the next or last scene on a pulse; miss is the chance of the wrong stop"),
+P("scene",   FAM_EARS, PF_SINGLE, 20, 0, "next back miss", "0 0 0", "", run_scene, 0, 0,
+  "goes to the next or previous scene on a pulse; miss is the chance of landing on a random one"),
 };
 const int SCQ_NPLACES = (int)(sizeof(SCQ_PLACES) / sizeof(SCQ_PLACES[0]));
 
-/* port lookup: index of `port` in the place's ins (out=0) or outs (out=1), -1 if absent */
+/* what the places were called before the rename, and their old ports in the same order */
+typedef struct { const char *now, *was, *ins, *outs; } place_was;
+static const place_was WAS[] = {
+#include "scq_was.inc"
+};
+#define NWAS ((int)(sizeof(WAS) / sizeof(WAS[0])))
+
+static int same(const char *a, int n, const char *b)
+{
+	int k = 0;
+	while (k < n && b[k] && a[k] == b[k]) k++;
+	return k == n && !b[k];
+}
+
+/* switches and params: "name=a|b|c" (a is the default) and "name=number" */
+static const struct { const char *place, *opts; } OPTS[] = {
+	{ "sine",       "range=audio|lfo" },
+	{ "vco",        "range=audio|lfo" },
+	{ "sinesaw",    "range=audio|lfo" },
+	{ "square",     "range=audio|lfo" },
+	{ "lfo",        "range=lfo|audio" },
+	{ "vca",        "response=lin|exp" },
+	{ "quadvca",    "response=lin|exp" },
+	{ "lpg",        "mode=both|lowpass|vca" },
+	{ "duallpg",    "mode1=both|lowpass|vca mode2=both|lowpass|vca" },
+	{ "slope",      "cycle=off|on range=lfo|audio curve=lin|exp|log" },
+	{ "dusg",       "cycle1=off|on cycle2=off|on range=lfo|audio curve=lin|exp|log" },
+	{ "dualprocessor", "mode1=lag|slew mode2=lag|slew" },
+	{ "slew",       "shape=lin|exp" },
+	{ "ad",         "loop=off|on range=lfo|audio curve=exp|lin" },
+	{ "ar",         "curve=exp|lin" },
+	{ "decay",      "curve=exp|lin" },
+	{ "stepseq",    "dir=forward|backward|pingpong|random" },
+	{ "trigger",    "length=2" },
+	{ "quantizer",  "scale=nature|justmajor|justminor|justpentatonic|otonal|utonal|chromatic|major|minor|dorian|phrygian|lydian|mixolydian|locrian|harmonicminor|melodicminor|majorpentatonic|minorpentatonic|blues|wholetone|diminished|quartertone|tet19|tet22|tet31|tet53|bohlenpierce|alpha|beta|gamma|slendro|pelog|rast|bayati|partch|justchromatic|pythagorean|meantone|werckmeister" },
+};
+
+const char *place_opts(const char *name)
+{
+	for (int i = 0; i < (int)(sizeof(OPTS) / sizeof(OPTS[0])); i++) {
+		const char *a = OPTS[i].place, *b = name;
+		while (*a && *a == *b) a++, b++;
+		if (!*a && !*b) return OPTS[i].opts;
+	}
+	return "";
+}
+
+const char *place_renamed(const char *old, int len)
+{
+	for (int i = 0; i < NWAS; i++)
+		if (same(old, len, WAS[i].was) && !same(old, len, WAS[i].now)) return WAS[i].now;
+	return 0;
+}
+
+static int port_in(const char *s, const char *port, int len);
+
+/* port lookup: index of `port` in the place's ins (out=0) or outs (out=1), -1 if absent.
+ * Old port names (before the rename) still work. */
 int place_port(const place *p, int out, const char *port, int len)
 {
-	const char *s = out ? p->outs : p->ins;
+	int k = port_in(out ? p->outs : p->ins, port, len);
+	if (k >= 0) return k;
+	for (int i = 0; i < NWAS; i++) {
+		const char *a = WAS[i].now, *b = p->name;
+		while (*a && *a == *b) a++, b++;
+		if (*a || *b) continue;
+		const char *old = out ? WAS[i].outs : WAS[i].ins;
+		return *old ? port_in(old, port, len) : -1;
+	}
+	return -1;
+}
+
+static int port_in(const char *s, const char *port, int len)
+{
 	int idx = 0;
 	while (*s) {
 		while (*s == ' ') s++;

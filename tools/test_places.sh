@@ -4,24 +4,20 @@
 cd "$(dirname "$0")/.."
 T=$(mktemp -d)
 fails=0
-for p in $(./tools/scqtool catalog | awk '$3!="hands" && $3!="ears" && $2!="bottle" {print $2}'); do
-  line=$(./tools/scqtool catalog | awk -v n="$p" '$2==n')
+for p in $(./tools/scqtool catalog | awk '$1=="P" && $3!="hands" && $3!="ears" && $2!="value" {print $2}'); do
+  line=$(./tools/scqtool catalog | awk -v n="$p" '$1=="P" && $2==n')
   ins=$(echo "$line" | awk '{print $6}' | tr ',' ' ')
   [ "$ins" = "|" ] && ins=""
   outs=$(echo "$line" | awk -F' [|] ' '{print $2}' | tr ',' ' ')
   {
-    echo "the x is $p"; echo "the clk is tram"; echo "the src is turntable 3"
+    echo "the x is $p"; echo "the clk is clock"; echo "the src is vco 3"
     for i in $ins; do case "$p.$i" in
-      waitingroom.in|crossroads.in) echo "clk.eighth -> x.$i";;
-      *.in|*.a|*.carrier|*.voice|*.in1|*.in2) echo "src -> x.$i";;
-      *.strike|*.pluck|*.trig|*.clock|*.gate|*.next|*.start|*.learn|*.flick|*.sync|*.hold|*.wake) echo "clk.eighth -> x.$i";;
-    esac; done
-    for i in ; do case $i in
-      in|a|carrier|voice|in1|in2) echo "src -> x.$i";;
-      strike|pluck|trig|clock|gate|next|start|learn|flick|sync|hold|wake) echo "clk.eighth -> x.$i";;
+      trigdelay.in|bernoulli.in|trigger.in) echo "clk.eighth -> x.$i";;
+      *.in|*.a|*.b|*.carrier|*.modulator|*.in1|*.in2|*.in3|*.in4|*.in5|*.in6) echo "src -> x.$i";;
+      *.strike|*.pluck|*.trig|*.trig1|*.trig2|*.cv1|*.cv2|*.clock|*.gate|*.next|*.record|*.burst|*.sync|*.hold) echo "clk.eighth -> x.$i";;
     esac; done
     first=1; for o in $outs; do
-      if [ $first = 1 ]; then echo "x -> ears"; first=0; else echo "x.$o -60> ears"; fi
+      if [ $first = 1 ]; then echo "x -> out"; first=0; else echo "x.$o -60> out"; fi
     done
   } > "$T/$p.dream"
   stats=$(./tools/scqtool stats "$T/$p.dream" 2>&1)

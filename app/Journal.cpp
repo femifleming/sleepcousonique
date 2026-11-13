@@ -79,7 +79,7 @@ int DreamTokeniser::readNextToken (CodeDocument::Iterator& it)
             it.skip();
             while (CharacterFunctions::isLetterOrDigit (it.peekNextChar()) || it.peekNextChar() == '_') it.skip();
         }
-        static const StringArray words { "the", "The", "is", "are", "lucid", "drift", "bottle", "sleepers" };
+        static const StringArray words { "the", "The", "is", "are", "lucid", "drift", "value", "bottle", "sleepers" };
         if (words.contains (w)) return Word;
         if (auto* p = scq::findPlace (w.trimCharactersAtEnd ("0123456789")))
             return p->family >= scq::Hands ? Hand : Place;

@@ -3,79 +3,130 @@
 
 sources
 -------
-aira3 -20> ears
-the twin is twin 4
-lean1 -> twin.index
-twin ~> ears
-rain2 ~> ears
-thunder3 -> ears
-flood -> ears
-wind -> ears
-the frogs are frog 5
-door1 -> frogs.wake
-frogs -> ears
-elevator -> ears
+sine3 -20> out
+the twin is crossfm 4
+fader1 -> twin.index
+twin ~> out
+rain2 ~> out
+thunder3 -> out
+noisesweep -> out
+wind -> out
+the frogs are frogs 5
+button1 -> frogs.trig
+frogs -> out
+shepard -> out
 the bell is bell 1
-door1 -> bell.strike
-bell -> ears
+button1 -> bell.strike
+bell -> out
 
 shapes
 ------
-the a is aira 2
-the b is aira 5
-a -> mountains -> basement -> window -> horns -> lighter -> copper -> blanket -> ears
-lean1 -> mountains.fold
-lean2 -> basement.cut
-lean3 -> horns.band4
-door1 -> lighter.flick
-b -> crystal.in1
-a -> crystal.in2
-lean4 -> crystal.turn
-crystal.out1 -> left
-crystal.out2 -> right
+the a is sine 2
+the b is sine 5
+a -> folder -> lowpass -> lpg -> filterbank -> saturator -> dcblock -> vca -> out
+fader1 -> folder.fold
+fader2 -> lowpass.cutoff
+fader3 -> filterbank.band4
+button1 -> saturator.burst
+b -> matrix.in1
+a -> matrix.in2
+fader4 -> matrix.rotate
+matrix.out1 -> left
+matrix.out2 -> right
 
 spaces
 ------
 the drops are rain 1
-drops -> tunnel -> hallway -> warehouse
-drops.pulse -> moss
-warehouse.l -> left
-warehouse.r -> right
-moss ~> ears
-lean1 -> hallway.length
+drops -> comb -> delay -> reverb
+drops.pulse -> granular
+reverb.l -> left
+reverb.r -> right
+granular ~> out
+fader1 -> delay.time
 
 currents
 --------
-the voice is aira 4
-the s is stairs
-s.end -> s.start
-s -> jakes.follow
-jakes -> connors.clock
-the e is escalator
-connors -> e.in
+the voice is sine 4
+the s is slope
+s.end -> s.trig
+s -> smoothrandom.follow
+smoothrandom -> steprandom.clock
+the e is glide
+steprandom -> e.in
 s.end -> e.clock
-the t is train 4: 0 4 7 11
+the t is seq 4: 0 4 7 11
 s.end -> t.next
-the q is pufferfish 3
+the q is quantizer 3
 e -> q
-q -> cat.in
-door1 -> cat.learn
-the m is magician
+q -> gesture.in
+button1 -> gesture.record
+the m is ducker
 voice -> m
-door2 -> m.shush
+button2 -> m.side
 t ~> voice.pitch
-cat -10> voice.pitch
-bottle 20 -> voice.fm
-m -> ears
-m.trance -> lamp.track
+gesture -10> voice.pitch
+value 20 -> voice.fm
+m -> out
+m.lfo -> leds.track
 
 hands
 -----
-the v is aira 3
-lean1 lean2 lean3 lean4 -10> v.pitch
-door1 door2 door3 door4 -10> v.pitch
-door4 -> journey.next
-lift ~> v.pitch
-wake lucid -> v.fm
-lucid lean2: v.fm 0..50
-v -> ears lamp
+the v is sine 3
+fader1 fader2 fader3 fader4 -10> v.pitch
+button1 button2 button3 button4 -10> v.pitch
+button4 -> scene.next
+rocker ~> v.pitch
+play dots -> v.fm
+lucid fader2: v.fm 0..50
+v -> out leds
+
+plain modules
+-------------
+; Doepfer, Serge and Buchla 100 style, with switches
+the clk is pulser 8
+the steps is stepseq 5 dir=pingpong
+the q is quantizer scale=dorian
+the osc is sinesaw 3
+the sq is square 2 range=lfo
+the h is harmonics 2
+the env is ad loop curve=lin
+the hold is ar
+the ping is decay
+the slopes is dusg cycle1 range=audio curve=exp
+the dp is dualprocessor mode2=slew
+the g is duallpg mode2=lowpass
+the v4 is quadvca response=exp
+the mix is mixer
+the vm is vcmix
+the vg is vcgate
+the hp is highpass 2
+the att is attenuverter
+the shp is sineshaper
+the mm is minmax
+the cv is cvprocessor
+the sl is slew shape=exp
+the ff is flipflop
+the tr is trigger length=5
+clk -> steps.clock ping hold.gate ff tr
+fader1 -> steps.s1
+fader2 -> steps.s2
+fader3 -> steps.s3
+fader4 -> steps.s4
+steps -> q -> osc.pitch
+osc.saw -> g.in1
+ping -> g.cv1
+slopes.out1 -> g.in2
+env -> g.cv2
+g.out1 g.out2 h.h2 -> mix
+mix -> hp -> v4.in1
+hold -> v4.cv1
+sq -> vm.in1
+ff -> vm.level1
+osc -> vg.a
+tr -> vg.levela
+vm vg.a -> dp.in1
+dp.out1 -> att -> shp -> mm.a
+sl -> mm.b
+fader2 -> sl cv.a
+cv -> dp.rate2
+v4.out1 mm.max -> out

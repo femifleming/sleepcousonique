@@ -65,11 +65,11 @@ static void vowel_at(float v, float out[6])
 
 /* ---------------------------------------------------------------- oscillators */
 
-/* turntable — the classic analog oscillator: saw, square, triangle, sine (after Moog 921 / Minimoog) */
-static void run_turntable(node *n, const float *const in[MAX_IN])
+/* vco — the classic analog oscillator: saw, square, triangle, sine (after Moog 921 / Minimoog) */
+static void run_vco(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0], tri = n->s[1];
-	float base = 60.f * n->nature * scq_exp2(in[0][0]);            /* pitch per block */
+	float base = 60.f * n->nature * scq_exp2(in[0][0]) * (n->opt[0] != 0.f ? 0.01f : 1.f);   /* pitch per block; range=audio|lfo */
 	LOOP {
 		if (edge(in[3][i], &n->s[2])) ph = 0.f;               /* hard sync */
 		float f = base * (1.f + in[1][i]);
@@ -88,8 +88,8 @@ static void run_turntable(node *n, const float *const in[MAX_IN])
 	n->s[0] = ph; n->s[1] = tri;
 }
 
-/* pendant — sacred sandwiched multivibrator pendants: two square waves that fight (after Ciat-Lonbarde's Fourses / Plumbutter) */
-static void run_pendant(node *n, const float *const in[MAX_IN])
+/* xorsquares — sacred sandwiched multivibrator pendants: two square waves that fight (after Ciat-Lonbarde's Fourses / Plumbutter) */
+static void run_xorsquares(node *n, const float *const in[MAX_IN])
 {
 	float pa = n->s[0], pb = n->s[1], lp = n->s[2];
 	float base = 60.f * n->nature, k = scq_exp2(in[0][0]);
@@ -109,8 +109,8 @@ static void run_pendant(node *n, const float *const in[MAX_IN])
 	n->s[0] = pa; n->s[1] = pb; n->s[2] = lp;
 }
 
-/* goblins — three hooded goblins: two triangles and a shift register that eats its own tail (after Rob Hordijk's Benjolin / rungler) */
-static void run_goblins(node *n, const float *const in[MAX_IN])
+/* rungler — three hooded goblins: two triangles and a shift register that eats its own tail (after Rob Hordijk's Benjolin / rungler) */
+static void run_rungler(node *n, const float *const in[MAX_IN])
 {
 	float pa = n->s[0], pb = n->s[1], run = n->s[3], lp = n->s[4];
 	uint32_t reg = (uint32_t)n->s[2];
@@ -139,11 +139,11 @@ static void run_goblins(node *n, const float *const in[MAX_IN])
 	}
 	n->s[0] = pa; n->s[1] = pb; n->s[2] = (float)reg; n->s[3] = run; n->s[4] = lp;
 }
-static void init_goblins(node *n) { n->s[2] = (float)(n->rng & 0xffu); }
+static void init_rungler(node *n) { n->s[2] = (float)(n->rng & 0xffu); }
 
-/* multiwave — Lakhovsky's multiple wave oscillator: sixteen partials (after Lakhovsky; Harmor / Partials; Buchla 259's harmonic thinking) */
-static uint32_t mem_multiwave(float nature) { (void)nature; return 16 * sizeof(float); }
-static void run_multiwave(node *n, const float *const in[MAX_IN])
+/* additive — Lakhovsky's multiple wave oscillator: sixteen partials (after Lakhovsky; Harmor / Partials; Buchla 259's harmonic thinking) */
+static uint32_t mem_additive(float nature) { (void)nature; return 16 * sizeof(float); }
+static void run_additive(node *n, const float *const in[MAX_IN])
 {
 	float *ph = (float *)n->mem;
 	float f0 = 60.f * n->nature * scq_exp2(in[0][0]);
@@ -219,8 +219,8 @@ static void run_pulsar(node *n, const float *const in[MAX_IN])
 	n->s[0] = ph;
 }
 
-/* torpedo — the smiling torpedo: two-operator FM with feedback (after Chowning / Yamaha DX; Buchla 259's FM) */
-static void run_torpedo(node *n, const float *const in[MAX_IN])
+/* fm — the smiling torpedo: two-operator FM with feedback (after Chowning / Yamaha DX; Buchla 259's FM) */
+static void run_fm(node *n, const float *const in[MAX_IN])
 {
 	float pc = n->s[0], pm = n->s[1], last = n->s[2];
 	const float f = 240.f * scq_exp2(in[0][0]);
@@ -238,8 +238,8 @@ static void run_torpedo(node *n, const float *const in[MAX_IN])
 	n->s[0] = pc; n->s[1] = pm; n->s[2] = last;
 }
 
-/* beacon — the inevitably spherical probe beacon: phase distortion (after Casio CZ; Nord Modular's PD oscillator) */
-static void run_beacon(node *n, const float *const in[MAX_IN])
+/* phasedist — the inevitably spherical probe beacon: phase distortion (after Casio CZ; Nord Modular's PD oscillator) */
+static void run_phasedist(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0];
 	const float inc = 60.f * n->nature * scq_exp2(in[0][0]) * INV_SR;
@@ -255,8 +255,8 @@ static void run_beacon(node *n, const float *const in[MAX_IN])
 	n->s[0] = ph;
 }
 
-/* record — the 7-inch with the purple glitter label: one wave that turns from sine to pulse (after PPG / Waldorf wavetables; Plaits) */
-static void run_record(node *n, const float *const in[MAX_IN])
+/* wavetable — the 7-inch with the purple glitter label: one wave that turns from sine to pulse (after PPG / Waldorf wavetables; Plaits) */
+static void run_wavetable(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0], tri = n->s[1];
 	const float dt = scq_clamp(60.f * n->nature * scq_exp2(in[0][0]) * INV_SR, 0.f, 0.45f);
@@ -279,7 +279,7 @@ static void run_record(node *n, const float *const in[MAX_IN])
 	n->s[0] = ph; n->s[1] = tri;
 }
 
-/* throne — the velvet throne: a four-note chord in just intonation (after Plaits' chord engine; string machines) */
+/* chord — the velvet throne: a four-note chord in just intonation (after Plaits' chord engine; string machines) */
 static const float CHORDS[6][4] = {
 	{ 1.f, 1.25f, 1.5f, 2.f },      /* major      */
 	{ 1.f, 1.2f, 1.5f, 2.f },       /* minor      */
@@ -288,7 +288,7 @@ static const float CHORDS[6][4] = {
 	{ 1.f, 1.2f, 1.5f, 1.8f },      /* minor 7    */
 	{ 1.f, 1.25f, 1.5f, 1.75f },    /* 4:5:6:7    */
 };
-static void run_throne(node *n, const float *const in[MAX_IN])
+static void run_chord(node *n, const float *const in[MAX_IN])
 {
 	int c = (int)(scq_clamp(in[1][0], 0.f, 0.999f) * 6.f);
 	float spread = scq_clamp(in[2][0], 0.f, 1.f) * 0.004f;
@@ -307,9 +307,9 @@ static void run_throne(node *n, const float *const in[MAX_IN])
 	}
 }
 
-/* rave — the warehouse rave: seven detuned saws (after Roland JP-8000's supersaw) */
+/* supersaw — the warehouse rave: seven detuned saws (after Roland JP-8000's supersaw) */
 static const float RAVE_D[7] = { -0.110f, -0.063f, -0.019f, 0.f, 0.019f, 0.062f, 0.107f };
-static void run_rave(node *n, const float *const in[MAX_IN])
+static void run_supersaw(node *n, const float *const in[MAX_IN])
 {
 	float base = 60.f * n->nature * scq_exp2(in[0][0]);
 	float det = scq_clamp(in[1][0], 0.f, 1.f);
@@ -329,9 +329,9 @@ static void run_rave(node *n, const float *const in[MAX_IN])
 	}
 }
 
-/* nuns — nuns into cats into fairies, as the speaker preaches: a singing voice (after FOF / IRCAM CHANT; Doepfer A-104 formants) */
-static uint32_t mem_nuns(float nature) { (void)nature; return 8 * sizeof(float); }
-static void run_nuns(node *n, const float *const in[MAX_IN])
+/* formant — nuns into cats into fairies, as the speaker preaches: a singing voice (after FOF / IRCAM CHANT; Doepfer A-104 formants) */
+static uint32_t mem_formant(float nature) { (void)nature; return 8 * sizeof(float); }
+static void run_formant(node *n, const float *const in[MAX_IN])
 {
 	float *st = (float *)n->mem;
 	float ph = n->s[0];
@@ -372,8 +372,8 @@ static void run_hum(node *n, const float *const in[MAX_IN])
 
 /* ---------------------------------------------------------------- noise and chaos */
 
-/* faucet — the generative freshwater faucet: white, pink, brown and blue water */
-static void run_faucet(node *n, const float *const in[MAX_IN])
+/* noise — the generative freshwater faucet: white, pink, brown and blue water */
+static void run_noise(node *n, const float *const in[MAX_IN])
 {
 	float b0 = n->s[0], b1 = n->s[1], b2 = n->s[2], br = n->s[3], last = n->s[4];
 	LOOP {
@@ -391,8 +391,8 @@ static void run_faucet(node *n, const float *const in[MAX_IN])
 	n->s[0] = b0; n->s[1] = b1; n->s[2] = b2; n->s[3] = br; n->s[4] = last;
 }
 
-/* glitter — golden glitter: crackle and dust (after SuperCollider's Crackle and Dust) */
-static void run_glitter(node *n, const float *const in[MAX_IN])
+/* crackle — golden glitter: crackle and dust (after SuperCollider's Crackle and Dust) */
+static void run_crackle(node *n, const float *const in[MAX_IN])
 {
 	float y1 = n->s[0], y2 = n->s[1];
 	if (y1 == 0.f && y2 == 0.f) y1 = 0.3f;
@@ -407,8 +407,8 @@ static void run_glitter(node *n, const float *const in[MAX_IN])
 	n->s[0] = y1; n->s[1] = y2;
 }
 
-/* spillway — the icy spillway: a Lorenz attractor, three ways out (after Lorenz; chaos modules) */
-static void run_spillway(node *n, const float *const in[MAX_IN])
+/* lorenz — the icy spillway: a Lorenz attractor, three ways out (after Lorenz; chaos modules) */
+static void run_lorenz(node *n, const float *const in[MAX_IN])
 {
 	float x = n->s[0], y = n->s[1], z = n->s[2];
 	if (x == 0.f && y == 0.f && z == 0.f) { x = 0.1f; y = 0.f; z = 0.f; }
@@ -423,7 +423,7 @@ static void run_spillway(node *n, const float *const in[MAX_IN])
 	}
 	n->s[0] = x; n->s[1] = y; n->s[2] = z;
 }
-static void init_spillway(node *n) { n->s[0] = 0.1f; n->s[1] = 0.f; n->s[2] = 1.f; }
+static void init_lorenz(node *n) { n->s[0] = 0.1f; n->s[1] = 0.f; n->s[2] = 1.f; }
 
 /* ---------------------------------------------------------------- drums and struck things */
 
@@ -456,10 +456,10 @@ static void run_marimba(node *n, const float *const in[MAX_IN])
 	}
 }
 
-/* rebar — swinging on rebar: a plucked string (after Karplus-Strong; Fish's string; Rings) */
+/* string — swinging on rebar: a plucked string (after Karplus-Strong; Fish's string; Rings) */
 #define REBAR_LEN 2048
-static uint32_t mem_rebar(float nature) { (void)nature; return REBAR_LEN * sizeof(float); }
-static void run_rebar(node *n, const float *const in[MAX_IN])
+static uint32_t mem_string(float nature) { (void)nature; return REBAR_LEN * sizeof(float); }
+static void run_string(node *n, const float *const in[MAX_IN])
 {
 	float *buf = (float *)n->mem;
 	uint32_t w = (uint32_t)n->s[0];
@@ -490,8 +490,8 @@ static void run_rebar(node *n, const float *const in[MAX_IN])
 	n->s[0] = (float)w; n->s[1] = lp;
 }
 
-/* trebuchet — the swinging wooden trebuchet: a kick drum (after the TR-808 bass drum; Mutable Peaks) */
-static void run_trebuchet(node *n, const float *const in[MAX_IN])
+/* kick — the swinging wooden trebuchet: a kick drum (after the TR-808 bass drum; Mutable Peaks) */
+static void run_kick(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0], env = n->s[1], penv = n->s[2];
 	float f0 = 60.f * n->nature * scq_exp2(in[1][0]);
@@ -508,8 +508,8 @@ static void run_trebuchet(node *n, const float *const in[MAX_IN])
 	n->s[0] = ph; n->s[1] = env; n->s[2] = penv;
 }
 
-/* balloon — the balloon pop, the speculative gunshot: a snare (after the TR-808 / 909 snare) */
-static void run_balloon(node *n, const float *const in[MAX_IN])
+/* snare — the balloon pop, the speculative gunshot: a snare (after the TR-808 / 909 snare) */
+static void run_snare(node *n, const float *const in[MAX_IN])
 {
 	float p1 = n->s[0], p2 = n->s[1], te = n->s[2], ne = n->s[3], hp = n->s[4], bp1 = n->s[5], bp2 = n->s[6];
 	float f = 180.f * n->nature * scq_exp2(in[1][0]);
@@ -530,10 +530,10 @@ static void run_balloon(node *n, const float *const in[MAX_IN])
 	n->s[0] = p1; n->s[1] = p2; n->s[2] = te; n->s[3] = ne; n->s[4] = hp; n->s[5] = bp1; n->s[6] = bp2;
 }
 
-/* grill — the sizzle of the grill: a metallic hi-hat, six squares (after the TR-808 cymbal circuit) */
+/* hihat — the sizzle of the grill: a metallic hi-hat, six squares (after the TR-808 cymbal circuit) */
 static const float HAT_F[6] = { 205.3f, 304.4f, 369.6f, 522.7f, 540.f, 800.f };
-static uint32_t mem_grill(float nature) { (void)nature; return 6 * sizeof(uint32_t); }
-static void run_grill(node *n, const float *const in[MAX_IN])
+static uint32_t mem_hihat(float nature) { (void)nature; return 6 * sizeof(uint32_t); }
+static void run_hihat(node *n, const float *const in[MAX_IN])
 {
 	/* six squares on whole-number phases: the top bit is the square, an add moves it */
 	uint32_t *ph = (uint32_t *)n->mem;

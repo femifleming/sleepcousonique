@@ -4,12 +4,12 @@
  * A .dream file is a journal. A date (or any line) underlined with dashes starts a scene.
  * Lines before the first scene are the prelude, shared by every scene.
  *
- *   the hall is hallway 7               naming: a place with a fixed nature
- *   the route is train 4: 0 3 7 12      a train and its stations
+ *   the hall is delay 7                 naming: a place with a fixed nature
+ *   the route is seq 4: 0 3 7 12        a sequencer and its steps
  *   rain -> frogs ~> hall               passages: -> hall  ~> fog  => water  >| door
- *   lean1 -60> hall.length              a number inside the arrow sets the amount
- *   bottle 40 -> horns.band3            a kept value (or just: 40 -> horns.band3)
- *   lucid lean2: peaks.fold 0..90, stairs.rise 20..5
+ *   fader1 -60> hall.time               a number inside the arrow sets the amount
+ *   value 40 -> bank.band3              a kept value (or just: 40 -> bank.band3)
+ *   lucid fader2: peaks.fold 0..90, env.rise 20..5
  *   drift 3                             natures wander 3% from night to night
  *   ; anything after a semicolon is a note to yourself
  */
@@ -17,6 +17,7 @@
 #include "scq_costs.h"
 
 typedef struct { int start, end, line0, ts, te; } scene;
+#define MAX_KONST 32
 
 typedef struct {
 	node     n[MAX_NODES];
@@ -25,6 +26,9 @@ typedef struct {
 	int      nc;
 	uint8_t  order[MAX_NODES];
 	uint16_t cstart[MAX_NODES + 1];
+	float    konst[MAX_KONST][SCQ_BLOCK];   /* constant blocks: defaults and lone values, filled once */
+	float    kval[MAX_KONST];
+	int      nk;
 	uint32_t pool[POOL_BYTES / 4];
 	uint32_t used;
 
@@ -146,9 +150,18 @@ static void say(char kind, const char *a, const char *w, int wl, const char *b)
 	G.msgn = s.n;
 }
 
+static void say_renamed(const char *w, int wl, const char *now)
+{
+	if (G.quiet) return;
+	sb s = { G.msg, G.msgn, (int)sizeof G.msg };
+	sb_s(&s, "W "); sb_i(&s, G.line); sb_s(&s, " '"); sb_sn(&s, w, wl);
+	sb_s(&s, "' is now called '"); sb_s(&s, now); sb_s(&s, "'\n");
+	G.msgn = s.n;
+}
+
 /* ------------------------------------------------------------- tokens */
 
-enum { T_WORD, T_NUM, T_ARROW, T_COLON, T_COMMA, T_RANGE };
+enum { T_WORD, T_NUM, T_ARROW, T_COLON, T_COMMA, T_RANGE, T_EQ };
 typedef struct { const char *s; int n; uint8_t t; uint8_t kind; float amt; int has_amt; } tok;
 #define MAX_TOK 64
 
@@ -174,6 +187,7 @@ static int tokenize(const char *s, int n, tok *t)
 				continue;
 			}
 		}
+		if (c == '=') { o->t = T_EQ; o->n = 1; i++; k++; continue; }
 		if (is_digit(c) || ((c == '-' || c == '.') && i + 1 < n && (is_digit(s[i + 1]) || s[i + 1] == '.'))) {
 			int j = i + 1, dots = 0;
 			while (j < n && (is_digit(s[j]) || s[j] == '.')) { if (s[j] == '.' && j + 1 < n && s[j + 1] == '.') dots = 1; j++; }
@@ -202,6 +216,19 @@ static int find_place(const char *w, int n)
 	return -1;
 }
 
+/* the same, but an old name (before the 2026-11-13 rename) is understood, with a note */
+static int find_place_old(const char *w, int n)
+{
+	int p = find_place(w, n);
+	if (p >= 0) return p;
+	const char *now = place_renamed(w, n);           /* an old dream: aira is now sine */
+	if (now) {
+		say_renamed(w, n, now);
+		for (int p = 0; p < SCQ_NPLACES; p++) if (str_eq(now, str_len(now), SCQ_PLACES[p].name)) return p;
+	}
+	return -1;
+}
+
 static int find_node(const char *w, int n)
 {
 	for (int i = 0; i < G.nn; i++) if (str_eq(w, n, G.n[i].name)) return i;
@@ -224,10 +251,88 @@ static uint32_t hash(const char *s, int n, uint32_t h)
 	return h ? h : 1u;
 }
 
+/* ------------------------------------------------------------- switches and params
+ * A place's options are a spec like "cycle=off|on range=lfo|audio length=5": a switch lists
+ * its positions (the first is the default), a param has a number. Written after the nature:
+ *   the env is dusg 2 cycle1 audio curve=exp     (a bare switch name means its second position;
+ *                                                 a bare position word picks it) */
+typedef struct { const char *name; int nl; const char *vals; int vl; int sw; } optitem;
+
+static int opt_at(const char *spec, int k, optitem *o)
+{
+	const char *s = spec;
+	for (int idx = 0; *s; idx++) {
+		while (*s == ' ') s++;
+		if (!*s) break;
+		const char *w = s;
+		while (*s && *s != ' ') s++;
+		if (idx != k) continue;
+		o->name = w; o->nl = 0;
+		while (w + o->nl < s && w[o->nl] != '=') o->nl++;
+		o->vals = w + o->nl + 1; o->vl = (int)(s - o->vals);
+		o->sw = is_alpha(*o->vals);
+		return 1;
+	}
+	return 0;
+}
+
+/* position of word w among a switch's values "a|b|c", or -1 */
+static int opt_pos(const optitem *o, const char *w, int wl)
+{
+	const char *v = o->vals, *end = o->vals + o->vl;
+	for (int pos = 0; v < end; pos++) {
+		const char *a = v;
+		while (v < end && *v != '|') v++;
+		if (v - a == wl) { int j = 0; while (j < wl && a[j] == w[j]) j++; if (j == wl) return pos; }
+		v++;
+	}
+	return -1;
+}
+
+static void opt_defaults(node *n, const char *spec)
+{
+	optitem o;
+	for (int k = 0; k < MAX_OPT && opt_at(spec, k, &o); k++)
+		n->opt[k] = o.sw ? 0.f : parse_num(o.vals, o.vl);
+}
+
+/* name=value, a bare switch name, or a bare position word. Returns 0 if it was understood. */
+static int opt_set(node *n, const tok *name, const tok *val)
+{
+	const char *spec = place_opts(SCQ_PLACES[n->type].name);
+	optitem o;
+	int hit = -1, hitpos = 0, hits = 0;
+	for (int k = 0; k < MAX_OPT && opt_at(spec, k, &o); k++) {
+		int named = o.nl == name->n;
+		for (int j = 0; named && j < o.nl; j++) if (o.name[j] != name->s[j]) named = 0;
+		if (val) {
+			if (!named) continue;
+			if (o.sw) {
+				int pos = val->t == T_WORD ? opt_pos(&o, val->s, val->n) : -1;
+				if (pos < 0) { say('E', "", val->s, val->n, " isn't one of that switch's positions"); return 0; }
+				n->opt[k] = (float)pos;
+			} else {
+				if (val->t != T_NUM) { say('E', "", name->s, name->n, " wants a number"); return 0; }
+				n->opt[k] = parse_num(val->s, val->n);
+			}
+			n->optset |= (uint8_t)(1u << k);
+			return 0;
+		}
+		if (!o.sw) continue;
+		if (named) { hit = k; hitpos = 1; hits = 1; break; }
+		int pos = opt_pos(&o, name->s, name->n);
+		if (pos >= 0) { hit = k; hitpos = pos; hits++; }
+	}
+	if (hits == 1) { n->opt[hit] = (float)hitpos; n->optset |= (uint8_t)(1u << hit); return 0; }
+	if (hits > 1) { say('E', "", name->s, name->n, " could be more than one switch here; write it as switch=position"); return 0; }
+	say('E', "", name->s, name->n, val ? " isn't a switch or param of this place" : " isn't a switch of this place");
+	return -1;
+}
+
 static int make_node(int p, const char *name, int nl, float nature)
 {
 	const place *pl = &SCQ_PLACES[p];
-	if (G.nn >= MAX_NODES) { say('E', "the dream is too crowded (", 0, 0, "48 places at most)"); return -1; }
+	if (G.nn >= MAX_NODES) { say('E', "the dream is too crowded (", 0, 0, "64 places at most)"); return -1; }
 	if (nl >= NAME_LEN) nl = NAME_LEN - 1;
 	node *n = &G.n[G.nn];
 	uint8_t *raw = (uint8_t *)n;
@@ -238,6 +343,7 @@ static int make_node(int p, const char *name, int nl, float nature)
 	for (int i = 0; i < nl; i++) n->name[i] = name[i];
 	n->line = (int16_t)G.line;
 	n->given = nature;
+	opt_defaults(n, place_opts(pl->name));
 	n->rng = hash(name, nl, 2166136261u + G.nights * 7919u);
 	n->nature = nature;
 	if ((pl->flags & PF_DRIFT) && G.drift != 0.f) {
@@ -275,13 +381,13 @@ static int resolve(const tok *t, int role, endpoint *e)
 
 	int id = find_node(w, nl);
 	if (id < 0) {
-		int p = find_place(w, nl);
+		int p = find_place_old(w, nl);
 		float nature = 0.f;
 		if (p >= 0) nature = SCQ_PLACES[p].nature;
 		else {                                   /* place + number: aira3, lean2 */
 			int j = nl;
 			while (j > 0 && is_digit(w[j - 1])) j--;
-			if (j < nl && j > 0 && (p = find_place(w, j)) >= 0) nature = parse_num(w + j, nl - j);
+			if (j < nl && j > 0 && (p = find_place_old(w, j)) >= 0) nature = parse_num(w + j, nl - j);
 		}
 		if (p < 0) {                             /* a misspelling? dreams forgive */
 			for (int i = 0; i < G.nn && id < 0; i++)
@@ -318,7 +424,7 @@ static int resolve(const tok *t, int role, endpoint *e)
 
 static void add_cord(const endpoint *a, const endpoint *b, int kind, float amt, float amt2, int has_amt)
 {
-	if (G.nc >= MAX_CORDS) { say('E', "too many passages (", 0, 0, "160 at most)"); return; }
+	if (G.nc >= MAX_CORDS) { say('E', "too many passages (", 0, 0, "224 at most)"); return; }
 	cord *c = &G.c[G.nc++];
 	c->src = (int8_t)(a->is_bottle ? -1 : a->node);
 	c->sport = (uint8_t)(a->is_bottle ? 0 : a->port);
@@ -343,7 +449,7 @@ static void add_cord(const endpoint *a, const endpoint *b, int kind, float amt, 
 
 static void st_the(tok *t, int nt)
 {
-	/* the NAME is|are PLACE [N] [: stations] */
+	/* the NAME is|are PLACE [N] [switches and params] [: steps] */
 	if (nt < 4 || t[1].t != T_WORD || t[2].t != T_WORD || t[3].t != T_WORD ||
 	    !(str_eq(t[2].s, t[2].n, "is") || str_eq(t[2].s, t[2].n, "are"))) {
 		say('E', "write it as: the name is place", 0, 0, "");
@@ -351,7 +457,7 @@ static void st_the(tok *t, int nt)
 	}
 	for (int i = 0; i < t[1].n; i++) if (t[1].s[i] == '.') { say('E', "a name can't have a dot: ", t[1].s, t[1].n, ""); return; }
 	if (find_node(t[1].s, t[1].n) >= 0) { say('E', "there are already ", t[1].s, t[1].n, " here"); return; }
-	int p = find_place(t[3].s, t[3].n);
+	int p = find_place_old(t[3].s, t[3].n);
 	int other = find_place(t[1].s, t[1].n);
 	/* naming something after another place is allowed: your name wins in this dream
 	 * (so a new place can never break a dream written before it existed) */
@@ -366,16 +472,22 @@ static void st_the(tok *t, int nt)
 	float nature = SCQ_PLACES[p].nature;
 	int k = 4;
 	if (k < nt && t[k].t == T_NUM) nature = parse_num(t[k].s, t[k].n), k++;
-	if (k < nt && t[k].t == T_COLON) k++;
 	int id = make_node(p, t[1].s, t[1].n, nature);
 	if (id < 0) return;
+	while (k < nt && t[k].t == T_WORD) {                       /* switches and params */
+		int eq = k + 2 < nt && t[k + 1].t == T_EQ;
+		if (opt_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0) < 0) return;
+		k += eq ? 3 : 1;
+	}
+	if (k < nt && t[k].t == T_EQ) { say('E', "write a param as name=value", 0, 0, ""); return; }
+	if (k < nt && t[k].t == T_COLON) k++;
 	if (k < nt) {
-		if (p != find_place("train", 5)) { say('W', "only trains have stations; ignoring the rest of ", t[1].s, t[1].n, ""); return; }
+		if (p != find_place("seq", 3)) { say('W', "only a seq has steps; ignoring the rest of ", t[1].s, t[1].n, ""); return; }
 		float *m = (float *)G.n[id].mem;
 		int c = 0;
 		for (; k < nt && c < 32; k++) {
 			if (t[k].t == T_COMMA) continue;
-			if (t[k].t != T_NUM) { say('E', "a station is a number, not ", t[k].s, t[k].n, ""); return; }
+			if (t[k].t != T_NUM) { say('E', "a step is a number, not ", t[k].s, t[k].n, ""); return; }
 			m[c++] = parse_num(t[k].s, t[k].n);
 		}
 		m[32] = (float)c;
@@ -385,7 +497,7 @@ static void st_the(tok *t, int nt)
 static void st_lucid(tok *t, int nt)
 {
 	/* lucid SRC : DST lo..hi , DST lo..hi */
-	if (nt < 5 || t[1].t != T_WORD || t[2].t != T_COLON) { say('E', "write it as: lucid lean1: place.inlet 0..100", 0, 0, ""); return; }
+	if (nt < 5 || t[1].t != T_WORD || t[2].t != T_COLON) { say('E', "write it as: lucid fader1: place.inlet 0..100", 0, 0, ""); return; }
 	endpoint src;
 	if (resolve(&t[1], 0, &src) < 0) return;
 	int k = 3;
@@ -405,8 +517,8 @@ static void st_lucid(tok *t, int nt)
 
 static int endpoint_at(tok *t, int nt, int *k, int role, endpoint *e)
 {
-	if (t[*k].t == T_WORD && str_eq(t[*k].s, t[*k].n, "bottle") && *k + 1 < nt && t[*k + 1].t == T_NUM) {
-		if (role == 1) { say('E', "you can't pour into a bottle", 0, 0, ""); return -1; }
+	if (t[*k].t == T_WORD && (str_eq(t[*k].s, t[*k].n, "value") || str_eq(t[*k].s, t[*k].n, "bottle")) && *k + 1 < nt && t[*k + 1].t == T_NUM) {
+		if (role == 1) { say('E', "a value can't take anything in", 0, 0, ""); return -1; }
 		e->is_bottle = 1; e->val = parse_num(t[*k + 1].s, t[*k + 1].n); e->node = -1; e->port = 0;
 		*k += 2;
 		return 0;
@@ -437,7 +549,7 @@ static void st_chain(tok *t, int nt)
 		ng++;
 	}
 	if (ng < 2) {
-		if (nt == 1 && t[0].t == T_WORD) { say('E', "", t[0].s, t[0].n, " goes nowhere; add a passage like -> left"); return; }
+		if (nt == 1 && t[0].t == T_WORD) { say('E', "", t[0].s, t[0].n, " goes nowhere; add a passage like -> out"); return; }
 		say('E', "I don't understand this line", 0, 0, "");
 		return;
 	}
@@ -546,6 +658,16 @@ static void compile_range(int a, int b, int line0)
 	}
 }
 
+/* a block that holds v forever, shared by every inlet that wants it (0 if the table is full) */
+static const float *konst(float v)
+{
+	for (int j = 0; j < G.nk; j++) if (G.kval[j] == v) return G.konst[j];
+	if (G.nk >= MAX_KONST) return 0;
+	G.kval[G.nk] = v;
+	LOOP G.konst[G.nk][i] = v;
+	return G.konst[G.nk++];
+}
+
 static int visit(int k, uint8_t *mark, int *pos)
 {
 	if (mark[k] == 2) return 0;
@@ -560,7 +682,7 @@ static int visit(int k, uint8_t *mark, int *pos)
 
 static void compile_scene(int idx, int report)
 {
-	G.nn = 0; G.nc = 0; G.used = 0; G.drift = 0.f;
+	G.nn = 0; G.nc = 0; G.used = 0; G.drift = 0.f; G.nk = 0;
 	G.quiet = !(report & 1);            /* the prelude is reported once */
 	compile_range(0, G.pre_end, 1);
 	G.quiet = !(report & 2);
@@ -594,11 +716,16 @@ static void compile_scene(int idx, int report)
 			for (int c = G.cstart[k]; c < G.cstart[k + 1]; c++)
 				if (G.c[c].dport == p) { count++; only = c; }
 			n->direct[p] = 0;
-			if (count == 0) continue;
+			if (count == 0) {                     /* unpatched: its default, as a constant block */
+				if (n->def[p] != 0.f) n->direct[p] = konst(n->def[p]);
+				continue;
+			}
 			cord *c = &G.c[only];
 			if (count == 1 && c->kind == K_HALL && c->a == 1.f && c->src >= 0 && c->src != k) {
 				n->direct[p] = G.n[c->src].out[c->sport];
 				c->direct = 1;
+			} else if (count == 1 && c->kind == K_BOTTLE && (n->direct[p] = konst(c->a)) != 0) {
+				c->direct = 1;                    /* a lone value: a constant block too */
 			} else {
 				n->mixed |= (uint16_t)(1u << p);
 			}
@@ -614,9 +741,9 @@ static void compile_scene(int idx, int report)
 	for (int k = 0; k < G.nn; k++) {
 		const place *pl = &SCQ_PLACES[G.n[k].type];
 		float cost = (float)pl->cost;
-		if (pl->run == SCQ_PLACES[find_place("frog", 4)].run)       /* measured with 3 frogs */
+		if (pl->run == SCQ_PLACES[find_place("frogs", 5)].run)       /* measured with 3 frogs */
 			cost *= scq_clamp(G.n[k].nature, 1.f, 8.f) / 3.f;
-		cyc += cost;
+		cyc += scq_max(cost - (float)SCQ_COST_BLOCK_SAVING, 8.f);
 	}
 	for (int k = 0; k < G.nc; k++)
 		if (!G.c[k].direct) cyc += (float)SCQ_COST_CORD;           /* a plain wire costs nothing */
@@ -675,6 +802,12 @@ void scq_set_amount(int index, float amount)
 {
 	if (index < 0 || index >= G.nc) return;
 	cord *c = &G.c[index];
+	if (c->direct) {                 /* read in place until now: from here on it is summed */
+		node *n = &G.n[c->dst];
+		c->direct = 0;
+		n->direct[c->dport] = 0;
+		n->mixed |= (uint16_t)(1u << c->dport);
+	}
 	switch (c->kind) {
 	case K_HALL: case K_FOG: case K_BOTTLE: c->a = amount * 0.01f; break;
 	case K_WATER: c->b = amount; c->a = scq_coef_time(amount * 0.001f, SR / (float)B); break;
@@ -826,7 +959,27 @@ const char *scq_describe(void)
 		sb_s(&s, SCQ_PLACES[n->type].name); sb_c(&s, ' ');
 		sb_f(&s, n->nature); sb_c(&s, ' ');
 		sb_s(&s, n->name); sb_c(&s, ' ');
-		sb_i(&s, n->line); sb_c(&s, '\n');
+		sb_i(&s, n->line);
+		{   /* the switches and params written in the dream: name=value,name=value */
+			optitem o;
+			const char *spec = place_opts(SCQ_PLACES[n->type].name);
+			int first = 1;
+			for (int q = 0; q < MAX_OPT && opt_at(spec, q, &o); q++) {
+				if (!(n->optset & (1u << q))) continue;
+				sb_c(&s, first ? ' ' : ','); first = 0;
+				sb_sn(&s, o.name, o.nl); sb_c(&s, '=');
+				if (o.sw) {
+					const char *v = o.vals, *end = o.vals + o.vl;
+					for (int pos = 0; v < end; pos++) {
+						const char *a = v;
+						while (v < end && *v != '|') v++;
+						if (pos == (int)n->opt[q]) sb_sn(&s, a, (int)(v - a));
+						v++;
+					}
+				} else sb_f(&s, n->opt[q]);
+			}
+		}
+		sb_c(&s, '\n');
 	}
 	for (int k = 0; k < G.nc; k++) {
 		cord *c = &G.c[k];
@@ -842,7 +995,7 @@ const char *scq_describe(void)
 	return G.desc;
 }
 
-static char catalog_buf[32768];
+static char catalog_buf[49152];
 const char *scq_catalog(void)
 {
 	static const char *fam[] = { "source", "shape", "space", "current", "hands", "ears" };
@@ -858,6 +1011,7 @@ const char *scq_catalog(void)
 		sb_s(&s, " | ");
 		for (const char *q = pl->outs; *q; q++) sb_c(&s, *q == ' ' ? ',' : *q);
 		sb_s(&s, " | "); sb_s(&s, pl->help); sb_c(&s, '\n');
+		if (*place_opts(pl->name)) { sb_s(&s, "O "); sb_s(&s, pl->name); sb_c(&s, ' '); sb_s(&s, place_opts(pl->name)); sb_c(&s, '\n'); }
 	}
 	return catalog_buf;
 }

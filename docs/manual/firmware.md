@@ -80,16 +80,16 @@ flashing back to another firmware brings its Bluetooth back exactly as it was.
 |---|---|
 | hold **••** 1.5 s / 3 s | on / off (see *Power and battery*) |
 | tap **••** | show the battery |
-| faders F1–F4 | `lean1`–`lean4` |
-| track buttons T1–T4 | `door1`–`door4` |
-| FFWD / RWD (the rocker) | `lift` +1 / −1, `lift.up` / `lift.down` pulses, yours to patch |
-| **••** + FFWD / RWD | next / previous scene (the track row shows which, 1–4); the rocker doesn't reach `lift` while •• is held |
-| PLAY | `wake` |
-| **••** | `lucid` (while held) |
+| faders F1–F4 | `fader1`–`fader4` |
+| track buttons T1–T4 | `button1`–`button4` |
+| FFWD / RWD (the rocker) | `rocker` +1 / −1, `rocker.up` / `rocker.down` pulses, yours to patch |
+| **••** + FFWD / RWD | next / previous scene (the track row shows which, 1–4); the rocker doesn't reach `rocker` while •• is held |
+| PLAY | `play` |
+| **••** | `dots` (while held) |
 | VOL + / − | volume |
 | **••** + VOL + / − | next / previous dream slot |
-| track row LEDs (above T1–T4) | `lamp` 1–4 |
-| play row LEDs | `lamp` 5–8 |
+| track row LEDs (above T1–T4) | `leds` 1–4 |
+| play row LEDs | `leds` 5–8 |
 
 Some things to know:
 
@@ -98,7 +98,7 @@ Some things to know:
 - Holding a track button sags the rail the faders share, so the faders hold still while a
   button is down. Wakes corrects for this. You'll notice it only as a fader that waits.
 - Holding **••** alone for 3 seconds turns the SP-1 off. Touching any other control while
-  holding it keeps it on, so `lucid` gestures with a fader or button are safe.
+  holding it keeps it on, so `dots` gestures with a fader or button are safe.
 - Tapping **••** shows the battery on the play row for a moment.
 
 ## Dream slots

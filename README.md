@@ -9,15 +9,15 @@ Sleepcousonique firmware, where the faders, track buttons, rocker and LEDs play 
 ```
 2026-10-08
 ----------
-the route is train 8: 0 7 12 15 12 7 3 -5
-the clock is stairs
-the voice is aira 2
-the hall is hallway 9
+the route is seq 8: 0 7 12 15 12 7 3 -5
+the tick is slope
+the voice is sine 2
+the hall is delay 9
 
-clock.end -> clock.start route.next
+tick.end -> tick.trig route.next
 route ~70> voice.pitch
-voice -> hall -> ears
-lean1 -> hall.feedback
+voice -> hall -> out
+fader1 -> hall.feedback
 ```
 
 Inspired by the dream journal at femishonuga.com, Peter Blasser's **Nabra** (knobless; cords

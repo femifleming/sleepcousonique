@@ -4,10 +4,10 @@
 using namespace juce;
 using namespace scq;
 
-static const char* HAND_ROWS[] = { "lean1", "lean2", "lean3", "lean4", "door1", "door2", "door3", "door4",
-                                   "lift", "lift.up", "lift.down", "wake", "lucid" };
-static const char* EAR_ROWS[]  = { "left", "right", "ears", "lamp", "lamp.track", "lamp.play",
-                                   "journey.next", "journey.back", "journey.miss" };
+static const char* HAND_ROWS[] = { "fader1", "fader2", "fader3", "fader4", "button1", "button2", "button3", "button4",
+                                   "rocker", "rocker.up", "rocker.down", "play", "dots" };
+static const char* EAR_ROWS[]  = { "left", "right", "out", "leds", "leds.track", "leds.play",
+                                   "scene.next", "scene.back", "scene.miss" };
 static constexpr float BW = 168, HEAD = 46, ROW = 17;
 
 static int rowIndex (const char* const* rows, int n, const String& t)
@@ -69,11 +69,11 @@ void Tapestry::layout()
 
     Board hands;
     hands.node = -1; hands.key = "@hands"; hands.title = "SP-1"; hands.sub = "hands"; hands.family = Hands;
-    hands.help = "the SP-1's faders (lean), track buttons (door), rocker (lift), PLAY (wake) and dots (lucid)";
+    hands.help = "the SP-1's faders, track buttons, rocker, PLAY and dots";
     for (auto* r : HAND_ROWS)
     {
         String t (r);
-        int sig = t.startsWith ("lean") || t == "lift" ? Flow : Pulse;
+        int sig = t.startsWith ("fader") || t == "rocker" ? Flow : Pulse;
         hands.outs.push_back ({ t, t, sig });
     }
     hands.r = { 0, 0, 120, HEAD + ROW * (float) hands.outs.size() + 8 };
@@ -89,6 +89,7 @@ void Tapestry::layout()
         Board b;
         b.node = n.id; b.key = n.name; b.title = n.place; b.family = p->family; b.help = p->help;
         b.sub = (n.name != n.place ? n.name + "  " : String()) + (p->nature != 0 || n.nature != 0 ? String::fromUTF8 ("\xc2\xb7 ") + fmt (n.nature) : String());
+        for (auto& [k, v] : n.opts) b.sub << "  " << (v == "on" ? k : (v == "off" ? "no " + k : v));
         for (int i = 0; i < p->ins.size(); ++i)
             b.ins.push_back ({ p->ins[i], n.name + (i > 0 ? "." + p->ins[i] : String()), 0 });
         for (int i = 0; i < p->outs.size(); ++i)
@@ -106,8 +107,8 @@ void Tapestry::layout()
     }
 
     Board ears;
-    ears.node = -2; ears.key = "@ears"; ears.title = "SP-1"; ears.sub = "ears, lamp, journey"; ears.family = Ears;
-    ears.help = "where sound leaves (left, right, ears), the eight LEDs (lamp) and travel between scenes (journey)";
+    ears.node = -2; ears.key = "@ears"; ears.title = "SP-1"; ears.sub = "out, leds, scene"; ears.family = Ears;
+    ears.help = "the outputs (left, right, out = both), the eight LEDs and scene changes";
     for (auto* r : EAR_ROWS) ears.ins.push_back ({ r, r, 0 });
     ears.r = { 0, 0, 132, HEAD + ROW * (float) ears.ins.size() + 8 };
     ears.r.setPosition (pos ("@ears", { maxX + 90, 40 }));
@@ -125,7 +126,7 @@ bool Tapestry::endpoint (int nodeId, int port, bool out, int& board, int& row) c
     if (p->family == Hands)
     {
         String t = n->name;
-        if (p->name == "lift" && port > 0) t = port == 1 ? "lift.up" : "lift.down";
+        if (p->name == "rocker" && port > 0) t = port == 1 ? "rocker.up" : "rocker.down";
         board = 0;
         row = rowIndex (HAND_ROWS, 13, t);
         return row >= 0;
@@ -133,8 +134,8 @@ bool Tapestry::endpoint (int nodeId, int port, bool out, int& board, int& row) c
     if (p->family == Ears)
     {
         String t = n->name;
-        if (p->name == "lamp" && port > 0) t = port == 1 ? "lamp.track" : "lamp.play";
-        if (p->name == "journey") t = port == 0 ? "journey.next" : (port == 1 ? "journey.back" : "journey.miss");
+        if (p->name == "leds" && port > 0) t = port == 1 ? "leds.track" : "leds.play";
+        if (p->name == "scene") t = port == 0 ? "scene.next" : (port == 1 ? "scene.back" : "scene.miss");
         board = (int) boards.size() - 1;
         row = rowIndex (EAR_ROWS, 9, t);
         return row >= 0 && ! out;
@@ -427,7 +428,7 @@ void Tapestry::mouseDrag (const MouseEvent& e)
             float step = e.mods.isShiftDown() ? 0.1f : 1.0f;
             valueNow = valueStart + std::round ((anchor.y - e.position.y) / 2.0f) * step;
             host.setAmount (valueCord, valueNow);
-            if (onStatus) onStatus ("bottle " + fmt (valueNow));
+            if (onStatus) onStatus ("value " + fmt (valueNow));
             repaint();
             break;
         }
@@ -657,13 +658,54 @@ void Tapestry::boardMenu (int bi)
     if (! selected.count (bi)) { selected.clear(); selected.insert (bi); repaint(); }
     PopupMenu m;
     m.addSectionHeader (b.title + (b.key != b.title ? "  (" + b.key + ")" : String()));
+    // switches and params: one submenu per switch, a prompt per param
+    std::vector<std::pair<String, String>> choices;   // menu id - 100 -> (key, value)
+    auto* nd = doc.node (b.node);
+    auto* pl = nd ? findPlace (nd->place) : nullptr;
+    if (pl && ! pl->opts.empty())
+    {
+        for (auto& o : pl->opts)
+        {
+            auto it = nd->opts.find (o.name);
+            auto now = it != nd->opts.end() ? it->second : o.def;
+            if (o.positions.isEmpty())
+            {
+                choices.push_back ({ o.name, {} });
+                m.addItem (100 + (int) choices.size() - 1, o.name + " = " + now + "...");
+                continue;
+            }
+            PopupMenu sub;
+            for (auto& pos : o.positions)
+            {
+                choices.push_back ({ o.name, pos });
+                sub.addItem (100 + (int) choices.size() - 1, pos, true, pos == now);
+            }
+            m.addSubMenu (o.name + "   " + now, sub);
+        }
+        m.addSeparator();
+    }
     m.addItem (1, "show in the journal");
     m.addItem (2, "copy as text");
     m.addItem (3, "remove");
-    auto line = doc.node (b.node) ? doc.node (b.node)->line : 0;
-    m.showMenuAsync ({}, [this, line] (int r)
+    auto line = nd ? nd->line : 0;
+    int id = b.node;
+    m.showMenuAsync ({}, [this, line, id, choices] (int r)
     {
-        if (r == 1 && onShowLine) onShowLine (line);
+        if (r >= 100 && r - 100 < (int) choices.size())
+        {
+            auto [key, value] = choices[(size_t) (r - 100)];
+            if (value.isNotEmpty()) { doc.setOption (id, key, value); edited (true); return; }
+            auto* w = new AlertWindow (key, "a number", MessageBoxIconType::NoIcon);
+            auto* nn = doc.node (id);
+            w->addTextEditor ("v", nn && nn->opts.count (key) ? nn->opts.at (key) : String());
+            w->addButton ("ok", 1, KeyPress (KeyPress::returnKey));
+            w->addButton ("cancel", 0, KeyPress (KeyPress::escapeKey));
+            w->enterModalState (true, ModalCallbackFunction::create ([this, w, id, key] (int ok)
+            {
+                if (ok == 1) { doc.setOption (id, key, fmt (w->getTextEditorContents ("v").getFloatValue())); edited (true); }
+            }), true);
+        }
+        else if (r == 1 && onShowLine) onShowLine (line);
         else if (r == 2) SystemClipboard::copyTextToClipboard (copySelection());
         else if (r == 3) removeSelection();
     });

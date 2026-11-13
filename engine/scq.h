@@ -15,7 +15,7 @@ extern "C" {
 #endif
 
 #define SCQ_RATE        48000
-#define SCQ_BLOCK       16          /* samples per engine block */
+#define SCQ_BLOCK       32          /* samples per engine block (the SP-1 renders 96: three blocks) */
 #define SCQ_MAX_TEXT    (16 * 1024) /* largest patch file */
 #define SCQ_MAX_SCENES  16
 #define SCQ_LEDS        8           /* 0-3 track row (above T1-T4), 4-7 play row */

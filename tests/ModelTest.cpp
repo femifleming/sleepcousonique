@@ -17,8 +17,8 @@ static int compile (scq::Document& d)
 int main()
 {
     scq::Document d;
-    d.text = "drift 0\n\n2026-11-13\n----------\nthe voice is aira 3\nthe hall is hallway 4\n"
-             "voice -> hall left right   ; three at once\nlean1 -40> hall.feedback\nbottle 20 -> hall.length\n";
+    d.text = "drift 0\n\n2026-11-13\n----------\nthe voice is sine 3\nthe hall is delay 4\n"
+             "voice -> hall left right   ; three at once\nfader1 -40> hall.feedback\nvalue 20 -> hall.time\n";
     CHECK (compile (d) == 0, "the starting dream compiles");
     int cords = (int) d.cords.size();
     CHECK (cords == 5, "five passages");
@@ -37,14 +37,14 @@ int main()
     // change an amount and a kind
     for (int k = 0; k < (int) d.cords.size(); ++k)
         if (d.cords[(size_t) k].src < 0) { d.setCordAmount (k, 55); break; }
-    CHECK (compile (d) == 0 && d.text.contains ("bottle 55 -> hall.length"), "a bottle changed");
+    CHECK (compile (d) == 0 && d.text.contains ("value 55 -> hall.time"), "a value changed");
     for (int k = 0; k < (int) d.cords.size(); ++k)
-        if (d.cordText (d.cords[(size_t) k]) == "lean1 -40> hall.feedback") { d.setCordKind (k, scq::Water); break; }
-    CHECK (compile (d) == 0 && d.text.contains ("lean1 => hall.feedback"), "hall became water");
+        if (d.cordText (d.cords[(size_t) k]) == "fader1 -40> hall.feedback") { d.setCordKind (k, scq::Water); break; }
+    CHECK (compile (d) == 0 && d.text.contains ("fader1 => hall.feedback"), "hall became water");
 
     // add a place and a cord
-    auto name = d.addPlace ("moss");
-    CHECK (compile (d) == 0 && d.nodeNamed (name) != nullptr, "a moss was added");
+    auto name = d.addPlace ("granular");
+    CHECK (compile (d) == 0 && d.nodeNamed (name) != nullptr, "a granular was added");
     d.addLine ("hall -> " + name);
     CHECK (compile (d) == 0, "and patched");
 
@@ -60,9 +60,25 @@ int main()
     d.readPositions();
     CHECK (d.positions.size() == 1, "and read back");
 
+    // switches: set one from the tapestry, the declaration line changes
+    {
+        scq::Document f;
+        f.text = "s\n-----\nthe env is dusg   ; two slopes\nenv -> out\nslope -> out\n";
+        CHECK (compile (f) == 0, "a dusg compiles");
+        f.setOption (f.nodeNamed ("env")->id, "cycle1", "on");
+        compile (f);
+        f.setOption (f.nodeNamed ("env")->id, "range", "audio");
+        CHECK (compile (f) == 0 && f.text.contains ("the env is dusg cycle1=on range=audio   ; two slopes"), "switches written");
+        CHECK (f.nodeNamed ("env")->opts.at ("range") == "audio", "and read back");
+        f.setOption (f.nodeNamed ("env")->id, "range", "lfo");
+        CHECK (compile (f) == 0 && f.text.contains ("the env is dusg cycle1=on   ;"), "a default is left out");
+        f.setOption (f.nodeNamed ("slope")->id, "cycle", "on");
+        CHECK (compile (f) == 0 && f.text.contains ("the slope is slope cycle=on"), "an unnamed place gets a name for its switch");
+    }
+
     // copy two places as text and paste them into a fresh dream
     auto copied = d.copyNodes ({ d.nodeNamed ("voice")->id, d.nodeNamed (name)->id });
-    CHECK (copied.contains ("the voice is aira 3"), "copy has the declaration");
+    CHECK (copied.contains ("the voice is sine 3"), "copy has the declaration");
     scq::Document e;
     e.text = "fresh\n-----\n";
     compile (e);

@@ -99,7 +99,7 @@ system to speak of. The only language that is comfortable in both is **C**, and 
   firmware around it does all of that.
 
 This is the single most important decision: **one engine, compiled twice.** The desktop
-app and the SP-1 firmware don't each have their own idea of what `hallway` sounds like.
+app and the SP-1 firmware don't each have their own idea of what `delay` sounds like.
 They share one.
 
 ## Why JUCE for the app
@@ -137,10 +137,11 @@ makes the tapestry possible. Every board and cord maps back to a line you could 
 The language wasn't designed by choosing brackets. It started from two worlds you already
 had:
 
-1. **The dream journal.** Its places, things, creatures, weather and verbs became the
-   vocabulary. A delay is a `hallway` because the journal is full of long hallways, and a
-   reverb is a `warehouse` because of the raves. A clock is a `tram`. A random walk is
-   `wander`, from the empty school.
+1. **The dream journal.** Its form became the file: dated entries, scenes, notes to yourself.
+   At first its places became the vocabulary too (a delay was a `hallway`, a reverb a
+   `warehouse`, a clock a `tram`), but a patch is easier to read when a module is called what
+   it is, so in November 2026 every place got a plain name (`delay`, `reverb`, `clock`). The
+   old names still work, with a note.
 2. **Peter Blasser's Nabra.** It has no knobs: every module has a fixed character, and you
    change it only by patching into it. Cords can carry parts: a resistor, a capacitor, a
    diode.
@@ -149,10 +150,10 @@ From those two came almost every rule:
 
 | from | became |
 |---|---|
-| Nabra's fixed modules | a place has one number, its **nature**, and nothing else to set |
+| Nabra's fixed modules | a place has one number, its **nature**, plus a few fixed switches, and no knobs |
 | Nabra's cords with parts | four passages: `->` wire, `~>` resistor (fog), `=>` capacitor (water), `>\|` diode (door) |
 | journal entries | a patch is dated entries: a date with dashes under it is a **scene** |
-| the journal's 60 Hz just-intonation writing | tuning starts from 60 Hz: `aira 3` is 180 Hz |
+| the journal's 60 Hz just-intonation writing | tuning starts from 60 Hz: `sine 3` is 180 Hz |
 | Buchla | three kinds of signal: sound, current, pulse |
 | Serge | any signal into any inlet, and cords into one inlet add up |
 | Nord Modular | **lucid** groups: one fader moving many things |
@@ -173,7 +174,7 @@ naming   :=  "the" NAME ("is"|"are") PLACE [NUMBER] [":" NUMBER...]
 passage  :=  ends ARROW ends (ARROW ends)...
 lucid    :=  "lucid" SOURCE ":" TARGET LOW..HIGH ("," TARGET LOW..HIGH)...
 ends     :=  END (END)...            ; several ends: one to many, many to one
-END      :=  NAME | NAME.PORT | NUMBER | "bottle" NUMBER
+END      :=  NAME | NAME.PORT | NUMBER | "value" NUMBER
 ARROW    :=  "->" | "~>" | "=>" | ">|"    ; "-40>" puts an amount inside the arrow
 ```
 
@@ -190,13 +191,13 @@ rule was tested against one question: could someone write this from memory at 3a
 - **Real sentences** ("the rain wakes the frogs"). They're lovely to read but miserable to
   parse reliably, and a patch that sometimes means something else is a bad instrument.
   `rain -> frogs` keeps the dream-like vocabulary with a grammar that never guesses.
-- **Knobs.** Nabra says no. Values come from `bottle`s you patch in, and the editor draws them
+- **Knobs.** Nabra says no. Values come from `value`s you patch in, and the editor draws them
   *like* knobs. You get the feel without breaking the rule.
 
 ## Errors in the voice of the world
 
 A language's mistakes are part of its character. Sleepcousonique says *"nothing called 'hal'
-lives here"*, *"the house is full"* when memory runs out, and *"dreamt 'hallwy' as hallway"* when
+lives here"*, *"the house is full"* when memory runs out, and *"dreamt 'delya' as a place you know"* when
 it forgives a misspelling within one letter. Writing good error messages is half the work of
 a friendly language, and they're the part people see most.
 
@@ -231,8 +232,8 @@ a morph, and anything else is a chain of passages. A chain is read as **groups s
 arrows**, and every end in one group connects to every end in the next:
 
 ```
-voice -> peaks -> window -> ears lamp
-  └─ group ─┘ └─ group ─┘ └─ group ─┘ └─ group ──┘
+voice -> peaks -> gate -> out leds
+  └─ group ─┘ └─ group ─┘ └ group ┘ └ group ┘
 ```
 
 That one rule gives you chains, one-to-many and many-to-one at no extra cost.
@@ -243,7 +244,7 @@ That one rule gives you chains, one-to-many and many-to-one at no extra cost.
 
 1. a name you've already given (`voice`)
 2. a place word, which creates itself (`rain` makes a rain)
-3. a place word with a number (`aira3` makes a fountain with nature 3)
+3. a place word with a number (`sine3` makes a sine with nature 3)
 4. a word one letter away from either, with a gentle note
 5. otherwise: *nothing called that lives here*
 
@@ -290,11 +291,11 @@ every sample. That's what lets a patch interpreter fit in 1,333 cycles per sampl
 
 ## Anatomy of a place
 
-Every place is one function plus one row in a table. Here's the whole fountain:
+Every place is one function plus one row in a table. Here's the whole sine:
 
 ```c
-/* aira — the fountain labeled aira: a pure tone at nature x 60 Hz */
-static void run_aira(node *n, float in[MAX_IN][B])
+/* sine — a sine oscillator at nature x 60 Hz */
+static void run_sine(node *n, float in[MAX_IN][B])
 {
     float base = 60.f * n->nature, ph = n->s[0];
     LOOP {
@@ -306,8 +307,8 @@ static void run_aira(node *n, float in[MAX_IN][B])
     n->s[0] = ph;
 }
 
-P("aira", FAM_SOURCE, PF_DRIFT, 30, 3, "pitch fm", "0 0", "out", run_aira, 0, 0,
-  "the fountain labeled aira: a pure tone, nature x 60 Hz"),
+P("sine", FAM_SOURCE, PF_DRIFT, 30, 3, "pitch fm", "0 0", "out", run_sine, 0, 0,
+  "sine oscillator at nature x 60 Hz"),
 ```
 
 The table row is the place's whole public life: its name, family, cost, default nature,
@@ -418,8 +419,8 @@ a view of it.
 2. **A new passage.** Add `~>` as a resistor: half as loud and softened by a one-pole lowpass
    inside the cord. The cord needs a little memory of its own. *(This is a Nabra part.)*
 3. **Numbers as sources.** Let `40 -> fold.amount` work by treating a number as a constant at
-   40%. *(This is a `bottle`.)*
-4. **Outlets with names.** Give `saw` a second outlet, `square`, and let `voice.square -> ears`
+   40%. *(This is a `value`.)*
+4. **Outlets with names.** Give `saw` a second outlet, `square`, and let `voice.square -> out`
    pick it. Right now cords only read outlet 0.
 5. **Scenes.** Read a line with dashes under it as the start of a new scene, then render only
    the scene named on the command line.

@@ -4,10 +4,10 @@
 
 Sleepcousonique grows out of four things: the dream journal at femishonuga.com, Peter Blasser's
 Nabra (the knobless tapestry synthesizer), the West Coast thinking of Buchla and Serge, and
-the Nord Modular's editor. A patch is a dream. Its modules are **places**, things and
-creatures from the journal. They are joined by **passages**, which are Nabra's cords with
-parts soldered into them. Nothing has knobs. Every place has a fixed nature, and you change it
-only by running something into it.
+the Nord Modular's editor. A patch is a dream. Its modules are **places**: oscillators, filters,
+envelopes and the rest, each named for what it is. They are joined by **passages**, which are Nabra's cords with
+parts soldered into them. There are no knobs. Every place has a fixed nature and maybe a few
+switches, set when you name it; everything else changes only by running something into it.
 
 You can write a dream as plain text (the **journal**) or build it on the **tapestry**. Both
 are the same dream: whatever you do on one shows up on the other.
@@ -20,34 +20,35 @@ drift 3                         ; natures wander 3% from night to night
 
 2026-10-08
 ----------
-the route is train 8: 0 7 12 15 12 7 3 -5
-the clock is stairs
-the voice is aira 2
-the hall is hallway 9
+the route is seq 8: 0 7 12 15 12 7 3 -5
+the tick is slope
+the voice is sine 2
+the hall is delay 9
 
-clock.end -> clock.start route.next
+tick.end -> tick.trig route.next
 route ~70> voice.pitch
-voice -> hall -> ears
-lean1 -> hall.feedback
+voice -> hall -> out
+fader1 -> hall.feedback
 ```
 
 A line with dashes under it is a **scene**: one dream inside the file. It is usually a date,
 but any words will do. Lines before the first scene are the **prelude**, which every scene
 shares. To change scene, hold the dots and press the rocker (**•• + FFWD / RWD**). A dream can
-also travel by itself through `journey`.
+also change scene by itself through `scene`.
 
 ## Naming
 
-    the hall is hallway 9
-    the frogs are frog 5
-    the route is train 4: 0 3 7 12      ; a train and its stations, in semitones
-    the dark is bottle 40               ; a kept value: 0.40
+    the hall is delay 9
+    the frogs are frogs 5
+    the route is seq 4: 0 3 7 12        ; a sequencer and its steps, in semitones
+    the dark is value 40                ; a kept value: 0.40
+    the env is dusg cycle1 audio        ; switches: see below
 
-`the NAME is PLACE NATURE`. The nature is optional, and each place has its own default. A name can
+`the NAME is PLACE NATURE SWITCHES`. The nature is optional, and each place has its own default. A name can
 be anything, even another place's name: inside that dream your name wins, so new places
 added to Sleepcousonique later can never break a dream you've already written. You can
-also skip naming and use a place directly: `rain -> ears` makes a rain, and `aira3` makes a
-fountain with nature 3.
+also skip naming and use a place directly: `rain -> out` makes a rain, and `sine3` makes a
+sine with nature 3.
 
 ## Passages
 
@@ -59,9 +60,9 @@ fountain with nature 3.
     a -> b c d    one to many
     a b -> c      many to one (several cords into one inlet add up, like stacked bananas)
     a -> b -> c   a chain
-    40 -> b.x     a kept value (or: bottle 40 -> b.x)
+    40 -> b.x     a kept value (or: value 40 -> b.x)
 
-A dot picks an inlet or outlet: `stairs.end -> stairs.start`. Without a dot you get the
+A dot picks an inlet or outlet: `env.end -> env.trig`. Without a dot you get the
 first one. A cord can loop back on itself, and the loop hears the sound from a moment ago.
 
 ## Signals
@@ -69,20 +70,37 @@ first one. A cord can loop back on itself, and the loop hears the sound from a m
 There are three kinds of signal, as on a Buchla. **Sound** swings about −1 to 1 and is drawn
 umber. **Current** sits about 0 to 1 and is drawn deep blue. A **pulse** is 0 or 1 and is drawn gold. Any
 of them can go into any inlet, as on a Serge. Pitch inlets count octaves: 1.0 is one
-octave up. Tuning starts from the 60 Hz hum: `aira 3` is 180 Hz.
+octave up. Tuning starts from the 60 Hz hum: `sine 3` is 180 Hz.
 
 ## Where the places come from
 
-There are about a hundred places. Each is named for something in the dream journal, and its
-help line says which instrument or idea it comes from: Moog, Buchla, Serge, ARP, EMS,
-Oberheim, Roland, Ciat-Lonbarde and Shbobo, Mutable Instruments, Make Noise, Music Thing,
-Doepfer, the TR-808, the Space Echo, Dattorro's plate, Max/MSP and Pd, SuperCollider and the
-Nord Modular. Right-click the tapestry to browse them by family. The full list, with every
+There are about 125 places, each named for what it is: `vco`, `lowpass`, `adsr`, `delay`,
+`quantizer`. The help line says which instrument or idea it comes from: Moog, Buchla (including
+the 100 series: 106, 107, 110, 123, 140, 144, 148, 156, 158, 180), Serge (DUSG, Dual Processor,
+Peak & Trough), Doepfer A-100, ARP, EMS, Oberheim, Roland, Ciat-Lonbarde, Mutable Instruments,
+Make Noise, Music Thing, the TR-808, the Space Echo, Dattorro's plate, Max/MSP and Pd,
+SuperCollider and the Nord Modular. The plain modules (mixers, VCAs, slews, envelopes, logic)
+cost very little, so big patches fit. Old dreams written with the earlier names still play;
+the journal notes what each old name is called now, and `tools/modernize.py` rewrites them. Right-click the tapestry to browse them by family. The full list, with every
 inlet and outlet, is at the end of this chapter.
+
+## Switches and params
+
+Some places have switches and params. They are fixed for the dream, like the nature, and are
+written after it:
+
+    the env is dusg cycle1 range=audio curve=exp
+    the q is quantizer scale=pelog
+    the t is trigger length=10
+
+`name=position` sets a switch, `name=number` sets a param. A switch's name alone means its
+second position (`cycle1` is `cycle1=on`), and a position word alone picks it when only one
+switch has it (`audio`, `pelog`). The first position is the default. On the tapestry,
+right-click a place to set its switches. The full list is in the switches column below.
 
 ## Lucid groups (morphs)
 
-    lucid lean2: peaks.fold 0..90, stairs.rise 20..5, window.light 0..60
+    lucid fader2: peaks.fold 0..90, env.rise 20..5, gate.level 0..60
 
 One fader leans on many inlets at once, each with its own range (in hundredths).
 
@@ -90,172 +108,195 @@ One fader leans on many inlets at once, each with its own range (in hundredths).
 
 | word | on the SP-1 | gives |
 |---|---|---|
-| lean1 – lean4 | the four faders | 0 to 1 |
-| door1 – door4 | the track buttons T1–T4 | 1 while held |
-| lift, lift.up, lift.down | the rocker (FFWD / RWD) | −1, 0, 1, and pulses (not while •• is held: that's the scene change) |
-| wake | PLAY | 1 while held |
-| lucid | the •• button | 1 while held |
+| fader1 – fader4 | the four faders | 0 to 1 |
+| button1 – button4 | the track buttons T1–T4 | 1 while held |
+| rocker, rocker.up, rocker.down | the rocker (FFWD / RWD) | −1, 0, 1, and pulses (not while •• is held: that's the scene change) |
+| play | PLAY | 1 while held |
+| dots | the •• button | 1 while held |
 
-On the computer, keys 1–4 are the doors, ↑ and ↓ are the rocker, space is PLAY and `.` is
+On the computer, keys 1–4 are the buttons, ↑ and ↓ are the rocker, space is PLAY and `.` is
 the dots (while you are not typing in the journal). `.` + ↑ / ↓ changes scene, as on the SP-1.
 
-## Ears
+## Outputs
 
-`left`, `right` and `ears` (both) are where sound leaves. `lamp` lights the eight LEDs: sound
-into `lamp` makes a bar across both rows, and `lamp.track` and `lamp.play` light one row each.
-`journey.next` and `journey.back` ride to another scene on a pulse, and `journey.miss` is the
-chance of getting off at the wrong stop.
+`left`, `right` and `out` (both) are where sound leaves. `leds` lights the eight LEDs: sound
+into `leds` makes a bar across both rows, and `leds.track` and `leds.play` light one row each.
+`scene.next` and `scene.back` go to another scene on a pulse, and `scene.miss` is the
+chance of landing on a random one instead.
 
 ## Dream logic
 
 - **Drift.** `drift 3` lets the natures of tuned places wander up to 3% each time the dream
   is opened, so the same dream is never quite the same night twice.
 - **Forgiveness.** A word one letter away from a place or a name is understood, with a
-  note: `hallwy` is taken as `hallway`.
+  note: `delya` is taken as `delay`.
 - **Mistakes.** While the journal has mistakes, the last dream that made sense keeps playing.
 
 ## The SP-1's limits
 
 The editor shows **load** (how much of the SP-1's processor the dream needs) and **memory**
 (its 80 KB of room for delays, grains and so on). Keep both under 100%, and what you hear on
-the computer is what the SP-1 plays. Every dream can have up to 48 places, 160 passages and
+the computer is what the SP-1 plays. Every dream can have up to 64 places, 224 passages and
 16 scenes.
 
 
 # The places
 
-Every place has a fixed *nature* (the number after its name). Nothing has knobs: you change a place only by running something into its inlets. The first inlet and the first outlet need no name: `voice -> window` means `voice.out -> window.in`.
+Every place has a fixed *nature* (the number after its name), and some have switches and params, set when you name it (the first position is the default). Otherwise you change a place only by running something into its inlets. The first inlet and the first outlet need no name: `voice -> gate` means `voice.out -> gate.in`.
 
 
 ## Sources
 
-| place | nature | in | out | what it is |
-|---|---|---|---|---|
-| **aira** | 3 | pitch, fm | out | the fountain labeled aira: a pure tone, nature x 60 Hz |
-| **twin** | 3 | pitch, index, timbre | out, a, b | two partials, 60n and 60(n+1); index bends a with b, timbre folds it. Their difference is the hum |
-| **rain** | 1 | density | out, pulse | drops on tiny resonators, 8 x nature per second; pulse marks each drop |
-| **thunder** | 1 | strike | out | a rumble when struck, and on its own about nature times a minute |
-| **flood** | 1 | level | out | rising water: noise whose band climbs with the level |
-| **wind** | 1 | gust | out | a cold draft: soft noise through a wandering band |
-| **frog** | 3 | wake, pitch | out, pulse | nature frogs (1-8) croaking on their own; a pulse into wake makes them all croak |
-| **elevator** | 1 | rate, pitch | out | the lift into the night sky: rises forever (rate in octaves per second, negative falls) |
-| **bell** | 1 | strike, pitch, decay | out | the cargo train's deep bell: four modes, struck by edges or by sound |
-| **turntable** | 4 | pitch, fm, width, sync | saw, square, tri, sine | the turntables in the radio basement: the classic oscillator, saw / square / triangle / sine, width and hard sync (after Moog 921, the Minimoog) |
-| **pendant** | 2 | pitch, tilt | out, a, b | sacred sandwiched multivibrator pendants: two squares that lean on each other, their xor as sound (after Ciat-Lonbarde's Fourses and Plumbutter) |
-| **goblins** | 4 | pitch, chaos, loop | out, rungler, a, b | three hooded goblins on the rooftop: two triangles and a shift register eating its own tail; loop above 0.5 locks the pattern (after Rob Hordijk's Benjolin / rungler) |
-| **multiwave** | 2 | pitch, tilt, odd, stretch | out | the Lakhovsky multiple wave oscillator: sixteen partials, tilt darkens, odd takes the even ones away, stretch bends them like a bell (after Lakhovsky; additive synthesis; Harmor) |
-| **pulsar** | 2 | pitch, formant, duty | out | undulating pulsar wavetables: a burst of formant once a period, duty sets how much of it sounds (after Curtis Roads' pulsar synthesis; Kyma) |
-| **torpedo** | 2 | pitch, ratio, index, feedback | out, mod | the smiling torpedo: two-operator FM at 240 Hz; nature is the ratio (after Chowning and the Yamaha DX7; Buchla 259's FM) |
-| **beacon** | 2 | pitch, bend, resonant | out | the inevitably spherical probe beacon: phase distortion, bend brightens a cosine (after Casio CZ; Nord Modular's PD oscillator) |
-| **record** | 2 | pitch, scan | out | the 7-inch with the light purple glitter label: one wave scanned from sine to triangle to saw to square to pulse (after PPG and Waldorf wavetables; Plaits) |
-| **throne** | 4 | pitch, chord, spread | out | the velvet throne: a four-note chord in just intonation; chord picks major, minor, sus, maj7, min7, 4:5:6:7 (after Plaits' chords; string machines) |
-| **rave** | 4 | pitch, detune, mix | out | the warehouse rave with ripple subwoofers: seven detuned saws (after Roland's JP-8000 supersaw) |
-| **nuns** | 2 | pitch, vowel | out | nuns into cats into fairies, as the speaker preaches: a singing voice through a, e, i, o, u (after FOF and IRCAM's CHANT; formant oscillators) |
-| **hum** | 1 | buzz, level | out | the 60 Hz hum the journal tunes to: mains buzz and its harmonics (after the just-intonation control writing) |
-| **faucet** | 1 | level | white, pink, brown, blue | the generative freshwater faucet: four colours of noise (after every noise source since the Buchla 265) |
-| **glitter** | 1 | chaos, density | crackle, dust | golden glitter: chaotic crackle and scattered dust (after SuperCollider's Crackle and Dust) |
-| **spillway** | 1 | rate, rho | x, y, z | crashing into the icy spillway: a Lorenz attractor, slow as control or fast as sound (after Lorenz; chaos modules) |
-| **marimba** | 6 | strike, pitch, decay, bright | out | the marimba: a struck wooden bar, three modes (after modal synthesis; Mutable Elements) |
-| **rebar** | 4 | pluck, pitch, damp, bright | out | swinging on rebar: a plucked string (after Karplus-Strong; Fish's string; Mutable Rings) |
-| **trebuchet** | 1 | strike, pitch, punch, decay | out | Connor's swinging wooden trebuchet: a kick drum, a sine that falls (after the TR-808 bass drum; Mutable Peaks) |
-| **balloon** | 1 | strike, tone, snap | out | the balloon pop, the speculative gunshot: a snare (after the TR-808 and 909 snares) |
-| **grill** | 1 | strike, decay, pitch | out | the sizzle of the grill: a metallic hi-hat from six squares (after the TR-808 cymbal circuit) |
+| place | nature | in | out | switches | what it is |
+|---|---|---|---|---|---|
+| **sine** | 3 | pitch, fm | out | range=audio / lfo | sine oscillator at nature x 60 Hz |
+| **crossfm** | 3 | pitch, index, fold | out, a, b | — | two sines on harmonics n and n+1; index frequency-modulates a with b, fold wavefolds a; out is both mixed |
+| **rain** | 1 | density | out, pulse | — | rain: random impulses ringing tiny resonators, 8 x nature per second; pulse marks each drop |
+| **thunder** | 1 | strike | out | — | thunder: a filtered noise rumble when struck, and on its own about nature times a minute |
+| **noisesweep** | 1 | level | out | — | noise through a resonant bandpass whose frequency climbs with level |
+| **wind** | 1 | gust | out | — | wind: soft noise through a slowly wandering bandpass |
+| **frogs** | 3 | trig, pitch | out, pulse | — | nature (1-8) chirping FM voices on random timers; a pulse into trig makes them all chirp |
+| **shepard** | 1 | rate, pitch | out | — | Shepard-Risset glissando: rises forever (rate in octaves per second, negative falls) |
+| **bell** | 1 | strike, pitch, decay | out | — | modal bell: four inharmonic modes, struck by pulses or by sound |
+| **vco** | 4 | pitch, fm, width, sync | saw, square, tri, sine | range=audio / lfo | VCO: saw, square, triangle and sine, pulse width and hard sync (after Moog 921, the Minimoog) |
+| **xorsquares** | 2 | pitch, couple | out, a, b | — | two cross-coupled square oscillators, their XOR as sound (after Ciat-Lonbarde Fourses / Plumbutter) |
+| **rungler** | 4 | pitch, chaos, loop | out, steps, a, b | — | two triangle oscillators and a shift register fed back on itself; loop above 0.5 locks the pattern (after Rob Hordijk's Benjolin) |
+| **additive** | 2 | pitch, tilt, odd, stretch | out | — | additive oscillator: sixteen partials; tilt darkens, odd removes the even ones, stretch makes them inharmonic |
+| **pulsar** | 2 | pitch, formant, duty | out | — | pulsar synthesis: a formant burst once a period, duty sets how much of it sounds (after Curtis Roads) |
+| **fm** | 2 | pitch, ratio, index, feedback | out, mod | — | two-operator FM at 240 Hz; nature is the ratio (after Chowning, the DX7) |
+| **phasedist** | 2 | pitch, amount, resonant | out | — | phase distortion oscillator: amount brightens a cosine (after Casio CZ) |
+| **wavetable** | 2 | pitch, scan | out | — | wavetable oscillator: scans sine, triangle, saw, square, pulse (after PPG / Waldorf) |
+| **chord** | 4 | pitch, type, spread | out | — | four-voice just-intonation chord; type picks major, minor, sus, maj7, min7, 4:5:6:7 |
+| **supersaw** | 4 | pitch, detune, mix | out | — | seven detuned saws (after Roland JP-8000) |
+| **formant** | 2 | pitch, vowel | out | — | formant voice oscillator through a, e, i, o, u (after FOF / IRCAM CHANT) |
+| **hum** | 1 | buzz, level | out | — | 60 Hz mains hum and its harmonics |
+| **noise** | 1 | level | white, pink, brown, blue | — | noise: white, pink, brown and blue |
+| **crackle** | 1 | chaos, density | out, dust | — | chaotic crackle, and random dust impulses (after SuperCollider Crackle / Dust) |
+| **lorenz** | 1 | rate, rho | x, y, z | — | Lorenz attractor, slow as modulation or fast as sound |
+| **marimba** | 6 | strike, pitch, decay, bright | out | — | modal marimba: struck bar, three modes |
+| **string** | 4 | pluck, pitch, damp, bright | out | — | Karplus-Strong plucked string |
+| **kick** | 1 | strike, pitch, punch, decay | out | — | kick drum: a falling sine (after TR-808) |
+| **snare** | 1 | strike, tone, snap | out | — | snare drum (after TR-808 / 909) |
+| **hihat** | 1 | strike, decay, pitch | out | — | metallic hi-hat from six squares (after TR-808) |
+| **sinesaw** | 3 | pitch, fm | sine, saw | range=audio / lfo | sine and sawtooth oscillator; range=audio|lfo (after Buchla 158) |
+| **square** | 3 | pitch, fm, width | out | range=audio / lfo | square / pulse oscillator, width -1..1; range=audio|lfo (after Buchla 144; Doepfer A-110) |
+| **harmonics** | 3 | pitch | h1, h2, h3, h4 | — | harmonic generator: the first four harmonics of one pitch, each on its own out (after Buchla 148) |
 
 ## Shapes
 
-| place | nature | in | out | what it is |
-|---|---|---|---|---|
-| **mountains** | 1 | in, fold | out | dark umber peaks: a wavefolder. More fold, more peaks |
-| **window** | 1 | in, light | out | a lamp on a photocell (lowpass gate). Pulse the light for a pluck |
-| **basement** | 1 | in, cut, res | out, band | the house show downstairs: a warm resonant lowpass at nature x 480 Hz |
-| **horns** | 1 | in, band1, band2, band3, band4, band5, band6, band7, band8 | out | horn-loaded speakers: eight fixed resonant bands; patch into a band to raise it |
-| **lighter** | 1 | in, flick | out | the lighter that explodes: a flick of fire and drive |
-| **copper** | 1 | in | out | the grounding rod: takes the DC out |
-| **blanket** | 1 | in, gain | out | a blanket over the sound: plain amplifier |
-| **crystal** | 0 | in1, in2, in3, in4, turn | out1, out2, out3, out4 | the crystal matrix: four in, four out, mixed by turning (nature sets the resting angle) |
-| **shaft** | 1 | in, cut, res | out, band | the vertical shaft you climb out of: a four-pole transistor ladder at nature x 480 Hz (after Moog's 904A) |
-| **pond** | 1 | in, cut, res | low, band, high, notch | the night pond: lowpass, bandpass, highpass and notch at once (after the Oberheim SEM; Serge VCFQ) |
-| **preacher** | 1 | in, vowel, shift | out | as the speaker preaches: a vowel filter, a to u (after the Doepfer A-104 Trautonium formant filter) |
-| **glass** | 1 | in, rate, depth, feedback | out | climbing through glass: a six-stage phaser (after the Mu-Tron Bi-Phase; the Small Stone) |
-| **conduit** | 1 | in, rate, depth, feedback | out, wet | conduit to conduit, like stargates: a flanger (after the Electric Mistress; bucket-brigade delays) |
-| **fairies** | 1 | in, depth | out, l, r | nuns into cats into fairies: a three-voice ensemble chorus (after the Solina and ARP string ensembles) |
-| **pulley** | 2 | in, mod, pitch | out | the pulley system: a ring modulator, with its own carrier if nothing is patched to mod (after Bode; EMS VCS3; Buchla 285) |
-| **stargate** | 1 | in, shift | up, down | a secret portal to other cities: a frequency shifter, up and down at once (after Harald Bode; Buchla 285) |
-| **flashdrive** | 1 | in, crush, hold | out | the stolen 516 GB flash drive: fewer bits, fewer samples (after the SP-1200; decimators) |
-| **tungsten** | 1 | in, drive, bias | out | tungsten lamplight at night: a warm, uneven tube stage (after tube preamps) |
-| **pillow** | 1 | in, squeeze, side | out, gain | muffled into a pillow: a compressor; side listens to something else (after the LA-2A and 1176; Fish's press) |
-| **blur** | 1 | a, b, mix | out | scenes blurring into each other: a crossfade from a to b |
-| **radio** | 2 | carrier, voice | out | the DJ radio station: an eight-band vocoder; voice speaks through carrier, or through its own buzz (after the EMS Vocoder; Mutable Warps) |
-| **sonder** | 1 | in, attack, release | out, gate | a glowing presence: an envelope follower, and a gate when something is there (after the ARP 2600 envelope follower) |
-| **camera** | 1 | in, clock | held, track | taking photos of the basement: sample & hold and track & hold; samples noise when nothing is patched (after the ARP 2600; Buchla 266) |
-| **velcro** | 1 | a, b | and, or, xor, not | the key velcroed to the hood: logic on pulses (after Serge and Doepfer logic) |
-| **threshold** | 1 | in, ref | gate, inverse | standing at the threshold: a comparator, high while in is above ref (after Serge and Buchla comparators) |
-| **puddle** | 1 | in | flip, fold, half, sign | reflections in a puddle: inverted, rectified, half-rectified and the sign (after Serge and Make Noise rectifiers; Fish's reflect) |
-| **van** | 1 | in, place | l, r | the van in the driveway: places a sound from left (-1) to right (1) (after Buchla 227 panning) |
-| **ripple** | 1 | in | down, down2 | the ripple subwoofers: one and two octaves under whatever comes in (after the Boss OC-2; sub-octave dividers) |
+| place | nature | in | out | switches | what it is |
+|---|---|---|---|---|---|
+| **folder** | 1 | in, fold | out | — | wavefolder; more fold, more folds |
+| **lpg** | 1 | in, level | out | mode=both / lowpass / vca | lowpass gate (vactrol-style); pulse level for a pluck |
+| **lowpass** | 1 | in, cutoff, res | out, band | — | resonant 2-pole lowpass at nature x 480 Hz, with a bandpass out |
+| **filterbank** | 1 | in, band1, band2, band3, band4, band5, band6, band7, band8 | out | — | fixed filter bank: eight resonant bands; patch into a band to raise it |
+| **saturator** | 1 | in, burst | out | — | tanh saturator; a pulse into burst kicks the drive up with a crackle that dies away |
+| **dcblock** | 1 | in | out | — | DC blocker (highpass at nature x 20 Hz) |
+| **vca** | 1 | in, gain | out | response=lin / exp | VCA: in times gain |
+| **matrix** | 0 | in1, in2, in3, in4, rotate | out1, out2, out3, out4 | — | 4 x 4 rotation matrix mixer; rotate turns it (nature sets the resting angle) |
+| **ladder** | 1 | in, cutoff, res | out, band | — | 4-pole transistor ladder lowpass at nature x 480 Hz (after Moog 904A) |
+| **svf** | 1 | in, cutoff, res | low, band, high, notch | — | state-variable filter: lowpass, bandpass, highpass and notch at once (after Oberheim SEM, Serge VCFQ) |
+| **vowelfilter** | 1 | in, vowel, shift | out | — | vowel / formant filter, a to u (after Doepfer A-104) |
+| **phaser** | 1 | in, rate, depth, feedback | out | — | six-stage phaser |
+| **flanger** | 1 | in, rate, depth, feedback | out, wet | — | flanger |
+| **chorus** | 1 | in, depth | out, l, r | — | three-voice ensemble chorus (after Solina / ARP string ensembles) |
+| **ringmod** | 2 | in, mod, pitch | out | — | ring modulator, with its own sine carrier if nothing is patched to mod |
+| **freqshift** | 1 | in, shift | up, down | — | frequency shifter, up and down at once (after Bode, Buchla 285) |
+| **bitcrush** | 1 | in, crush, decimate | out | — | bit crusher and sample-rate reducer |
+| **tube** | 1 | in, drive, bias | out | — | asymmetric tube-style saturation |
+| **compressor** | 1 | in, amount, side | out, gain | — | compressor; side is an external sidechain |
+| **crossfade** | 1 | a, b, mix | out | — | crossfade from a to b |
+| **vocoder** | 2 | carrier, modulator | out | — | eight-band vocoder; modulator through carrier, or through its own buzz |
+| **follower** | 1 | in, attack, release | out, gate | — | envelope follower, and a gate while something is there |
+| **samplehold** | 1 | in, clock | held, track | — | sample & hold and track & hold; samples noise when nothing is patched |
+| **logic** | 1 | a, b | and, or, xor, not | — | logic on pulses |
+| **comparator** | 1 | in, ref | gate, inverse | — | comparator: high while in is above ref |
+| **rectify** | 1 | in | invert, full, half, sign | — | inverter, full-wave and half-wave rectifier, sign |
+| **pan** | 1 | in, position | l, r | — | panner: -1 left to 1 right |
+| **suboctave** | 1 | in | sub1, sub2 | — | sub-octave divider: one and two octaves down |
+| **mixer** | 0 | in1, in2, in3, in4, in5, in6 | out | — | six-input mixer; set levels with amounts on the cords (after Buchla 106; Doepfer A-138) |
+| **vcmix** | 0 | in1, in2, in3, in4, level1, level2, level3, level4 | out | — | voltage-controlled mixer: four inputs with a level each (after Buchla 107; Doepfer A-135) |
+| **vcgate** | 0 | a, b, levela, levelb | a, b | — | dual voltage-controlled gate / VCA (after Buchla 110) |
+| **quadvca** | 0 | in1, in2, in3, in4, cv1, cv2, cv3, cv4 | out1, out2, out3, out4 | response=lin / exp | four VCAs; response=lin|exp (after Doepfer A-130 / A-131 / A-132) |
+| **duallpg** | 0 | in1, cv1, in2, cv2 | out1, out2 | mode1=both / lowpass / vca, mode2=both / lowpass / vca | two low pass gates (vactrol response); mode1 / mode2 = both|lowpass|vca; pulse a cv for a pluck (after Buchla 292) |
+| **highpass** | 1 | in, cutoff, res | out | — | resonant 2-pole highpass at nature x 120 Hz (after the Doepfer A-100 filters) |
+| **attenuverter** | 0 | in, amount, offset | out | — | attenuverter and offset: in x amount (-1..1) + offset (after Doepfer A-183-2) |
+| **sineshaper** | 0 | in, drive | out | — | sine waveshaper: a triangle in becomes a sine; drive folds it further (after Serge waveshapers) |
+| **minmax** | 0 | a, b | max, min | — | the higher and the lower of two signals (after Serge Peak & Trough) |
+| **cvprocessor** | 0 | a, b, offset, time | out | — | control voltage processor: sums a, b and an offset, then lags it by time (after Buchla 156) |
+| **slew** | 0 | in, rise, fall | out | shape=lin / exp | slew limiter with separate rise and fall; shape=lin|exp (after Doepfer A-170) |
+| **dualprocessor** | 0 | in1, rate1, in2, rate2 | out1, out2 | mode1=lag / slew, mode2=lag / slew | two voltage-controlled lag / slew processors: smooth control voltages, or a gentle lowpass on audio (rate 0..1 is 20 Hz-20 kHz); mode1 / mode2 = lag|slew (after the Serge Dual Processor) |
 
 ## Spaces
 
-| place | nature | in | out | what it is |
-|---|---|---|---|---|
-| **tunnel** | 2 | in, pitch, decay | out | tubular acoustics: a comb tuned to nature x 60 Hz. Pulses pluck it |
-| **hallway** | 6 | in, length, feedback | out | the long grey hallway: a delay, nature x 50 ms long |
-| **warehouse** | 2 | in, size | out, l, r | a big room with wooden floors: reverb |
-| **moss** | 1 | in, bloom | out | golden moss in a night pond: grains of what you plant, or of itself |
-| **cabin** | 2 | in, decay | out | the cabin: a spring reverb, chirp and boing (after the Accutronics springs in the Buchla, VCS3 and ARP 2600) |
-| **hotel** | 1 | in, decay, damp | out, l, r | the empty hotel: a plate reverb, two figure-eight tanks (after Jon Dattorro's plate; the EMT 140) |
-| **balcony** | 6 | in, length, feedback | l, r | the party on the balcony: echoes that cross from ear to ear, nature x 25 ms (after ping-pong delays) |
-| **dub** | 3 | in, time, feedback, wow | out, wet | dub echoes of the steaming train horn: a warm, wobbling tape echo, nature x 100 ms (after the Roland Space Echo; Echoplex; Serge's Wilson delay) |
-| **memories** | 1 | in, hold, length | out | the rooms are memories: hold to freeze the last moment and stay inside it, nature x 250 ms (after Mutable Clouds' freeze) |
-| **wires** | 2 | in, pitch, decay, chord | out | copper wiring in the plexiglass sculpture: four sympathetic strings tuned to a chord (after Mutable Rings; Fish's zither; sitar drones) |
-| **persona** | 1 | in, shift | out | a morphing persona: moves the pitch, in octaves, without changing the time (after Eventide's H910) |
-| **steam** | 1 | in, amount | out | steam off the train: smears a sound in time without an echo (after Schroeder's allpass diffusers) |
+| place | nature | in | out | switches | what it is |
+|---|---|---|---|---|---|
+| **comb** | 2 | in, pitch, decay | out | — | comb filter tuned to nature x 60 Hz; pulses pluck it |
+| **delay** | 6 | in, time, feedback | out | — | delay, nature x 50 ms long; time scales it |
+| **reverb** | 2 | in, size | out, l, r | — | stereo room reverb |
+| **granular** | 1 | in, density | out | — | granular: grains of what you patch in, or of its own buffer |
+| **spring** | 2 | in, decay | out | — | spring reverb |
+| **plate** | 1 | in, decay, damp | out, l, r | — | plate reverb (after Dattorro) |
+| **pingpong** | 6 | in, time, feedback | l, r | — | ping-pong delay, nature x 25 ms |
+| **tapeecho** | 3 | in, time, feedback, wow | out, wet | — | tape echo with wow, nature x 100 ms (after Roland Space Echo) |
+| **freeze** | 1 | in, hold, length | out | — | freeze: hold loops the last nature x 250 ms |
+| **sympathetic** | 2 | in, pitch, decay, chord | out | — | four sympathetic strings tuned to a chord |
+| **pitchshift** | 1 | in, shift | out | — | pitch shifter, shift in octaves |
+| **diffuser** | 1 | in, amount | out | — | allpass diffuser: smears in time without echoes |
 
 ## Currents
 
-| place | nature | in | out | what it is |
-|---|---|---|---|---|
-| **stairs** | 1 | in, start, rise, fall | out, end | the spiral staircase (universal slope): rises and falls when started, follows otherwise; end into start cycles |
-| **jakes** | 1 | rate, follow | out | they look like people but aren't: smooth wandering random, or an imitation of follow |
-| **connors** | 1 | clock | out, pulse | stepped random, new on each clock pulse (or nature / 2 times a second on its own) |
-| **escalator** | 1 | in, clock, glide | out | smooth & stepped: holds the input on each pulse and glides to it |
-| **train** | 8 | next, back, reset | out, pulse, step | the train and its stations (semitones): the train route is train 8: 0 3 7 10 |
-| **pufferfish** | 1 | in | out, pulse | plays quantized notes: just major, just minor, pentatonic, otonal, utonal (nature 1-5) |
-| **cat** | 1 | in, learn | out | learns a gesture while learn is held, then mirrors it back, over and over (up to 8 s) |
-| **magician** | 1 | in, shush | out, trance | shushes the sound when shush is loud; trance is a slow swing |
-| **bottle** | 0 | — | out | a kept value: bottle 40 is 0.40 |
-| **sleep** | 1 | gate, attack, decay, sustain, release | out, end | falling asleep and waking: attack, decay, sustain, release while the gate is held (after ARP and Moog envelopes; Buchla 281) |
-| **moon** | 1 | rate, reset | sine, tri, saw, square | the moon over the night: an LFO, four shapes, 0 to 1 (after Doepfer's A-145) |
-| **tram** | 4 | rate, reset | beat, eighth, half, bar | the aboveground tram: a clock from 40 to 320 bpm, nature beats to the bar (after Pamela's Workout; Tempi) |
-| **floors** | 8 | clock, reset | d2, d3, d4, dn | the elevator's floors: a clock divided by 2, 3, 4 and by its nature (after Doepfer's A-160) |
-| **maze** | 16 | clock, hits, rotate, reset | hit, miss, step | the endless underground maze: Euclidean rhythms over nature steps (after Toussaint; Euclidean sequencers) |
-| **crossroads** | 1 | in, chance | a, b | tight turns on the estate: each pulse goes to a or b by chance (after Mutable Branches) |
-| **notebook** | 16 | clock, change | out, pulse | the pink notebook: a looping pattern that slowly rewrites itself; nature is its length (after Music Thing's Turing Machine) |
-| **party** | 1 | clock, x, y, density, reset | kick, snare, hat, accent | the house party you missed: kick, snare and hat patterns from a map; x and y move through it (after Mutable Grids) |
-| **fire** | 1 | trig, count, rate | out | the school hall on fire: one pulse becomes a burst (after burst generators; Nord Modular's ratchets) |
-| **insomniac** | 1 | clock, order | out, pulse | the insomniac lying awake: the logistic map, from order into chaos (after Robert May's logistic map) |
-| **hourglass** | 1 | rate, reset | ramp, wrap | sand running through: a ramp from 0 to 1, slow or as fast as sound (after Max/MSP and Pd's phasor~) |
-| **waitingroom** | 1 | in, time | out | waiting to be called: each pulse, again, later (after Doepfer's A-162 trigger delay) |
-| **concierge** | 4 | in1, in2, in3, in4, next, reset | out, step | the hotel concierge: steps between up to four things on each pulse (after Doepfer's A-151; Buchla sequential switches) |
-| **lilypads** | 30 | clock, seed | alive, pulse, cells | lily pads on the flooded street: a cellular automaton, nature is the rule (30, 90, 110...); pulse when the middle pad is alive (after Wolfram) |
-| **wander** | 1 | step, clock | out | wandering the empty school: a random walk that turns back at the walls (after the Wogglebug; Buchla 266) |
+| place | nature | in | out | switches | what it is |
+|---|---|---|---|---|---|
+| **slope** | 1 | in, trig, rise, fall | out, end | cycle=off / on, range=lfo / audio, curve=lin / exp / log | slope / function generator: rises and falls when triggered, follows in otherwise; end into trig cycles (after Serge DUSG) |
+| **smoothrandom** | 1 | rate, follow | out | — | smooth random voltage; with follow patched, it wanders around that instead |
+| **steprandom** | 1 | clock | out, pulse | — | stepped random, a new value on each clock pulse (or nature / 2 times a second on its own) |
+| **glide** | 1 | in, clock, time | out | — | sample & hold with glide: holds in on each clock pulse and slides to it (after Serge Smooth & Stepped) |
+| **seq** | 8 | next, back, reset | out, pulse, step | — | step sequencer of semitones: seq 8: 0 3 7 10 |
+| **quantizer** | 1 | in, root | out, pulse | scale=nature / justmajor / justminor / justpentatonic / otonal / utonal / chromatic / major / minor / dorian / phrygian / lydian / mixolydian / locrian / harmonicminor / melodicminor / majorpentatonic / minorpentatonic / blues / wholetone / diminished / quartertone / tet19 / tet22 / tet31 / tet53 / bohlenpierce / alpha / beta / gamma / slendro / pelog / rast / bayati / partch / justchromatic / pythagorean / meantone / werckmeister | pitch quantizer (octaves in, root transposes); the scale is the nature or scale=: 1 just major, 2 just minor, 3 just pentatonic, 4 otonal 8-15, 5 utonal, 6 chromatic, 7 major, 8 minor, 9 dorian, 10 phrygian, 11 lydian, 12 mixolydian, 13 locrian, 14 harmonic minor, 15 melodic minor, 16 major pentatonic, 17 minor pentatonic, 18 blues, 19 whole tone, 20 diminished, 21 quarter tones (24-TET), 22 19-TET, 23 22-TET, 24 31-TET, 25 53-TET, 26 Bohlen-Pierce, 27-29 Carlos alpha / beta / gamma, 30 slendro, 31 pelog, 32 maqam rast, 33 maqam bayati, 34 Partch 43, 35 just chromatic, 36 Pythagorean, 37 quarter-comma meantone, 38 Werckmeister III |
+| **gesture** | 1 | in, record | out | — | gesture recorder: records in while record is held, then loops it (up to 8 s) |
+| **ducker** | 1 | in, side | out, lfo | — | ducker: turns in down when side is loud; lfo is a slow sine |
+| **value** | 0 | — | out | — | a fixed value: value 40 is 0.40 |
+| **adsr** | 1 | gate, attack, decay, sustain, release | out, end | — | ADSR envelope |
+| **lfo** | 1 | rate, reset | sine, tri, saw, square | range=lfo / audio | LFO, four shapes, 0 to 1 (after Doepfer A-145) |
+| **clock** | 4 | rate, reset | beat, eighth, half, bar | — | clock, 40 to 320 bpm, nature beats to the bar |
+| **divider** | 8 | clock, reset | d2, d3, d4, dn | — | clock divider by 2, 3, 4 and by nature (after Doepfer A-160) |
+| **euclid** | 16 | clock, hits, rotate, reset | hit, miss, step | — | Euclidean rhythm over nature steps |
+| **bernoulli** | 1 | in, chance | a, b | — | Bernoulli gate: each pulse goes to a or b by chance (after Mutable Branches) |
+| **turing** | 16 | clock, change | out, pulse | — | looping random shift register that slowly rewrites itself; nature is its length (after Music Thing Turing Machine) |
+| **drummap** | 1 | clock, x, y, density, reset | kick, snare, hat, accent | — | drum pattern map, x and y move through it (after Mutable Grids) |
+| **burst** | 1 | trig, count, rate | out | — | burst generator: one pulse becomes several |
+| **logistic** | 1 | clock, chaos | out, pulse | — | logistic map, from order into chaos |
+| **phasor** | 1 | rate, reset | ramp, wrap | — | phasor: a 0 to 1 ramp, slow or audio rate |
+| **trigdelay** | 1 | in, time | out | — | trigger delay (after Doepfer A-162) |
+| **switch** | 4 | in1, in2, in3, in4, next, reset | out, step | — | sequential switch over up to four inputs (after Doepfer A-151) |
+| **automaton** | 30 | clock, seed | alive, pulse, cells | — | elementary cellular automaton, nature is the rule (30, 90, 110...) |
+| **randomwalk** | 1 | step, clock | out | — | random walk that turns back at the walls (after the Wogglebug) |
+| **pulser** | 2 | rate, trig | out, ramp | — | timing pulse generator: a pulse every period (nature / 2 per second, rate +-8 octaves); trig fires it now (after Buchla 140) |
+| **dusg** | 0 | in1, trig1, rise1, fall1, in2, trig2, rise2, fall2 | out1, end1, out2, end2 | cycle1=off / on, cycle2=off / on, range=lfo / audio, curve=lin / exp / log | dual universal slope generator: two slopes, each an envelope, LFO, audio oscillator, slew or lowpass; cycle1 / cycle2 = off|on, range=lfo|audio, curve=lin|exp|log (after the Serge DUSG) |
+| **ad** | 0 | trig, attack, decay | out, end | loop=off / on, range=lfo / audio, curve=exp / lin | attack / decay envelope; loop=off|on, range=lfo|audio, curve=exp|lin (after Buchla 180; Doepfer A-142) |
+| **ar** | 0 | gate, attack, release | out | curve=exp / lin | attack / release envelope, held while the gate is; curve=exp|lin (after Doepfer A-141) |
+| **decay** | 0 | trig, decay | out | curve=exp / lin | percussive envelope: jumps to 1 on a pulse and dies away; curve=exp|lin |
+| **stepseq** | 8 | clock, reset, s1, s2, s3, s4, s5, s6, s7, s8 | out, gate, step | dir=forward / backward / pingpong / random | eight-stage sequencer: patch values or faders into s1-s8; nature is the length; dir=forward|backward|pingpong|random (after Buchla 123; Doepfer A-155) |
+| **flipflop** | 0 | clock, reset | out, inverse | — | toggle flip-flop: flips on each clock pulse (after Doepfer and Serge logic) |
+| **trigger** | 0 | in | out | length=2 | gate to trigger: a pulse on each rising edge; length=2 (ms) (after Doepfer A-162) |
 
 ## Hands (the SP-1's controls)
 
-| place | nature | in | out | what it is |
-|---|---|---|---|---|
-| **lean** | 1 | — | out | faders: lean1 - lean4, 0 to 1 |
-| **door** | 1 | — | out | track buttons: door1 - door4, 1 while held |
-| **lift** | 0 | — | out, up, down | the rocker: out is -1, 0 or 1; up and down pulse |
-| **wake** | 0 | — | out | PLAY, 1 while held |
-| **lucid** | 0 | — | out | the dots button, 1 while held |
+| place | nature | in | out | switches | what it is |
+|---|---|---|---|---|---|
+| **fader** | 1 | — | out | — | faders: fader1 - fader4, 0 to 1 |
+| **button** | 1 | — | out | — | track buttons: button1 - button4, 1 while held |
+| **rocker** | 0 | — | out, up, down | — | the rocker: out is -1, 0 or 1; up and down pulse |
+| **play** | 0 | — | out | — | PLAY, 1 while held |
+| **dots** | 0 | — | out | — | the dots button, 1 while held |
 
-## Ears (where things leave)
+## Ears (outputs, LEDs, scenes)
 
-| place | nature | in | out | what it is |
-|---|---|---|---|---|
-| **left** | 0 | in | — | left ear |
-| **right** | 0 | in | — | right ear |
-| **ears** | 0 | in | — | both ears |
-| **lamp** | 0 | in, track, play | out | the eight LEDs: sound lights both rows as a bar; track and play light one row each |
-| **journey** | 0 | next, back, miss | — | rides to the next or last scene on a pulse; miss is the chance of the wrong stop |
+| place | nature | in | out | switches | what it is |
+|---|---|---|---|---|---|
+| **left** | 0 | in | — | — | left output |
+| **right** | 0 | in | — | — | right output |
+| **out** | 0 | in | — | — | both outputs |
+| **leds** | 0 | in, track, play | out | — | the eight LEDs: sound lights both rows as a bar; track and play light one row each |
+| **scene** | 0 | next, back, miss | — | — | goes to the next or previous scene on a pulse; miss is the chance of landing on a random one |

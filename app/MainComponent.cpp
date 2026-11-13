@@ -299,7 +299,7 @@ void MainComponent::paint (Graphics& g)
     bar1 (m.removeFromLeft (w - 8), "memory " + String (roundToInt (100.0f * (float) doc.poolUsed / (float) doc.poolTotal)) + "%",
           (float) doc.poolUsed / (float) doc.poolTotal, art::copper);
     m.removeFromLeft (8);
-    bar1 (m, "ears", host.level, art::gold);
+    bar1 (m, "out", host.level, art::gold);
 
     g.setColour (Colour (0xfff2ede0));
     g.fillRect (statusArea);
@@ -338,7 +338,7 @@ void MainComponent::newDream()
     askToKeepChanges ([this]
     {
         auto today = Time::getCurrentTime().formatted ("%Y-%m-%d");
-        doc.text = "; a new dream\n\n" + today + "\n----------\nthe voice is aira 3\nvoice -> ears\n";
+        doc.text = "; a new dream\n\n" + today + "\n----------\nthe voice is sine 3\nvoice -> out\n";
         doc.file = File();
         nights = 0;
         journal.setText (doc.text);
@@ -439,7 +439,7 @@ void MainComponent::addScene()
     // before the map, at the end of the dreams
     int at = ls.size();
     while (at > 0 && (ls[at - 1].startsWith (";@") || ls[at - 1].trim().isEmpty())) --at;
-    StringArray add { "", today, String::repeatedString ("-", today.length()), "the voice is aira 4", "voice -> ears" };
+    StringArray add { "", today, String::repeatedString ("-", today.length()), "the voice is sine 4", "voice -> out" };
     if (doc.sceneSpans().front().header < 0)   // the first date: the old page becomes a scene too
     {
         ls.insert (0, "-----");

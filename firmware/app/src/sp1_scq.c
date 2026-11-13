@@ -1,10 +1,10 @@
 /*
  * Sleepcousonique on the SP-1. See sp1_scq.h.
  *
- * Controls:   F1-F4 lean1-lean4        T1-T4 door1-door4
- *             FFWD / RWD lift +1 / -1  PLAY wake          •• lucid
+ * Controls:   F1-F4 fader1-fader4      T1-T4 button1-button4
+ *             FFWD / RWD rocker +1 / -1  PLAY play        •• dots
  *             VOL +/-  volume          •• + VOL +/-  next / previous dream slot
- *             •• + FFWD / RWD  next / previous scene (the rocker never reaches lift then)
+ *             •• + FFWD / RWD  next / previous scene (the rocker never reaches the dream then)
  * USB serial: "SCQ HELLO"  -> "SLEEPCOUSONIQUE <version>"
  *             "SCQ LOAD <bytes> <slot>" + bytes  -> "OK <errors>" / "ERR <why>"
  *             "SCQ SLOT <n>"  -> plays slot n

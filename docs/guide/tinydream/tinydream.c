@@ -13,7 +13,7 @@
  *   the voice is sine 3          a place with a nature (sine 3 = 3 x 60 Hz)
  *   the slow is sine 0.005       (a slow sine is an LFO)
  *   slow -30> voice.pitch        a passage: 30% of slow into voice's pitch inlet
- *   voice -> fold -> ears        chains; unknown place words make themselves
+ *   voice -> fold -> out         chains; unknown place words make themselves
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -79,14 +79,14 @@ static void run_lowpass(Node *n, const float *in)
 	n->out[0] = n->state[0];
 }
 
-static void run_ears(Node *n, const float *in) { n->out[0] = in[0]; }
+static void run_out(Node *n, const float *in) { n->out[0] = in[0]; }
 
 static const Place PLACES[] = {
 	{ "sine",    { "pitch", "fm", NULL },  { 0, 0 },    1, run_sine },
 	{ "saw",     { "pitch", NULL },        { 0 },       1, run_saw },
 	{ "fold",    { "in", "amount", NULL }, { 0, 0 },    1, run_fold },
 	{ "lowpass", { "in", "cut", NULL },    { 0, 3 },    1, run_lowpass },
-	{ "ears",    { "in", NULL },           { 0 },       0, run_ears },
+	{ "out",     { "in", NULL },           { 0 },       0, run_out },
 };
 #define NPLACES ((int)(sizeof PLACES / sizeof PLACES[0]))
 
@@ -225,7 +225,7 @@ static float tick(void)
 			}
 		for (int p = 0; p < n->nin; p++) if (!patched[p]) in[p] = n->place->defs[p];
 		n->place->run(n, in);
-		if (n->place->run == run_ears) ears += n->out[0];
+		if (n->place->run == run_out) ears += n->out[0];
 	}
 	return tanhf(ears);
 }

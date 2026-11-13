@@ -18,15 +18,15 @@ doesn't read the SP-1's own storage at all.
 It is built from four things:
 
 - **The dream journal** (femishonuga.com/dd.html and the LBSE wiki). Patches are written as
-  dated entries. The modules are the places, things and creatures that recur in the dreams:
-  the fountain labeled aira, long hallways, the warehouse, the train, golden moss, frogs, the
-  magician, the Jakes and the Connors.
-- **Peter Blasser's Nabra**, the knobless tapestry synthesizer. Nothing has knobs. Every
-  place has a fixed nature, and you change it only by patching something into it. Cords
+  dated entries. The modules (places) have plain names for what they are: `vco`, `lowpass`,
+  `adsr`, `dusg`, `delay`, `quantizer`.
+- **Peter Blasser's Nabra**, the knobless tapestry synthesizer. There are no knobs. Every
+  place has a fixed nature and maybe a few switches, set in the journal; everything else
+  changes only by patching something into it. Cords
   carry parts: a resistor, a capacitor or a diode.
 - **Buchla and Serge.** From Buchla come three kinds of signal (sound, current and pulse),
   timbre before filtering, and the lowpass gate. From Serge come any signal into any inlet,
-  stacked cords that add, and the universal slope (`stairs`).
+  stacked cords that add, and the universal slope (`slope`, `dusg`).
 - **The Nord Modular editor.** You patch on screen and hear it live, with morph groups
   (here, *lucid* groups), a load meter, and patches sent to the hardware.
 
@@ -71,8 +71,9 @@ outlets the loops on the right. The dot in an outlet's loop shows what kind of s
 out: **umber** for sound, **deep blue** for current, **gold** for pulses.
 
 Two grey boards are always there. **SP-1 hands** on the left holds the faders, buttons, rocker,
-PLAY and the dots. **SP-1 ears** on the right holds where sound leaves, the eight LEDs (the
-*lamp*, lit live on the board) and the *journey* between scenes.
+PLAY and the dots. **SP-1** on the right holds the outputs, the eight LEDs (`leds`, lit live on
+the board) and `scene` changes. Right-click a place to set its switches (a DUSG's cycle and
+range, a quantizer's scale); the journal line changes with it.
 
 | to | do this |
 |---|---|
@@ -81,7 +82,7 @@ PLAY and the dots. **SP-1 ears** on the right holds where sound leaves, the eigh
 | choose the cord's part | the **-> hall / ~> fog / => water / >\| door** buttons choose the part for new cords |
 | change a cord | right-click it: change its part, its amount, show it in the journal, or remove it |
 | set a cord's amount | double-click it |
-| change a kept value | drag a value tag (the little white bottle by an inlet) up or down; hold shift for fine steps. The sound follows as you drag |
+| change a kept value | drag a value tag (the little white tag by an inlet) up or down; hold shift for fine steps. The sound follows as you drag |
 | move boards | drag them; shift-click to pick several |
 | remove | select a board or cord and press delete |
 | copy as text | ⌘C copies the selected boards and the cords between them *as journal text* |
@@ -99,13 +100,13 @@ ignores them.
 
 Along the bottom is a stand-in for the SP-1:
 
-- **four faders** (`lean1`–`lean4`), each with a copper loop. Drag the loop onto any inlet on
+- **four faders** (`fader1`–`fader4`), each with a copper loop. Drag the loop onto any inlet on
   the tapestry to map that fader there.
-- **four track buttons** (`door1`–`door4`), held while the mouse is down.
-- **the rocker** (`lift ^` / `lift v`), **PLAY** (`wake`) and **the dots** (`lucid`).
-- **the eight LEDs**, showing what the lamp is doing.
+- **four track buttons** (`button1`–`button4`), held while the mouse is down.
+- **the rocker** (`rocker ^` / `rocker v`), **PLAY** (`play`) and **the dots** (`dots`).
+- **the eight LEDs**, showing what `leds` is doing.
 - **what your hands do in this scene:** every control, and every inlet the playing scene
-  sends it to (for example `lean1  hall.feedback, voice.index`). This is your performance map
+  sends it to (for example `fader1  hall.feedback, voice.index`). This is your performance map
   for the SP-1. Click a row to find that mapping in the journal. A dash means the control
   does nothing in this scene.
 
@@ -124,9 +125,9 @@ scene.
 Every dated heading in the journal is a scene, and each scene is its own patch. The scene
 buttons under the toolbar switch between them. On the SP-1, and on the hands panel, hold the
 dots and press the rocker (**•• + FFWD / RWD**, or `.` + ↑ / ↓ on the keyboard). The rocker on
-its own is always `lift`, free to patch. **+ scene** adds today's date as a new scene. A
-patch can also travel by itself: anything sent into `journey.next` or `journey.back` changes
-scene, and `journey.miss` is the chance of getting off at the wrong stop.
+its own is always `rocker`, free to patch. **+ scene** adds today's date as a new scene. A
+patch can also change scene by itself: anything sent into `scene.next` or `scene.back` changes
+scene, and `scene.miss` is the chance of landing on a random one.
 
 ## The meters
 
@@ -138,7 +139,7 @@ scene, and `journey.miss` is the chance of getting off at the wrong stop.
   reverbs, choruses and the vocoder cost the most.
 - **memory:** how much of the SP-1's 80 KB of room for delays, grains and gestures the
   scene uses.
-- **ears:** the level coming out.
+- **out:** the level coming out.
 
 What fits these meters plays on the SP-1 as it plays here, because the computer runs the
 same engine code the SP-1 runs.

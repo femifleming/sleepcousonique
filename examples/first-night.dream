@@ -1,47 +1,47 @@
 ; first night — a tour of Sleepcousonique
-; faders lean1-lean4, track buttons door1-door4, the rocker is lift, PLAY is wake
+; faders fader1-fader4, track buttons button1-button4, the rocker is rocker, PLAY is play, •• is dots
 ; change scene: hold the dots and press the rocker (•• + FFWD / RWD)
 drift 3
 
 2026-11-13
 ----------
 ; a fountain, a fold, a lamp on a photocell
-the voice is twin 3
-the peaks are mountains
-the window is window
-the stairs are stairs
-the dice are connors 2
+the voice is crossfm 3
+the peaks are folder
+the window is lpg
+the stairs are slope
+the dice are steprandom 2
 
-stairs.end -> stairs.start          ; the staircase climbs forever
-stairs.end >| window.light          ; each landing pings the window: bongo
+stairs.end -> stairs.trig          ; the staircase climbs forever
+stairs.end >| window.level          ; each landing pings the window: bongo
 dice => peaks.fold                  ; random folding, through water
-lean1 -> voice.index
-lean2 -> stairs.rise stairs.fall
-voice -> peaks -> window -> ears lamp
+fader1 -> voice.index
+fader2 -> stairs.rise stairs.fall
+voice -> peaks -> window -> out leds
 
 2026-10-08
 ----------
 ; the train over clear water between dark umber mountains
-the route is train 8: 0 7 12 15 12 7 3 -5
-the clock is stairs
+the route is seq 8: 0 7 12 15 12 7 3 -5
+the tick is slope
 the bell is bell 2
-the voice is aira 2
-the hall is hallway 9
+the voice is sine 2
+the hall is delay 9
 
-clock.end -> clock.start route.next
-clock.end >| bell.strike
+tick.end -> tick.trig route.next
+tick.end >| bell.strike
 route ~70> voice.pitch
 voice bell -> hall
-hall -> ears
-lean1 -> hall.feedback
-lean2 -> clock.fall
+hall -> out
+fader1 -> hall.feedback
+fader2 -> tick.fall
 
 2026-02-07
 ----------
-; a golden square of moss in a night pond; lean1 makes it bloom
-the moss is moss 2
-the night is warehouse 3
+; a golden square of moss in a night pond; fader1 makes it bloom
+the moss is granular 2
+the night is reverb 3
 
-lean1 -> moss.bloom
-moss -> night -> ears
-frog4 ~40> night
+fader1 -> moss.density
+moss -> night -> out
+frogs4 ~40> night

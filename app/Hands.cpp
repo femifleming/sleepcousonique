@@ -6,12 +6,12 @@ using namespace juce;
 
 Hands::Hands (Host& h) : host (h)
 {
-    for (int i = 0; i < 4; ++i) items.push_back ({ "lean" + String (i + 1), SCQ_CTL_LEAN1 + i, {}, {}, true, 0.5f });
-    for (int i = 0; i < 4; ++i) items.push_back ({ "door" + String (i + 1), SCQ_CTL_DOOR1 + i, {}, {}, false });
-    items.push_back ({ "lift.up", SCQ_CTL_LIFT, {}, {}, false, 1 });
-    items.push_back ({ "lift.down", SCQ_CTL_LIFT, {}, {}, false, -1 });
-    items.push_back ({ "wake", SCQ_CTL_WAKE, {}, {}, false });
-    items.push_back ({ "lucid", SCQ_CTL_LUCID, {}, {}, false });
+    for (int i = 0; i < 4; ++i) items.push_back ({ "fader" + String (i + 1), SCQ_CTL_LEAN1 + i, {}, {}, true, 0.5f });
+    for (int i = 0; i < 4; ++i) items.push_back ({ "button" + String (i + 1), SCQ_CTL_DOOR1 + i, {}, {}, false });
+    items.push_back ({ "rocker.up", SCQ_CTL_LIFT, {}, {}, false, 1 });
+    items.push_back ({ "rocker.down", SCQ_CTL_LIFT, {}, {}, false, -1 });
+    items.push_back ({ "play", SCQ_CTL_WAKE, {}, {}, false });
+    items.push_back ({ "dots", SCQ_CTL_LUCID, {}, {}, false });
     for (int i = 0; i < 4; ++i) host.control (SCQ_CTL_LEAN1 + i, 0.5f);
     startTimerHz (30);
 }
@@ -97,14 +97,14 @@ void Hands::paint (Graphics& g)
         }
         else
         {
-            static const int hwBit[] = { 0, 1, 2, 3, 6, 7, 4, 5 };   // doors, lift up/down, wake, lucid
+            static const int hwBit[] = { 0, 1, 2, 3, 6, 7, 4, 5 };   // buttons, rocker up/down, play, dots
             bool down = it.mouse || keyHeld[i - 4] || (live && ((hwButtons >> hwBit[i - 4]) & 1u));
             auto r = it.r;
             g.setColour (Colour (0x40000000)); g.fillRoundedRectangle (r.translated (0, 2), 5);
             g.setColour (down ? Colour (0xffb8b4a8) : Colour (0xfff4f2ec)); g.fillRoundedRectangle (r, 5);
             g.setColour (Colour (0x55000000)); g.drawRoundedRectangle (r, 5, 1);
             g.setColour (art::ink);
-            String label = it.name == "lift.up" ? String ("lift  ^") : it.name == "lift.down" ? String ("lift  v") : it.name == "lucid" ? String::fromUTF8 ("lucid  \xe2\x80\xa2\xe2\x80\xa2") : it.name == "wake" ? String ("wake  PLAY") : it.name;
+            String label = it.name == "rocker.up" ? String ("up  ^") : it.name == "rocker.down" ? String ("down  v") : it.name == "dots" ? String::fromUTF8 ("dots  \xe2\x80\xa2\xe2\x80\xa2") : it.name == "play" ? String ("PLAY") : it.name;
             g.drawText (label, r, Justification::centred);
         }
     }
@@ -124,8 +124,8 @@ void Hands::paint (Graphics& g)
         g.setFont (art::hand (13));
         g.setColour (art::umber);
     }
-    static const char* controls[] = { "lean1", "lean2", "lean3", "lean4", "door1", "door2", "door3", "door4",
-                                      "lift", "lift.up", "lift.down", "wake", "lucid" };
+    static const char* controls[] = { "fader1", "fader2", "fader3", "fader4", "button1", "button2", "button3", "button4",
+                                      "rocker", "rocker.up", "rocker.down", "play", "dots" };
     const float rowH = jmax (11.0f, jmin (15.0f, (area.getHeight() - 2) / 7.0f));
     auto colW = area.getWidth() / 2;
     int n = 0;

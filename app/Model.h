@@ -11,8 +11,16 @@ enum Family { Source, Shape, Space, Current, Hands, Ears };
 enum Kind { Hall, Fog, Water, Door, Range, Bottle };
 enum Signal { Sound, Flow, Pulse };   // umber, deep blue, gold
 
+struct OptSpec          // a switch (its positions; the first is the default) or a numeric param
+{
+    juce::String name;
+    juce::StringArray positions;   // empty for a param
+    juce::String def;
+};
+
 struct PlaceInfo
 {
+    std::vector<OptSpec> opts;
     juce::String name, help;
     Family family = Source;
     int cost = 0;
@@ -26,6 +34,7 @@ struct NodeInfo
     juce::String place, name;
     float nature = 1;
     int line = 0;
+    std::map<juce::String, juce::String> opts;   // switches and params written in the dream
 };
 
 struct CordInfo
@@ -79,6 +88,7 @@ public:
     void addLine (const juce::String& line);                   // at the end of the playing scene
     void addLines (const juce::StringArray& lines);
     juce::String addPlace (const juce::String& place);         // returns the new name
+    void setOption (int id, const juce::String& key, const juce::String& value);   // a switch or param
     void addCord (int src, int sport, int dst, int dport, Kind);
     void addControl (const juce::String& control, int dst, int dport);
     void removeCord (int cordIndex);
