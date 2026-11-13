@@ -1,5 +1,12 @@
 # 3. The SP-1
 
+## Patch here, perform there
+
+This is the Shnth idea. You build a patch in the editor and decide what every fader and
+button does by patching it. You send it over USB once, then unplug: the SP-1 runs the patch
+on its own, from battery, through its speaker or headphones. Nothing on the device needs the
+computer after that. It turns on into the dream it was playing last.
+
 ## What runs on it
 
 The Sleepcousonique firmware keeps the hardware layer of **Wakes** (Worldwave's SP-1
@@ -10,15 +17,16 @@ the same C code the editor runs.
 
 ## Installing
 
-1. Build or download `sleepcousonique-sp1.bin` (see *Building*, below).
+1. Take `firmware/dist/sleepcousonique-sp1.bin` (124 KB), or build it yourself (see *Building*, below).
 2. Open the **Solderless** updater (solderless.engineering) in Chrome or Edge and connect the
    SP-1.
 3. Follow its steps to flash the `.bin`. If the SP-1 ever needs rescuing, hold **T1 + T4**
    while plugging in USB: that is the bootloader's recovery entry, and nothing here
    touches the bootloader.
 
-> **Not yet run on a real SP-1.** The firmware builds, and the engine is the one tested in the
-> editor, but nobody has flashed this image onto a device yet. Treat the first flash as a
+> **Not yet run on a real SP-1.** The firmware builds (124 KB of flash, 182 KB of the 256 KB
+> RAM), and the engine is the one tested in the editor, but nobody has flashed this image
+> onto a device yet. Treat the first flash as a
 > test. Keep the Wakes or tape-looper `.bin` nearby so you can go back.
 
 ## Playing it
@@ -57,11 +65,6 @@ that count, so a dream really does wander from night to night.
 Saving a dream pauses the processor for a fraction of a second, so expect a short gap in the
 sound when one arrives. Flashing new firmware may wipe the slots, so keep your `.dream`
 files.
-
-## Stems
-
-`stem1`–`stem4` play in the editor from the sound files you load. On the SP-1, playing stems
-from its eMMC storage is not written yet, and a `stem` there is silent for now.
 
 ## Building
 

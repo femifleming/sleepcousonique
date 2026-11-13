@@ -113,6 +113,32 @@ MainComponent::MainComponent()
     tapestry.onShowLine = [this] (int line) { if (view == 2) setView (1); journal.showLine (line); };
     hands.typing = [this] { return journal.editorHasFocus(); };
     hands.onStatus = [this] (const String& s) { status (s); };
+    hands.mappingFor = [this] (const String& control)
+    {
+        // every cord leaving this control in the playing scene, as the journal names its end
+        StringArray to;
+        auto name = control.upToFirstOccurrenceOf (".", false, false);
+        auto port = control.fromFirstOccurrenceOf (".", false, false);
+        auto* n = doc.nodeNamed (name);
+        auto* p = n ? scq::findPlace (n->place) : nullptr;
+        if (! p) return to;
+        int sport = port.isEmpty() ? 0 : p->outs.indexOf (port);
+        for (auto& c : doc.cords)
+            if (c.src == n->id && c.sport == sport)
+                if (auto* dn = doc.node (c.dst))
+                    if (auto* dp = scq::findPlace (dn->place))
+                        to.addIfNotAlreadyThere (dn->name + (c.dport > 0 || (dp->family >= scq::Hands && dp->ins.size() > 1) ? "." + dp->ins[c.dport] : String())
+                                                 + (c.kind == scq::Range ? " " + scq::fmt (c.amt) + ".." + scq::fmt (c.amt2) : String()));
+        return to;
+    };
+    hands.onShowControl = [this] (const String& control)
+    {
+        auto name = control.upToFirstOccurrenceOf (".", false, false);
+        if (auto* n = doc.nodeNamed (name))
+            for (auto& c : doc.cords)
+                if (c.src == n->id) { if (view == 2) setView (1); journal.showLine (c.line); return; }
+        status (control + " isn't patched in this scene: drag its loop onto an inlet, or write  " + control + " -> somewhere");
+    };
 
     setSize (1440, 900);
     // start with the first night

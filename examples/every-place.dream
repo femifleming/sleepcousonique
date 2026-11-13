@@ -17,7 +17,6 @@ elevator -> ears
 the bell is bell 1
 door1 -> bell.strike
 bell -> ears
-stem1 -> ears
 
 shapes
 ------

@@ -50,11 +50,9 @@ void Hands::resized()
     items[11].r = side.reduced (2, 4);
     for (int i = 8; i < 12; ++i) items[(size_t) i].loop = {};
 
-    // stems
+    // what the hands are patched to
     r.removeFromLeft (20);
-    float sh = jmin (28.0f, r.getHeight() / 4.5f);
-    r.removeFromTop (4);
-    for (int i = 0; i < 4; ++i) stemRects[(size_t) i] = r.removeFromTop (sh).reduced (0, 3).withWidth (jmin (r.getWidth(), 280.0f));
+    mapArea = r;
 }
 
 void Hands::paint (Graphics& g)
@@ -99,15 +97,28 @@ void Hands::paint (Graphics& g)
             g.drawText (label, r, Justification::centred);
         }
     }
-    g.setFont (art::mono (11));
-    for (int i = 0; i < 4; ++i)
+    // the map: every control, and where this scene sends it
+    mapRows.clear();
+    auto area = mapArea;
+    g.setColour (art::umber);
+    g.setFont (art::hand (13));
+    g.drawText ("what your hands do in this scene", area.removeFromTop (18), Justification::left);
+    static const char* controls[] = { "lean1", "lean2", "lean3", "lean4", "door1", "door2", "door3", "door4",
+                                      "lift", "lift.up", "lift.down", "wake", "lucid" };
+    const float rowH = jmax (11.0f, jmin (15.0f, (area.getHeight() - 2) / 7.0f));
+    auto colW = area.getWidth() / 2;
+    int n = 0;
+    g.setFont (art::mono (jmin (11.0f, rowH - 2)));
+    for (auto* c : controls)
     {
-        auto r = stemRects[(size_t) i];
-        g.setColour (Colour (0xfff4f2ec)); g.fillRoundedRectangle (r, 4);
-        g.setColour (Colour (0x44000000)); g.drawRoundedRectangle (r, 4, 1);
-        auto name = host.stemName (i);
-        g.setColour (name.isEmpty() ? Colour (0xff8a8578) : art::ink);
-        g.drawText ("stem" + String (i + 1) + "   " + (name.isEmpty() ? String ("(click to load a sound)") : name), r.reduced (8, 0), Justification::left);
+        auto to = mappingFor ? mappingFor (c) : StringArray();
+        auto row = Rectangle<float> (area.getX() + (float) (n / 7) * colW, area.getY() + (float) (n % 7) * rowH, colW - 8, rowH);
+        ++n;
+        g.setColour (to.isEmpty() ? Colour (0xff9a9488) : art::ink);
+        g.drawText (String (c).paddedRight (' ', 10), row.withWidth (78), Justification::left);
+        g.setColour (to.isEmpty() ? Colour (0xffb5afa2) : art::blue);
+        g.drawText (to.isEmpty() ? String ("-") : to.joinIntoString (", "), row.withTrimmedLeft (78), Justification::left, true);
+        mapRows.push_back ({ c, row });
     }
 }
 
@@ -135,20 +146,8 @@ void Hands::mouseDown (const MouseEvent& e)
             dnd->startDragging ("hand:" + items[(size_t) lp].name, this);
         return;
     }
-    for (int i = 0; i < 4; ++i)
-        if (stemRects[(size_t) i].contains (p))
-        {
-            chooser = std::make_unique<FileChooser> ("a sound for stem" + String (i + 1), File(), "*.wav;*.aif;*.aiff;*.flac;*.mp3;*.ogg");
-            chooser->launchAsync (FileBrowserComponent::openMode | FileBrowserComponent::canSelectFiles, [this, i] (const FileChooser& fc)
-            {
-                auto f = fc.getResult();
-                if (! f.existsAsFile()) return;
-                auto err = host.loadStem (i, f);
-                if (onStatus) onStatus (err.isEmpty() ? "stem" + String (i + 1) + " is " + f.getFileName() : err);
-                repaint();
-            });
-            return;
-        }
+    for (auto& [c, row] : mapRows)
+        if (row.contains (p)) { if (onShowControl) onShowControl (c); return; }
     dragging = itemAt (p);
     if (dragging < 0) return;
     auto& it = items[(size_t) dragging];

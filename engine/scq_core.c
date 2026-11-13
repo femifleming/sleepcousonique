@@ -671,14 +671,6 @@ float scq_probe(int node, int port)
 	return G.n[node].out[port][B - 1];
 }
 
-void scq_stem_bind(int slot, const int16_t *frames, uint32_t count)
-{
-	if (slot < 0 || slot > 3) return;
-	W.stem[slot] = 0;
-	W.stem_len[slot] = count;
-	W.stem[slot] = frames;
-}
-
 static void gather(node *n, int k, float in[MAX_IN][B])
 {
 	for (int p = 0; p < n->nin; p++) {

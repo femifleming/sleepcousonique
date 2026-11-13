@@ -129,7 +129,6 @@ Every place has a fixed *nature* (the number after its name). Nothing has knobs:
 | **frog** | 3 | wake, pitch | out, pulse | nature frogs (1-8) croaking on their own; a pulse into wake makes them all croak |
 | **elevator** | 1 | rate, pitch | out | the lift into the night sky: rises forever (rate in octaves per second, negative falls) |
 | **bell** | 1 | strike, pitch, decay | out | the cargo train's deep bell: four modes, struck by edges or by sound |
-| **stem** | 1 | speed, restart | out, l, r | one of the SP-1's four stems (stem1-stem4); speed in octaves |
 
 ## Shapes
 

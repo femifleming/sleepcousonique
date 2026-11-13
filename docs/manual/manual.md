@@ -7,6 +7,10 @@ lets you build a patch as text, as a tapestry of boards and cords, or both at on
 hear it straight away on your computer. Then you send it over USB to an SP-1 running the
 Sleepcousonique firmware, where the faders, buttons, rocker and LEDs play it.
 
+You patch the way you would patch a modular, and decide what each fader and button does by
+patching it, the way a Shbobo Shnth is programmed from Fish. Then you take the patch with you
+and perform on the SP-1 on its own, with its own audio out.
+
 It is built from four things:
 
 - **The dream journal** (femishonuga.com/dd.html and the LBSE wiki). Patches are written as
@@ -86,7 +90,7 @@ ignores them.
 
 ![The tapestry](fig/view2.png)
 
-## The hands panel
+## The hands panel: your mappings
 
 Along the bottom is a stand-in for the SP-1:
 
@@ -95,7 +99,10 @@ Along the bottom is a stand-in for the SP-1:
 - **four track buttons** (`door1`–`door4`), held while the mouse is down.
 - **the rocker** (`lift ^` / `lift v`), **PLAY** (`wake`) and **the dots** (`lucid`).
 - **the eight LEDs**, showing what the lamp is doing.
-- **four stem slots.** Click one to load a sound file. It plays through `stem1`–`stem4`.
+- **what your hands do in this scene:** every control, and every inlet the playing scene
+  sends it to (for example `lean1  hall.feedback, voice.index`). This is your performance map
+  for the SP-1. Click a row to find that mapping in the journal. A dash means the control
+  does nothing in this scene.
 
 When you are not typing in the journal, the computer keyboard plays the hands. **1–4** are
 the doors, **↑ ↓** the rocker, **space** is PLAY and **.** is the dots.

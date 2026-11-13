@@ -152,35 +152,6 @@ static void run_wind(node *n, float in[MAX_IN][B])
 	n->s[0] = ic1; n->s[1] = ic2; n->s[2] = wander; n->s[3] = wt; n->s[4] = pk;
 }
 
-/* stem — the SP-1's own stems. nature = slot 1-4 */
-static void run_stem(node *n, float in[MAX_IN][B])
-{
-	int slot = natural(n->nature, 1, 4) - 1;
-	const int16_t *d = W.stem[slot];
-	uint32_t len = W.stem_len[slot];
-	uint32_t pos = (uint32_t)n->s[0];
-	float frac = n->s[1];
-	if (!d || len < 2) {
-		LOOP { n->out[0][i] = n->out[1][i] = n->out[2][i] = 0.f; }
-		return;
-	}
-	LOOP {
-		if (edge(in[1][i], &n->s[2])) { pos = 0; frac = 0.f; }
-		uint32_t p2 = pos + 1 < len ? pos + 1 : 0;
-		float l = FROM16(d[pos * 2]) + (FROM16(d[p2 * 2]) - FROM16(d[pos * 2])) * frac;
-		float r = FROM16(d[pos * 2 + 1]) + (FROM16(d[p2 * 2 + 1]) - FROM16(d[pos * 2 + 1])) * frac;
-		n->out[0][i] = 0.5f * (l + r);
-		n->out[1][i] = l;
-		n->out[2][i] = r;
-		frac += scq_exp2(in[0][i]);
-		uint32_t step = (uint32_t)frac;
-		frac -= (float)step;
-		pos += step;
-		if (pos >= len) pos %= len;
-	}
-	n->s[0] = (float)pos; n->s[1] = frac;
-}
-
 /* ------------------------------------------------------------------ shapes */
 
 /* mountains — dark umber peaks: a sine wavefolder */
@@ -871,8 +842,6 @@ P("elevator",  FAM_SOURCE, PF_DRIFT, 140, 1, "rate pitch", "0.1 0", "out", run_e
   "the lift into the night sky: rises forever (rate in octaves per second, negative falls)"),
 P("bell",      FAM_SOURCE, PF_DRIFT, 70, 1, "strike pitch decay", "0 0 0.5", "out", run_bell, 0, 0,
   "the cargo train's deep bell: four modes, struck by edges or by sound"),
-P("stem",      FAM_SOURCE, PF_COUNTED, 30, 1, "speed restart", "0 0", "out l r", run_stem, 0, 0,
-  "one of the SP-1's four stems (stem1-stem4); speed in octaves"),
 P("mountains", FAM_SHAPE, PF_DRIFT, 20, 1, "in fold", "0 0", "out", run_mountains, 0, 0,
   "dark umber peaks: a wavefolder. More fold, more peaks"),
 P("window",    FAM_SHAPE, 0, 45, 1, "in light", "0 1", "out", run_window, 0, 0,

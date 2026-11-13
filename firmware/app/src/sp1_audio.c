@@ -322,10 +322,12 @@ BUILD_ASSERT(BLK_FRAMES % 4u == 0u, "fill_block's peak check steps by 4");
 BUILD_ASSERT(BLK_FRAMES % SP1_SYNTH_BLOCK == 0u, "block must be whole Plaits blocks");
 #endif
 
+#if !defined(CONFIG_SP1_SCQ)
 /* Mono source for one block, before gain: the synth's OUT, or the test tone. */
 static int16_t src[BLK_FRAMES];
+#endif
 
-#if !defined(CONFIG_SP1_PLAITS)
+#if !defined(CONFIG_SP1_PLAITS) && !defined(CONFIG_SP1_SCQ)
 static void tone_render(int16_t *out)
 {
 	uint32_t ph = phase;

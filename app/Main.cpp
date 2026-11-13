@@ -21,7 +21,8 @@ public:
             int v = args.indexOf ("--view");
             if (v >= 0) window->main->showView (args[v + 1].getIntValue());
             if (args.size() > shot + 2 && ! args[shot + 2].startsWith ("--")) window->main->openFile (juce::File::getCurrentWorkingDirectory().getChildFile (args[shot + 2].unquoted()));
-            juce::Timer::callAfterDelay (2500, [this, out]
+            juce::Timer::callAfterDelay (2000, [this] { window->main->resized(); window->main->repaint(); });
+            juce::Timer::callAfterDelay (2800, [this, out]
             {
                 auto img = window->main->createComponentSnapshot (window->main->getLocalBounds(), true, 1.0f);
                 juce::PNGImageFormat png;

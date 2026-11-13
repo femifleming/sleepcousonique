@@ -88,29 +88,3 @@ int Host::scene() { return scq_scene(); }
 void Host::control (int which, float v) { scq_control (which, v); }
 float Host::lamp (int led) { return scq_lamp (led); }
 float Host::probe (int node, int port) { return scq_probe (node, port); }
-
-juce::String Host::loadStem (int slot, const juce::File& file)
-{
-    juce::AudioFormatManager fm;
-    fm.registerBasicFormats();
-    std::unique_ptr<juce::AudioFormatReader> reader (fm.createReaderFor (file));
-    if (! reader) return "I can't read " + file.getFileName();
-    const auto len = (int) juce::jmin<juce::int64> (reader->lengthInSamples, (juce::int64) reader->sampleRate * 600);
-    juce::AudioBuffer<float> buf (2, len);
-    reader->read (&buf, 0, len, 0, true, true);
-    const double ratio = reader->sampleRate / 48000.0;
-    const int outLen = (int) (len / ratio);
-    std::vector<juce::int16> data ((size_t) outLen * 2);
-    for (int c = 0; c < 2; ++c)
-    {
-        std::vector<float> o ((size_t) outLen);
-        juce::LagrangeInterpolator li;
-        li.process (ratio, buf.getReadPointer (reader->numChannels > 1 ? c : 0), o.data(), outLen);
-        for (int i = 0; i < outLen; ++i) data[(size_t) i * 2 + (size_t) c] = (juce::int16) juce::jlimit (-32767.0f, 32767.0f, o[(size_t) i] * 32767.0f);
-    }
-    const juce::ScopedLock sl (lock);
-    stems[(size_t) slot] = std::move (data);
-    stemNames[(size_t) slot] = file.getFileNameWithoutExtension();
-    scq_stem_bind (slot, stems[(size_t) slot].data(), (juce::uint32) outLen);
-    return {};
-}

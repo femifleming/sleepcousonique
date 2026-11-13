@@ -84,8 +84,6 @@ typedef struct {
 	float    lamp[SCQ_LEDS];
 	int      want_next, want_back;
 	float    miss;
-	const int16_t *stem[4];
-	uint32_t stem_len[4];
 } world;
 
 extern world W;

@@ -70,9 +70,6 @@ int   scq_check(const char *text, int len, uint32_t nights, char *msgs, int cap)
  * Returns 1 if it changed scene. Elsewhere scenes change inside scq_render and this does nothing. */
 int   scq_service(void);
 
-/* Stems: 16-bit interleaved stereo at 48 kHz. The host keeps the memory alive. */
-void  scq_stem_bind(int slot, const int16_t *frames, uint32_t count);
-
 #ifdef __cplusplus
 }
 #endif

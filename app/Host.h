@@ -19,8 +19,6 @@ public:
     float lamp (int led);
     float probe (int node, int port);
 
-    juce::String loadStem (int slot, const juce::File&);            // empty string = ok
-    juce::String stemName (int slot) const { return stemNames[(size_t) slot]; }
 
     juce::AudioDeviceManager devices;
     float level = 0;   // output meter
@@ -35,6 +33,4 @@ private:
     double rate = 48000;
     juce::LagrangeInterpolator interp[2];
     std::vector<float> fifo[2];
-    std::array<std::vector<juce::int16>, 4> stems;
-    std::array<juce::String, 4> stemNames;
 };
