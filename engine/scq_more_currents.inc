@@ -229,9 +229,10 @@ static void run_insomniac(node *n, float in[MAX_IN][B])
 static void run_hourglass(node *n, float in[MAX_IN][B])
 {
 	float ph = n->s[0], pt = n->s[2];
+	const float inc = 0.01f * n->nature * scq_exp2(scq_clamp(in[0][0], 0.f, 1.f) * 17.f) * INV_SR;
 	LOOP {
 		if (edge(in[1][i], &n->s[1])) ph = 0.f;
-		ph += 0.01f * n->nature * scq_exp2(scq_clamp(in[0][i], 0.f, 1.f) * 17.f) * INV_SR;
+		ph += inc;
 		if (ph >= 1.f) { ph -= scq_floor(ph); pt = PULSE_SAMPLES; }
 		n->out[0][i] = ph;
 		n->out[1][i] = pulse_out(&pt);

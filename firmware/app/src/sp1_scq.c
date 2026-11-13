@@ -25,6 +25,9 @@
 #include "sp1_batt.h"
 #include "sp1_ui_timing.h"
 #include "sp1_display.h"
+#include "sp1_audio.h"
+#include "sp1_meter.h"
+#include <cmsis_core.h>
 #include "scq.h"
 #include "scq_default.h"     /* the first night, generated from examples/first-night.dream */
 
@@ -38,11 +41,14 @@
 static const struct device *cdc = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
 K_MUTEX_DEFINE(engine_lock);
 
-RING_BUF_DECLARE(rx_ring, 1024);
+RING_BUF_DECLARE(rx_ring, 4096);
 static char     staging[SCQ_MAX_TEXT];
 static int      slot;              /* the slot that is playing */
 static uint32_t nights;            /* boots so far: drift's seed */
 static bool     link_up;
+static bool     audio_live;        /* ON and the audio thread running: flash writes must pause it */
+static volatile uint32_t eng_sum, eng_n, eng_max;   /* engine cycles, from the audio thread */
+static uint32_t report_ms;
 
 struct slot_head  { uint32_t magic, len; };
 struct state_page { uint32_t magic, slot, nights, pad; };
@@ -106,7 +112,25 @@ static int slot_write(int s, const char *text, int len)
 	return 0;
 }
 
-static void state_save(void)
+/* ⚠️ A flash erase stops the CPU for ~85 ms per page. With the audio running that
+ * underruns the I2S stream, and from there it may never recover (seen on hardware:
+ * silence after the first dream arrived). So every write pauses the audio and brings it
+ * back up exactly as entering ON does. */
+static void audio_pause(void)
+{
+	if (audio_live) {
+		sp1_audio_stop();
+	}
+}
+
+static void audio_resume(void)
+{
+	if (audio_live) {
+		(void)sp1_audio_start();
+	}
+}
+
+static void state_write(void)
 {
 	const struct flash_area *fa = area();
 	struct state_page st = { STATE_MAGIC, (uint32_t)slot, nights, 0 };
@@ -115,6 +139,13 @@ static void state_save(void)
 	}
 	flash_area_erase(fa, STATE_OFF, 4096);
 	flash_area_write(fa, STATE_OFF, &st, sizeof st);
+}
+
+static void state_save(void)
+{
+	audio_pause();
+	state_write();
+	audio_resume();
 }
 
 /* ------------------------------------------------------------------ the engine */
@@ -147,17 +178,35 @@ void sp1_scq_render(float *left, float *right, uint32_t frames)
 		memset(right, 0, frames * sizeof(float));
 		return;
 	}
+	const uint32_t c0 = DWT->CYCCNT;
 	scq_render(left, right, (int)frames);
+	const uint32_t c = DWT->CYCCNT - c0;
 	k_mutex_unlock(&engine_lock);
+	eng_sum += c;
+	eng_n++;
+	if (c > eng_max) {
+		eng_max = c;
+	}
 }
 
 /* ------------------------------------------------------------------ USB serial */
 
+/* Never drop a byte: when our ring is nearly full, stop taking data and let USB hold the
+ * rest back (the host just waits); serial_poll() turns receiving back on once it has room.
+ * Reading less than is there, with receiving still on, would make the CDC driver re-run
+ * this callback in a loop on the system work queue, above the audio. */
+static volatile bool rx_paused;
 static void rx_isr(const struct device *dev, void *user)
 {
 	ARG_UNUSED(user);
 	while (uart_irq_update(dev) && uart_irq_is_pending(dev)) {
 		if (!uart_irq_rx_ready(dev)) {
+			break;
+		}
+		uint32_t room = ring_buf_space_get(&rx_ring);
+		if (room < 64u) {
+			uart_irq_rx_disable(dev);
+			rx_paused = true;
 			break;
 		}
 		uint8_t buf[64];
@@ -210,6 +259,10 @@ static void handle_line(void)
 static void serial_poll(void)
 {
 	uint8_t c;
+	if (rx_paused && ring_buf_space_get(&rx_ring) > 1024u) {
+		rx_paused = false;
+		uart_irq_rx_enable(cdc);
+	}
 	while (ring_buf_get(&rx_ring, &c, 1) == 1) {
 		if (want >= 0) {
 			staging[got++] = (char)c;
@@ -221,10 +274,15 @@ static void serial_poll(void)
 			if (e == 0) {
 				/* the playing dream is the new one; keep it */
 				slot = want_slot;
-				if (slot_write(slot, staging, got) != 0) {
+				audio_pause();                       /* one pause for both writes */
+				int wr = slot_write(slot, staging, got);
+				if (wr == 0) {
+					state_write();
+				}
+				audio_resume();
+				if (wr != 0) {
 					reply("ERR could not save (playing it anyway)\n");
 				} else {
-					state_save();
 					char ok[24];
 					snprintf(ok, sizeof ok, "OK %d\n", e);
 					reply(ok);
@@ -272,8 +330,41 @@ void sp1_scq_init(void)
 
 void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 {
-	ARG_UNUSED(elapsed_ms);
+	audio_live = true;             /* the ON loop only runs with the audio started */
 	serial_poll();
+
+	/* the audio watchdog: blocks failing and none arriving for a second -> restart the
+	 * whole audio path, exactly as entering ON does */
+	{
+		static uint32_t last_blocks, last_fails, stuck_ms;
+		struct sp1_audio_stats as;
+		sp1_audio_stats(&as);
+		if (as.blocks == last_blocks && as.write_fails != last_fails) {
+			stuck_ms += elapsed_ms;
+		} else {
+			stuck_ms = 0u;
+		}
+		last_blocks = as.blocks;
+		last_fails = as.write_fails;
+		if (stuck_ms > 1000u) {
+			stuck_ms = 0u;
+			printk("SCQ audio stuck: restarting it\n");
+			audio_pause();
+			audio_resume();
+		}
+	}
+
+	if ((report_ms += elapsed_ms) >= 5000u) {
+		report_ms = 0u;
+		const uint32_t n = eng_n, sum = eng_sum, mx = eng_max;
+		eng_n = 0u; eng_sum = 0u; eng_max = 0u;
+		/* the audio block is SP1 audio frames at 64 MHz: 1333 cycles per frame */
+		const uint32_t budget = 1333u * (uint32_t)CONFIG_SP1_AUDIO_BLOCK_FRAMES;
+		printk("SCQ engine avg=%u%% max=%u%%  places=%d scene=%d slot=%d\n",
+		       n ? (unsigned)((uint64_t)sum * 100u / ((uint64_t)n * budget)) : 0u,
+		       (unsigned)((uint64_t)mx * 100u / budget),
+		       scq_node_count(), scq_scene() + 1, slot + 1);
+	}
 
 	if (sp1_faders_valid()) {
 		for (int i = 0; i < 4; i++) {
@@ -330,6 +421,7 @@ void sp1_scq_track_leds(uint8_t out[4])
 void sp1_scq_play_leds(uint32_t elapsed_ms)
 {
 	static uint32_t idle_ms, breath_ms;
+	sp1_meter_tick();              /* keeps the console's meter= honest */
 	bool lit = false;
 	for (int i = 0; i < 4; i++) {
 		if (scq_lamp(4 + i) > 0.02f) {

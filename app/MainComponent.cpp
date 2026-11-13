@@ -404,7 +404,7 @@ void MainComponent::sendToSP1()
     if (doc.errors > 0) { status ("fix the mistakes in the journal before sending"); return; }
     status ("looking for the SP-1...");
     String port;
-    auto err = serial::send (doc.text, 0, port);
+    auto err = serial::send (doc.text, -1, port);   // -1: the slot that is playing
     if (err.isEmpty()) status ("sent to the SP-1 on " + port);
     else AlertWindow::showMessageBoxAsync (MessageBoxIconType::InfoIcon, "send to SP-1", err);
 }

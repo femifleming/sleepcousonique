@@ -36,9 +36,9 @@ static inline int natural(float nature, int lo, int hi)
 /* aira — the fountain labeled aira: a pure tone at nature x 60 Hz */
 static void run_aira(node *n, float in[MAX_IN][B])
 {
-	float base = 60.f * n->nature, ph = n->s[0];
+	float base = 60.f * n->nature * scq_exp2(in[0][0]), ph = n->s[0];   /* pitch per block */
 	LOOP {
-		float f = base * scq_exp2(in[0][i]) * (1.f + in[1][i]);
+		float f = base * (1.f + in[1][i]);
 		ph += f * INV_SR;
 		ph -= scq_floor(ph);
 		n->out[0][i] = scq_sin2pi(ph);
@@ -50,12 +50,12 @@ static void run_aira(node *n, float in[MAX_IN][B])
 static void run_twin(node *n, float in[MAX_IN][B])
 {
 	float pa = n->s[0], pb = n->s[1];
-	float fa = 60.f * n->nature, fb = 60.f * (n->nature + 1.f);
+	float k = scq_exp2(in[0][0]);                                /* pitch per block */
+	float ia = 60.f * n->nature * k * INV_SR, ib = 60.f * (n->nature + 1.f) * k * INV_SR;
 	LOOP {
-		float k = scq_exp2(in[0][i]);
-		pb += fb * k * INV_SR; pb -= scq_floor(pb);
+		pb += ib; pb -= scq_floor(pb);
 		float b = scq_sin2pi(pb);
-		pa += fa * k * INV_SR; pa -= scq_floor(pa);
+		pa += ia; pa -= scq_floor(pa);
 		float a = scq_sin2pi(pa + in[1][i] * b * 0.5f);
 		a = scq_sin2pi(0.25f * a * (1.f + scq_max(in[2][i], 0.f) * 7.f));
 		n->out[0][i] = 0.5f * (a + b);
@@ -70,10 +70,10 @@ static void run_rain(node *n, float in[MAX_IN][B])
 {
 	/* s: 0 y1, 1 y2, 2 c1, 3 c2, 4 pulse timer */
 	float y1 = n->s[0], y2 = n->s[1], c1 = n->s[2], c2 = n->s[3], pt = n->s[4];
+	const float chance = 8.f * n->nature * (1.f + scq_max(in[0][0], 0.f) * 8.f) * INV_SR;
 	LOOP {
-		float rate = 8.f * n->nature * (1.f + scq_max(in[0][i], 0.f) * 8.f);
 		float x = 0.f;
-		if (scq_rand01(&n->rng) < rate * INV_SR) {
+		if (scq_rand01(&n->rng) < chance) {
 			float f = 1800.f + 4200.f * scq_rand01(&n->rng);
 			float r = 0.995f;
 			c1 = 2.f * r * scq_sin2pi(f * INV_SR + 0.25f);
@@ -169,11 +169,10 @@ static void run_window(node *n, float in[MAX_IN][B])
 {
 	float v = n->s[0], l1 = n->s[1], l2 = n->s[2];
 	const float att = 1.f / (0.002f * SR), rel = 1.f / (0.25f * SR);
+	float c = scq_coef_hz(20.f * scq_exp2(v * 10.f), SR);       /* colour per block */
 	LOOP {
 		float t = scq_clamp(in[1][i], 0.f, 1.f);
 		v += (t - v) * (t > v ? att : rel * (0.3f + v));
-		float fc = 20.f * scq_exp2(v * 10.f);
-		float c = scq_coef_hz(fc, SR);
 		l1 += c * (in[0][i] - l1);
 		l2 += c * (l1 - l2);
 		n->out[0][i] = l2 * v;
@@ -544,9 +543,9 @@ static void run_frog(node *n, float in[MAX_IN][B])
 static void run_stairs(node *n, float in[MAX_IN][B])
 {
 	float v = n->s[0], mode = n->s[1], et = n->s[3];
+	const float up = 1.f / (0.001f * scq_exp2(scq_clamp(in[2][0], 0.f, 1.f) * 13.3f) * SR);   /* rates per block */
+	const float dn = 1.f / (0.001f * scq_exp2(scq_clamp(in[3][0], 0.f, 1.f) * 13.3f) * SR);
 	LOOP {
-		float up = 1.f / (0.001f * scq_exp2(scq_clamp(in[2][i], 0.f, 1.f) * 13.3f) * SR);
-		float dn = 1.f / (0.001f * scq_exp2(scq_clamp(in[3][i], 0.f, 1.f) * 13.3f) * SR);
 		float st = in[1][i];
 		if (edge(st, &n->s[2])) mode = 1.f;
 		if (mode == 1.f) {
@@ -613,9 +612,9 @@ static void run_connors(node *n, float in[MAX_IN][B])
 static void run_escalator(node *n, float in[MAX_IN][B])
 {
 	float held = n->s[0], v = n->s[1];
+	const float c = scq_coef_time(scq_clamp(in[2][0], 0.f, 1.f) * 1.f, SR);   /* glide per block */
 	LOOP {
 		if (edge(in[1][i], &n->s[2])) held = in[0][i];
-		float c = scq_coef_time(scq_clamp(in[2][i], 0.f, 1.f) * 1.f, SR);
 		v += (held - v) * c;
 		n->out[0][i] = v;
 	}

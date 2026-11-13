@@ -69,10 +69,10 @@ static void vowel_at(float v, float out[6])
 static void run_turntable(node *n, float in[MAX_IN][B])
 {
 	float ph = n->s[0], tri = n->s[1];
-	float base = 60.f * n->nature;
+	float base = 60.f * n->nature * scq_exp2(in[0][0]);            /* pitch per block */
 	LOOP {
 		if (edge(in[3][i], &n->s[2])) ph = 0.f;               /* hard sync */
-		float f = base * scq_exp2(in[0][i]) * (1.f + in[1][i]);
+		float f = base * (1.f + in[1][i]);
 		float dt = scq_clamp(f * INV_SR, 0.f, 0.45f);
 		float w = 0.5f + 0.45f * scq_clamp(in[2][i], -1.f, 1.f);
 		float sq = square_blep(ph, dt, w);
@@ -92,9 +92,8 @@ static void run_turntable(node *n, float in[MAX_IN][B])
 static void run_pendant(node *n, float in[MAX_IN][B])
 {
 	float pa = n->s[0], pb = n->s[1], lp = n->s[2];
-	float base = 60.f * n->nature;
+	float base = 60.f * n->nature, k = scq_exp2(in[0][0]);
 	LOOP {
-		float k = scq_exp2(in[0][i]);
 		float tilt = scq_clamp(in[1][i], -1.f, 1.f);
 		float a = pa < 0.5f ? 1.f : -1.f, b = pb < 0.5f ? 1.f : -1.f;
 		/* each one's speed leans on the other's state */
@@ -115,18 +114,20 @@ static void run_goblins(node *n, float in[MAX_IN][B])
 {
 	float pa = n->s[0], pb = n->s[1], run = n->s[3], lp = n->s[4];
 	uint32_t reg = (uint32_t)n->s[2];
-	float base = 30.f * n->nature;
+	float base = 30.f * n->nature * scq_exp2(in[0][0]) * INV_SR;
+	float chaos = scq_clamp(in[1][0], 0.f, 1.f);
+	float ia = base * scq_exp2(chaos * 3.f * (run - 0.5f));
+	float ib = base * 1.618f * scq_exp2(chaos * 2.f * (0.5f - run));
 	LOOP {
-		float k = scq_exp2(in[0][i]), chaos = scq_clamp(in[1][i], 0.f, 1.f);
-		float fa = base * k * scq_exp2(chaos * 3.f * (run - 0.5f));
-		float fb = base * k * 1.618f * scq_exp2(chaos * 2.f * (0.5f - run));
-		pa += fa * INV_SR; pb += fb * INV_SR;
+		pa += ia; pb += ib;
 		int clock = pa >= 1.f;
 		pa -= scq_floor(pa); pb -= scq_floor(pb);
 		if (clock) {
 			uint32_t newbit = in[2][i] > 0.5f ? ((reg >> 7) & 1u) : ((pb < 0.5f) ^ ((reg >> 7) & 1u));
 			reg = ((reg << 1) | newbit) & 0xffu;
 			run = (float)(reg & 7u) / 7.f;
+			ia = base * scq_exp2(chaos * 3.f * (run - 0.5f));
+			ib = base * 1.618f * scq_exp2(chaos * 2.f * (0.5f - run));
 		}
 		float ta = 1.f - 4.f * scq_abs(pa - 0.5f), tb = 1.f - 4.f * scq_abs(pb - 0.5f);
 		float cmp = ta > tb ? 1.f : -1.f;
@@ -176,16 +177,15 @@ static void run_multiwave(node *n, float in[MAX_IN][B])
 static void run_pulsar(node *n, float in[MAX_IN][B])
 {
 	float ph = n->s[0];
-	float base = 60.f * n->nature;
+	const float inc = 60.f * n->nature * scq_exp2(in[0][0]) * INV_SR;
+	const float formant = scq_exp2(scq_clamp(in[1][0], 0.f, 4.f) + 0.5f);
+	const float duty = 0.05f + 0.95f * scq_clamp(in[2][0], 0.f, 1.f), inv_duty = 1.f / duty;
 	LOOP {
-		float f = base * scq_exp2(in[0][i]);
-		float formant = scq_exp2(scq_clamp(in[1][i], 0.f, 4.f) + 0.5f);
-		float duty = 0.05f + 0.95f * scq_clamp(in[2][i], 0.f, 1.f);
-		ph += f * INV_SR;
+		ph += inc;
 		ph -= scq_floor(ph);
 		float o = 0.f;
 		if (ph < duty) {
-			float q = ph / duty;
+			float q = ph * inv_duty;
 			float w = scq_sin2pi(q * 0.5f);
 			o = scq_sin2pi(q * formant * duty * 4.f) * w * w;
 		}
@@ -198,8 +198,8 @@ static void run_pulsar(node *n, float in[MAX_IN][B])
 static void run_torpedo(node *n, float in[MAX_IN][B])
 {
 	float pc = n->s[0], pm = n->s[1], last = n->s[2];
+	const float f = 240.f * scq_exp2(in[0][0]);
 	LOOP {
-		float f = 240.f * scq_exp2(in[0][i]);
 		float ratio = scq_max(n->nature + in[1][i], 0.f);
 		float index = scq_clamp(in[2][i], 0.f, 2.f) * 2.f;
 		float fb = scq_clamp(in[3][i], 0.f, 1.f) * 0.3f;
@@ -217,12 +217,12 @@ static void run_torpedo(node *n, float in[MAX_IN][B])
 static void run_beacon(node *n, float in[MAX_IN][B])
 {
 	float ph = n->s[0];
-	float base = 60.f * n->nature;
+	const float inc = 60.f * n->nature * scq_exp2(in[0][0]) * INV_SR;
+	const float d = 0.5f - 0.48f * scq_clamp(in[1][0], 0.f, 1.f);
+	const float ka = 0.5f / d, kb = 0.5f / (1.f - d);
 	LOOP {
-		float f = base * scq_exp2(in[0][i]);
-		float d = 0.5f - 0.48f * scq_clamp(in[1][i], 0.f, 1.f);
-		ph += f * INV_SR; ph -= scq_floor(ph);
-		float p = ph < d ? ph * 0.5f / d : 0.5f + (ph - d) * 0.5f / (1.f - d);
+		ph += inc; ph -= scq_floor(ph);
+		float p = ph < d ? ph * ka : 0.5f + (ph - d) * kb;
 		float o = -scq_sin2pi(p + 0.25f);                         /* cosine, from silence */
 		if (in[2][i] > 0.5f) o *= 1.f - ph;                       /* resonant: a sawtooth window */
 		n->out[0][i] = o;
@@ -234,10 +234,8 @@ static void run_beacon(node *n, float in[MAX_IN][B])
 static void run_record(node *n, float in[MAX_IN][B])
 {
 	float ph = n->s[0], tri = n->s[1];
-	float base = 60.f * n->nature;
+	const float dt = scq_clamp(60.f * n->nature * scq_exp2(in[0][0]) * INV_SR, 0.f, 0.45f);
 	LOOP {
-		float f = base * scq_exp2(in[0][i]);
-		float dt = scq_clamp(f * INV_SR, 0.f, 0.45f);
 		float sc = scq_clamp(in[1][i], 0.f, 1.f) * 4.f;
 		int a = (int)sc;
 		if (a > 3) a = 3;
@@ -317,9 +315,8 @@ static void run_nuns(node *n, float in[MAX_IN][B])
 	vowel_at(in[1][0], v);
 	svf_c c[3];
 	for (int k = 0; k < 3; k++) c[k] = svf_make(v[k], 0.12f);
+	const float dt = scq_clamp(base * scq_exp2(in[0][0]) * INV_SR, 0.f, 0.45f);
 	LOOP {
-		float f = base * scq_exp2(in[0][i]);
-		float dt = scq_clamp(f * INV_SR, 0.f, 0.45f);
 		float buzz = saw_blep(ph, dt);
 		ph += dt; ph -= scq_floor(ph);
 		float o = 0.f;

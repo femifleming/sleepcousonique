@@ -59,12 +59,11 @@ static void run_glass(node *n, float in[MAX_IN][B])
 	float ph = n->s[6], fbk = n->s[7];
 	float rate = 0.05f * n->nature * scq_exp2(scq_clamp(in[1][0], 0.f, 1.f) * 7.f);
 	float depth = scq_clamp(in[2][0], 0.f, 1.f), fb = scq_clamp(in[3][0], 0.f, 0.95f);
+	ph += rate * (float)B * INV_SR; ph -= scq_floor(ph);          /* the sweep, per block */
+	const float lfo = 0.5f + 0.5f * scq_sin2pi(ph);
+	const float t = scq_tan(SCQ_PI * scq_min(200.f * scq_exp2(lfo * depth * 5.f), 16000.f) * INV_SR);
+	const float a = (t - 1.f) / (t + 1.f);
 	LOOP {
-		ph += rate * INV_SR; ph -= scq_floor(ph);
-		float lfo = 0.5f + 0.5f * scq_sin2pi(ph);
-		float fc = 200.f * scq_exp2(lfo * depth * 5.f);
-		float t = scq_tan(SCQ_PI * scq_min(fc, 16000.f) * INV_SR);
-		float a = (t - 1.f) / (t + 1.f);
 		float x = in[0][i] + fbk * fb;
 		for (int k = 0; k < 6; k++) {
 			float y = a * x + z[k];
@@ -139,10 +138,11 @@ static void run_pulley(node *n, float in[MAX_IN][B])
 {
 	float ph = n->s[0];
 	int own = !(n->patched & 2);
+	const float inc = 120.f * n->nature * scq_exp2(in[2][0]) * INV_SR;
 	LOOP {
 		float m = in[1][i];
 		if (own) {
-			ph += 120.f * n->nature * scq_exp2(in[2][i]) * INV_SR; ph -= scq_floor(ph);
+			ph += inc; ph -= scq_floor(ph);
 			m = scq_sin2pi(ph);
 		}
 		n->out[0][i] = in[0][i] * m;

@@ -1,18 +1,37 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include "MainComponent.h"
 #include "Art.h"
+#include "Serial.h"
 
 class SleepcousoniqueApp : public juce::JUCEApplication
 {
 public:
     const juce::String getApplicationName() override { return "Sleepcousonique"; }
     const juce::String getApplicationVersion() override { return JUCE_APPLICATION_VERSION_STRING; }
-    bool moreThanOneInstanceAllowed() override { return false; }
+    bool moreThanOneInstanceAllowed() override
+    {
+        // the test modes run beside an open window; otherwise one Sleepcousonique at a time
+        auto args = getCommandLineParameters();
+        return args.contains ("--send") || args.contains ("--shot");
+    }
 
     void initialise (const juce::String& commandLine) override
     {
-        window = std::make_unique<Window>();
         auto args = juce::StringArray::fromTokens (commandLine, true);
+        int send = args.indexOf ("--send");
+        if (send >= 0)
+        {
+            // --send file.dream: the editor's own "send to SP-1", from the command line
+            auto f = juce::File::getCurrentWorkingDirectory().getChildFile (args[send + 1].unquoted());
+            juce::String port;
+            auto err = serial::send (f.loadFileAsString(), -1, port);
+            std::printf ("%s\n", err.isEmpty() ? ("sent to " + port).toRawUTF8() : err.toRawUTF8());
+            std::fflush (stdout);
+            setApplicationReturnValue (err.isEmpty() ? 0 : 1);
+            quit();
+            return;
+        }
+        window = std::make_unique<Window>();
         int shot = args.indexOf ("--shot");
         if (shot >= 0)
         {

@@ -54,6 +54,7 @@ void  scq_control(int which, float value);
 void  scq_render(float *left, float *right, int frames); /* frames: multiple of SCQ_BLOCK */
 void  scq_goto_scene(int index);
 int   scq_scene(void);
+int   scq_node_count(void);             /* places in the scene that's playing */
 float scq_lamp(int led);                /* 0..1 */
 float scq_probe(int node, int port);    /* last value of any outlet, for scopes */
 

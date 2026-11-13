@@ -83,14 +83,26 @@ juce::String send (const juce::String& text, int slot, juce::String& portUsed)
     {
         int fd = openPort (path);
         if (fd < 0) continue;
-        writeAll (fd, "SCQ HELLO\n", 10);
-        auto hello = readLine (fd, 1200, { "SLEEPCOUSONIQUE" });
+        // opening the port makes the SP-1 replay its stored log: let it finish first
+        auto quietUntil = juce::Time::getMillisecondCounter() + 4000;
+        while (juce::Time::getMillisecondCounter() < quietUntil)
+        {
+            auto l = readLine (fd, 400);
+            if (l.isEmpty() || l.contains ("STORED LOG: end")) break;
+        }
+        tcflush (fd, TCIFLUSH);
+        juce::String hello;
+        for (int attempt = 0; attempt < 3 && ! hello.startsWith ("SLEEPCOUSONIQUE"); ++attempt)
+        {
+            writeAll (fd, "SCQ HELLO\n", 10);
+            hello = readLine (fd, 1500, { "SLEEPCOUSONIQUE" });
+        }
         if (! hello.startsWith ("SLEEPCOUSONIQUE")) { close (fd); continue; }
         auto body = text.toStdString();
         auto head = "SCQ LOAD " + std::to_string (body.size()) + " " + std::to_string (slot) + "\n";
         writeAll (fd, head.data(), head.size());
         writeAll (fd, body.data(), body.size());
-        auto reply = readLine (fd, 6000, { "OK", "ERR" });
+        auto reply = readLine (fd, 10000, { "OK", "ERR" });   // saving pauses and restarts the audio
         close (fd);
         portUsed = path;
         if (reply.startsWith ("OK")) return {};

@@ -658,6 +658,7 @@ void scq_goto_scene(int index)
 }
 
 int scq_scene(void) { return G.cur; }
+int scq_node_count(void) { return G.nn; }
 
 void scq_control(int which, float value)
 {
