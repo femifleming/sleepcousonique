@@ -112,6 +112,7 @@ MainComponent::MainComponent()
     tapestry.onStatus = [this] (const String& s) { status (s); };
     tapestry.onShowLine = [this] (int line) { if (view == 2) setView (1); journal.showLine (line); };
     hands.typing = [this] { return journal.editorHasFocus(); };
+    hands.link = &link;
     hands.onStatus = [this] (const String& s) { status (s); };
     hands.mappingFor = [this] (const String& control)
     {
@@ -404,7 +405,9 @@ void MainComponent::sendToSP1()
     if (doc.errors > 0) { status ("fix the mistakes in the journal before sending"); return; }
     status ("looking for the SP-1...");
     String port;
-    auto err = serial::send (doc.text, -1, port);   // -1: the slot that is playing
+    String err;
+    if (link.connected()) { err = link.send (doc.text, -1); port = link.port(); }   // -1: the slot that is playing
+    else err = serial::send (doc.text, -1, port);
     if (err.isEmpty()) status ("sent to the SP-1 on " + port);
     else AlertWindow::showMessageBoxAsync (MessageBoxIconType::InfoIcon, "send to SP-1", err);
 }

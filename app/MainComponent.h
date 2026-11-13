@@ -5,6 +5,7 @@
 #include "Journal.h"
 #include "Tapestry.h"
 #include "Hands.h"
+#include "Serial.h"
 
 class MainComponent : public juce::Component,
                       public juce::DragAndDropContainer,
@@ -45,6 +46,7 @@ private:
 
     scq::Document doc;
     Host host;
+    serial::Link link;
     Journal journal;
     Tapestry tapestry { doc, host };
     Hands hands { host };

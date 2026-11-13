@@ -23,9 +23,11 @@ public:
         {
             // --send file.dream: the editor's own "send to SP-1", from the command line
             auto f = juce::File::getCurrentWorkingDirectory().getChildFile (args[send + 1].unquoted());
-            juce::String port;
-            auto err = serial::send (f.loadFileAsString(), -1, port);
-            std::printf ("%s\n", err.isEmpty() ? ("sent to " + port).toRawUTF8() : err.toRawUTF8());
+            // through the live link, exactly as the window's "send to SP-1" does
+            serial::Link link;
+            for (int i = 0; i < 100 && ! link.connected(); ++i) juce::Thread::sleep (100);
+            juce::String err = link.connected() ? link.send (f.loadFileAsString(), -1) : juce::String ("no SP-1 found");
+            std::printf ("%s\n", err.isEmpty() ? ("sent to " + link.port()).toRawUTF8() : err.toRawUTF8());
             std::fflush (stdout);
             setApplicationReturnValue (err.isEmpty() ? 0 : 1);
             quit();
@@ -40,8 +42,9 @@ public:
             int v = args.indexOf ("--view");
             if (v >= 0) window->main->showView (args[v + 1].getIntValue());
             if (args.size() > shot + 2 && ! args[shot + 2].startsWith ("--")) window->main->openFile (juce::File::getCurrentWorkingDirectory().getChildFile (args[shot + 2].unquoted()));
-            juce::Timer::callAfterDelay (2000, [this] { window->main->resized(); window->main->repaint(); });
-            juce::Timer::callAfterDelay (2800, [this, out]
+            int wait = args.contains ("--wait") ? args[args.indexOf ("--wait") + 1].getIntValue() : 2800;
+            juce::Timer::callAfterDelay (wait - 800, [this] { window->main->resized(); window->main->repaint(); });
+            juce::Timer::callAfterDelay (wait, [this, out]
             {
                 auto img = window->main->createComponentSnapshot (window->main->getLocalBounds(), true, 1.0f);
                 juce::PNGImageFormat png;

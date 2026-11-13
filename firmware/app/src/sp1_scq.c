@@ -8,6 +8,9 @@
  * USB serial: "SCQ HELLO"  -> "SLEEPCOUSONIQUE <version>"
  *             "SCQ LOAD <bytes> <slot>" + bytes  -> "OK <errors>" / "ERR <why>"
  *             "SCQ SLOT <n>"  -> plays slot n
+ *             "SCQ WATCH 1"   -> streams the hands ~30x a second until "SCQ WATCH 0" or the
+ *                                port closes:  "SCQ HANDS f1 f2 f3 f4 buttons scene slot leds"
+ *                                (faders 0-4095, buttons a bitmask, leds 8 hex bytes)
  */
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
@@ -49,6 +52,8 @@ static bool     link_up;
 static bool     audio_live;        /* ON and the audio thread running: flash writes must pause it */
 static volatile uint32_t eng_sum, eng_n, eng_max;   /* engine cycles, from the audio thread */
 static uint32_t report_ms;
+static bool     watching;          /* the editor wants the hands, live */
+static uint32_t watch_ms;
 
 struct slot_head  { uint32_t magic, len; };
 struct state_page { uint32_t magic, slot, nights, pad; };
@@ -248,6 +253,9 @@ static void handle_line(void)
 			got = 0;
 			want_slot = (s >= 0 && s < SLOTS) ? (int)s : slot;
 		}
+	} else if (strncmp(line, "SCQ WATCH ", 10) == 0) {
+		watching = line[10] == '1';
+		watch_ms = 0u;
 	} else if (strncmp(line, "SCQ SLOT ", 9) == 0) {
 		play_slot(atoi(line + 9) - 1);
 		state_save();
@@ -332,6 +340,38 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 {
 	audio_live = true;             /* the ON loop only runs with the audio started */
 	serial_poll();
+
+	/* the editor is watching: send the hands, about 30 times a second. Stops when the port
+	 * closes (DTR low), so nothing is written to a computer that isn't listening. */
+	if (watching) {
+		uint32_t dtr = 1u;
+		(void)uart_line_ctrl_get(cdc, UART_LINE_CTRL_DTR, &dtr);
+		if (!dtr) {
+			watching = false;
+		} else if ((watch_ms += elapsed_ms) >= 32u) {
+			watch_ms = 0u;
+			static const enum sp1_button bits[] = {
+				SP1_BTN_T1, SP1_BTN_T2, SP1_BTN_T3, SP1_BTN_T4, SP1_BTN_PLAY,
+				SP1_BTN_COUNT /* fnc */, SP1_BTN_FFWD, SP1_BTN_RWD, SP1_BTN_VOL_UP, SP1_BTN_VOL_DOWN,
+			};
+			uint32_t mask = 0u;
+			for (int b = 0; b < (int)ARRAY_SIZE(bits); b++) {
+				bool held = bits[b] == SP1_BTN_COUNT ? fnc : sp1_button_held(bits[b]);
+				if (held) {
+					mask |= 1u << b;
+				}
+			}
+			char msg[96];
+			int n = snprintf(msg, sizeof msg, "SCQ HANDS %u %u %u %u %x %d %d ",
+					 sp1_fader_raw(0), sp1_fader_raw(1), sp1_fader_raw(2), sp1_fader_raw(3),
+					 (unsigned)mask, scq_scene() + 1, slot + 1);
+			for (int i = 0; i < 8 && n < (int)sizeof msg - 4; i++) {
+				n += snprintf(msg + n, sizeof msg - (size_t)n, "%02x", (unsigned)(scq_lamp(i) * 255.f));
+			}
+			snprintf(msg + n, sizeof msg - (size_t)n, "\n");
+			reply(msg);
+		}
+	}
 
 	/* the audio watchdog: blocks failing and none arriving for a second -> restart the
 	 * whole audio path, exactly as entering ON does */

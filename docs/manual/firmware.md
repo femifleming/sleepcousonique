@@ -136,7 +136,12 @@ SCQ HELLO                    -> SLEEPCOUSONIQUE 0.1.0
 SCQ LOAD <bytes> <slot>      then exactly <bytes> of the .dream text
                              -> OK 0      or  ERR <why>
 SCQ SLOT <1-5>               -> plays that slot
+SCQ WATCH 1                  -> about 30 times a second, until WATCH 0 or the port closes:
+                                SCQ HANDS f1 f2 f3 f4 buttons scene slot leds
 ```
+
+The editor keeps this link open while the SP-1 is plugged in, so its hands panel follows the
+SP-1 live, and **send to SP-1** goes over the same connection.
 
 The same port also carries Wakes' diagnostic console (battery, audio load and so on).
 

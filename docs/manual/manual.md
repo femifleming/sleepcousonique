@@ -109,6 +109,12 @@ Along the bottom is a stand-in for the SP-1:
   for the SP-1. Click a row to find that mapping in the journal. A dash means the control
   does nothing in this scene.
 
+**With the SP-1 plugged in and on, the panel follows it live.** Its faders move with yours,
+its buttons light as you press them, its LEDs show what the SP-1's LEDs show, and **•• +
+rocker** on the SP-1 changes the app's scene too. A green **SP-1 live** light shows the
+connection. The mouse and keys keep working: a hardware control only takes over when you
+move it.
+
 When you are not typing in the journal, the computer keyboard plays the hands. **1–4** are
 the doors, **↑ ↓** the rocker, **space** is PLAY and **.** is the dots. **.** + **↑ ↓** changes
 scene.

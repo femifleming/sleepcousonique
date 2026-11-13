@@ -73,7 +73,7 @@ void Hands::paint (Graphics& g)
     // LEDs
     for (int i = 0; i < 8; ++i)
     {
-        float v = host.lamp (i);
+        float v = live ? hwLamp[i] : host.lamp (i);
         g.setColour (Colour (0xff3a3a38)); g.fillEllipse (leds[(size_t) i].expanded (1.5f));
         g.setColour (Colour (0xffffffff).withAlpha (0.12f + 0.88f * v));
         g.fillEllipse (leds[(size_t) i]);
@@ -97,7 +97,8 @@ void Hands::paint (Graphics& g)
         }
         else
         {
-            bool down = it.mouse || keyHeld[i - 4];
+            static const int hwBit[] = { 0, 1, 2, 3, 6, 7, 4, 5 };   // doors, lift up/down, wake, lucid
+            bool down = it.mouse || keyHeld[i - 4] || (live && ((hwButtons >> hwBit[i - 4]) & 1u));
             auto r = it.r;
             g.setColour (Colour (0x40000000)); g.fillRoundedRectangle (r.translated (0, 2), 5);
             g.setColour (down ? Colour (0xffb8b4a8) : Colour (0xfff4f2ec)); g.fillRoundedRectangle (r, 5);
@@ -112,7 +113,17 @@ void Hands::paint (Graphics& g)
     auto area = mapArea;
     g.setColour (art::umber);
     g.setFont (art::hand (13));
-    g.drawText ("what your hands do in this scene", area.removeFromTop (18), Justification::left);
+    auto head = area.removeFromTop (18);
+    g.drawText ("what your hands do in this scene", head, Justification::left);
+    if (live)
+    {
+        g.setColour (Colour (0xff3d7a4e));
+        g.fillEllipse (Rectangle<float> (8, 8).withCentre ({ head.getRight() - 140, head.getCentreY() }));
+        g.setFont (art::mono (11));
+        g.drawText ("SP-1 live", head.withTrimmedLeft (head.getWidth() - 130), Justification::left);
+        g.setFont (art::hand (13));
+        g.setColour (art::umber);
+    }
     static const char* controls[] = { "lean1", "lean2", "lean3", "lean4", "door1", "door2", "door3", "door4",
                                       "lift", "lift.up", "lift.down", "wake", "lucid" };
     const float rowH = jmax (11.0f, jmin (15.0f, (area.getHeight() - 2) / 7.0f));
@@ -196,6 +207,43 @@ void Hands::mouseUp (const MouseEvent&)
 
 void Hands::timerCallback()
 {
+    // a connected SP-1: its faders, buttons, scene and LEDs, live. A hardware control only
+    // takes over when it actually moves, so the mouse and keys keep working too.
+    bool wasLive = live;
+    live = link != nullptr && link->connected();
+    if (live)
+    {
+        auto h = link->hands();
+        if (h.count != hwCount)
+        {
+            hwCount = h.count;
+            for (int i = 0; i < 4; ++i)
+                if (std::abs (h.fader[i] - hwFader[i]) > 0.004f)
+                {
+                    hwFader[i] = h.fader[i];
+                    items[(size_t) i].value = h.fader[i];
+                    set (SCQ_CTL_LEAN1 + i, h.fader[i]);
+                }
+            auto changed = h.buttons ^ hwButtons;
+            hwButtons = h.buttons;
+            auto bit = [&] (int b) { return ((h.buttons >> b) & 1u) != 0; };
+            for (int d = 0; d < 4; ++d)
+                if (changed & (1u << d)) set (SCQ_CTL_DOOR1 + d, bit (d) ? 1.0f : 0.0f);
+            if (changed & (1u << 4)) set (SCQ_CTL_WAKE, bit (4) ? 1.0f : 0.0f);
+            if (changed & (1u << 5)) set (SCQ_CTL_LUCID, bit (5) ? 1.0f : 0.0f);
+            if (changed & ((1u << 6) | (1u << 7)) && ! bit (5))       // •• + rocker is the scene, not lift
+                set (SCQ_CTL_LIFT, bit (6) ? 1.0f : (bit (7) ? -1.0f : 0.0f));
+            if (h.scene - 1 != hwScene)
+            {
+                if (hwScene >= 0 && h.scene - 1 != host.scene()) host.gotoScene (h.scene - 1);
+                hwScene = h.scene - 1;
+            }
+            for (int k = 0; k < 8; ++k) hwLamp[k] = h.lamp[k];
+        }
+    }
+    if (live != wasLive && onStatus)
+        onStatus (live ? "SP-1 connected on " + link->port() + ": following its hands" : "SP-1 unplugged");
+
     // the computer keyboard as the SP-1's buttons, while you aren't writing
     bool free = ! (typing && typing());
     const int keys[8] = { '1', '2', '3', '4', KeyPress::upKey, KeyPress::downKey, KeyPress::spaceKey, '.' };
