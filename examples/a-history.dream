@@ -1,5 +1,5 @@
 ; a history — modular synthesis, one night at a time
-; lift (the rocker) rides between the scenes; the faders are written next to each scene
+; •• + the rocker rides between the scenes; the faders are written next to each scene
 
 1964 the moog room
 ------------------
@@ -18,8 +18,6 @@ env -> filter.cut
 lean1 -> filter.cut
 lean2 -> book.change
 filter -> ears lamp
-lift.up -> journey.next
-lift.down -> journey.back
 
 1965 the buchla basement
 ------------------------
@@ -37,8 +35,6 @@ lean2 -> steps.hits
 drift ~> voice.index
 lean1 -> voice.timbre peaks.fold
 voice -> peaks -> gate -> ears lamp
-lift.up -> journey.next
-lift.down -> journey.back
 
 1974 serge night
 ----------------
@@ -59,8 +55,6 @@ lean1 -> portal.shift
 portal.up -> left
 portal.down -> right
 slope -> lamp.track
-lift.up -> journey.next
-lift.down -> journey.back
 
 1980 the drum machine party
 ---------------------------
@@ -85,8 +79,6 @@ kick -> ears
 snare hat -> echo
 echo -> ears
 beats.accent -> lamp.play
-lift.up -> journey.next
-lift.down -> journey.back
 
 1995 ciat-lonbarde
 ------------------
@@ -103,8 +95,6 @@ goblins -> spring
 pendants ~> spring
 glitter.dust -40> spring
 spring -> ears lamp
-lift.up -> journey.next
-lift.down -> journey.back
 
 2016 eurorack
 -------------
@@ -128,5 +118,3 @@ lean2 -> plate.decay
 plate.l -> left
 plate.r -> right
 pads.alive -> lamp.track
-lift.up -> journey.next
-lift.down -> journey.back

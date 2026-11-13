@@ -29,12 +29,12 @@ clock.end -> clock.start route.next
 route ~70> voice.pitch
 voice -> hall -> ears
 lean1 -> hall.feedback
-lift.up -> journey.next
 ```
 
 A line with dashes under it is a **scene**: one dream inside the file. It is usually a date,
 but any words will do. Lines before the first scene are the **prelude**, which every scene
-shares. The rocker can carry you from scene to scene (see `journey`).
+shares. To change scene, hold the dots and press the rocker (**•• + FFWD / RWD**). A dream can
+also travel by itself through `journey`.
 
 ## Naming
 
@@ -92,12 +92,12 @@ One fader leans on many inlets at once, each with its own range (in hundredths).
 |---|---|---|
 | lean1 – lean4 | the four faders | 0 to 1 |
 | door1 – door4 | the track buttons T1–T4 | 1 while held |
-| lift, lift.up, lift.down | the rocker (FFWD / RWD) | −1, 0, 1, and pulses |
+| lift, lift.up, lift.down | the rocker (FFWD / RWD) | −1, 0, 1, and pulses (not while •• is held: that's the scene change) |
 | wake | PLAY | 1 while held |
 | lucid | the •• button | 1 while held |
 
 On the computer, keys 1–4 are the doors, ↑ and ↓ are the rocker, space is PLAY and `.` is
-the dots (while you are not typing in the journal).
+the dots (while you are not typing in the journal). `.` + ↑ / ↓ changes scene, as on the SP-1.
 
 ## Ears
 

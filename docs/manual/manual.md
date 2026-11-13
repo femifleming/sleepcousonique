@@ -110,12 +110,15 @@ Along the bottom is a stand-in for the SP-1:
   does nothing in this scene.
 
 When you are not typing in the journal, the computer keyboard plays the hands. **1–4** are
-the doors, **↑ ↓** the rocker, **space** is PLAY and **.** is the dots.
+the doors, **↑ ↓** the rocker, **space** is PLAY and **.** is the dots. **.** + **↑ ↓** changes
+scene.
 
 ## Scenes
 
 Every dated heading in the journal is a scene, and each scene is its own patch. The scene
-buttons under the toolbar switch between them. **+ scene** adds today's date as a new scene. A
+buttons under the toolbar switch between them. On the SP-1, and on the hands panel, hold the
+dots and press the rocker (**•• + FFWD / RWD**, or `.` + ↑ / ↓ on the keyboard). The rocker on
+its own is always `lift`, free to patch. **+ scene** adds today's date as a new scene. A
 patch can also travel by itself: anything sent into `journey.next` or `journey.back` changes
 scene, and `journey.miss` is the chance of getting off at the wrong stop.
 

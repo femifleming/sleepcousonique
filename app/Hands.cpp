@@ -18,6 +18,16 @@ Hands::Hands (Host& h) : host (h)
 
 void Hands::set (int ctl, float v) { host.control (ctl, v); }
 
+bool Hands::lucidHeld() const { return keyHeld[7] || items[11].mouse; }
+
+void Hands::sceneStep (int dir)
+{
+    rockerTaken = true;
+    set (SCQ_CTL_LIFT, 0.0f);
+    host.gotoScene (host.scene() + dir);
+    if (onStatus) onStatus (dir > 0 ? "next scene  (dots + rocker)" : "previous scene  (dots + rocker)");
+}
+
 void Hands::resized()
 {
     auto r = getLocalBounds().toFloat().reduced (14, 10);
@@ -155,7 +165,8 @@ void Hands::mouseDown (const MouseEvent& e)
     else
     {
         it.mouse = true;
-        set (it.ctl, it.ctl == SCQ_CTL_LIFT ? it.value : 1.0f);
+        if (it.ctl == SCQ_CTL_LIFT && lucidHeld()) sceneStep (it.value > 0 ? 1 : -1);
+        else if (! (it.ctl == SCQ_CTL_LIFT && rockerTaken)) set (it.ctl, it.ctl == SCQ_CTL_LIFT ? it.value : 1.0f);
     }
     repaint();
 }
@@ -177,6 +188,7 @@ void Hands::mouseUp (const MouseEvent&)
     {
         auto& it = items[(size_t) dragging];
         if (! it.fader) { it.mouse = false; set (it.ctl, 0.0f); }
+        if (it.ctl == SCQ_CTL_LIFT && ! keyHeld[4] && ! keyHeld[5]) rockerTaken = false;
     }
     dragging = -1;
     repaint();
@@ -193,8 +205,13 @@ void Hands::timerCallback()
         if (down == keyHeld[k]) continue;
         keyHeld[k] = down;
         if (k < 4) set (SCQ_CTL_DOOR1 + k, down ? 1.0f : 0.0f);
-        else if (k == 4) set (SCQ_CTL_LIFT, down ? 1.0f : (keyHeld[5] ? -1.0f : 0.0f));
-        else if (k == 5) set (SCQ_CTL_LIFT, down ? -1.0f : (keyHeld[4] ? 1.0f : 0.0f));
+        else if ((k == 4 || k == 5) && down && lucidHeld()) sceneStep (k == 4 ? 1 : -1);
+        else if (k == 4 || k == 5)
+        {
+            if (rockerTaken) { if (! keyHeld[4] && ! keyHeld[5]) rockerTaken = false; continue; }
+            if (k == 4) set (SCQ_CTL_LIFT, down ? 1.0f : (keyHeld[5] ? -1.0f : 0.0f));
+            else set (SCQ_CTL_LIFT, down ? -1.0f : (keyHeld[4] ? 1.0f : 0.0f));
+        }
         else if (k == 6) set (SCQ_CTL_WAKE, down ? 1.0f : 0.0f);
         else set (SCQ_CTL_LUCID, down ? 1.0f : 0.0f);
     }

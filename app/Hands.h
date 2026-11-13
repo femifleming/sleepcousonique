@@ -6,6 +6,7 @@
 // the eight LEDs, and a list of what each of them is patched to in the scene that's playing.
 // Drag a fader's copper loop onto an inlet to map it.
 // Keys: 1-4 doors, up/down the rocker, space PLAY, period the dots (when the journal isn't typing).
+// The dots + the rocker change scene, as on the SP-1, and then the rocker never reaches lift.
 class Hands : public juce::Component, private juce::Timer
 {
 public:
@@ -35,4 +36,7 @@ private:
     std::array<juce::Rectangle<float>, 8> leds;
     int dragging = -1;
     bool keyHeld[8] {};
+    bool rockerTaken = false;     // •• + rocker went to the scenes, not to lift
+    bool lucidHeld() const;
+    void sceneStep (int dir);
 };

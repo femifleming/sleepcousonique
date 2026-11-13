@@ -82,7 +82,8 @@ flashing back to another firmware brings its Bluetooth back exactly as it was.
 | tap **••** | show the battery |
 | faders F1–F4 | `lean1`–`lean4` |
 | track buttons T1–T4 | `door1`–`door4` |
-| FFWD / RWD (the rocker) | `lift` +1 / −1, `lift.up` / `lift.down` pulses |
+| FFWD / RWD (the rocker) | `lift` +1 / −1, `lift.up` / `lift.down` pulses, yours to patch |
+| **••** + FFWD / RWD | next / previous scene (the track row shows which, 1–4); the rocker doesn't reach `lift` while •• is held |
 | PLAY | `wake` |
 | **••** | `lucid` (while held) |
 | VOL + / − | volume |

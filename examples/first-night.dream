@@ -1,5 +1,6 @@
 ; first night — a tour of Sleepcousonique
 ; faders lean1-lean4, track buttons door1-door4, the rocker is lift, PLAY is wake
+; change scene: hold the dots and press the rocker (•• + FFWD / RWD)
 drift 3
 
 2026-11-13
@@ -17,8 +18,6 @@ dice => peaks.fold                  ; random folding, through water
 lean1 -> voice.index
 lean2 -> stairs.rise stairs.fall
 voice -> peaks -> window -> ears lamp
-lift.up -> journey.next
-lift.down -> journey.back
 
 2026-10-08
 ----------
@@ -40,8 +39,6 @@ hall => hall.length
 lean1 -> hall.feedback
 lean2 -> clock.fall
 wind ~30> ears
-lift.up -> journey.next
-lift.down -> journey.back
 
 2026-02-07
 ----------
@@ -56,5 +53,3 @@ moss -> night
 night.l -> left
 night.r -> right
 frog4 ~40> night
-lift.up -> journey.next
-lift.down -> journey.back

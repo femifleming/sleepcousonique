@@ -4,6 +4,7 @@
  * Controls:   F1-F4 lean1-lean4        T1-T4 door1-door4
  *             FFWD / RWD lift +1 / -1  PLAY wake          •• lucid
  *             VOL +/-  volume          •• + VOL +/-  next / previous dream slot
+ *             •• + FFWD / RWD  next / previous scene (the rocker never reaches lift then)
  * USB serial: "SCQ HELLO"  -> "SLEEPCOUSONIQUE <version>"
  *             "SCQ LOAD <bytes> <slot>" + bytes  -> "OK <errors>" / "ERR <why>"
  *             "SCQ SLOT <n>"  -> plays slot n
@@ -23,6 +24,7 @@
 #include "sp1_power.h"
 #include "sp1_batt.h"
 #include "sp1_ui_timing.h"
+#include "sp1_display.h"
 #include "scq.h"
 #include "scq_default.h"     /* the first night, generated from examples/first-night.dream */
 
@@ -281,7 +283,27 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 	for (int i = 0; i < 4; i++) {
 		scq_control(SCQ_CTL_DOOR1 + i, sp1_button_held((enum sp1_button)(SP1_BTN_T1 + i)) ? 1.f : 0.f);
 	}
-	scq_control(SCQ_CTL_LIFT, sp1_button_held(SP1_BTN_FFWD) ? 1.f : (sp1_button_held(SP1_BTN_RWD) ? -1.f : 0.f));
+	/* •• + the rocker: the next / previous scene. While •• is held the rocker belongs to the
+	 * scenes and never reaches `lift`, so lift stays free to patch. */
+	static bool rocker_taken;
+	if (fnc && (sp1_button_pressed(SP1_BTN_FFWD) || sp1_button_pressed(SP1_BTN_RWD))) {
+		(void)sp1_shift_used();
+		rocker_taken = true;
+		k_mutex_lock(&engine_lock, K_FOREVER);
+		int to = scq_scene() + (sp1_button_pressed(SP1_BTN_FFWD) ? 1 : -1);
+		scq_goto_scene(to);
+		k_mutex_unlock(&engine_lock);
+		/* show where you are: a bar of (scene % 4) + 1 on the track row */
+		const int s = ((to % 4) + 4) % 4;
+		const uint8_t lv[4] = { 255, s >= 1 ? 255 : 0, s >= 2 ? 255 : 0, s >= 3 ? 255 : 0 };
+		sp1_display_transient(lv, 600);
+		printk("SCQ scene %d\n", to);
+	}
+	if (rocker_taken && !sp1_button_held(SP1_BTN_FFWD) && !sp1_button_held(SP1_BTN_RWD)) {
+		rocker_taken = false;
+	}
+	scq_control(SCQ_CTL_LIFT, rocker_taken ? 0.f :
+		    (sp1_button_held(SP1_BTN_FFWD) ? 1.f : (sp1_button_held(SP1_BTN_RWD) ? -1.f : 0.f)));
 	scq_control(SCQ_CTL_WAKE, sp1_button_held(SP1_BTN_PLAY) ? 1.f : 0.f);
 	scq_control(SCQ_CTL_LUCID, fnc ? 1.f : 0.f);
 

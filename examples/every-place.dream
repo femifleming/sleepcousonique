@@ -73,7 +73,7 @@ hands
 the v is aira 3
 lean1 lean2 lean3 lean4 -10> v.pitch
 door1 door2 door3 door4 -10> v.pitch
-lift.up -> journey.next
+door4 -> journey.next
 lift ~> v.pitch
 wake lucid -> v.fm
 lucid lean2: v.fm 0..50
