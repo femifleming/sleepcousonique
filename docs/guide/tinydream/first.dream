@@ -1,0 +1,7 @@
+; tinydream: a folded fountain that breathes
+the voice is sine 3
+the slow is sine 0.005
+the breath is sine 0.02
+slow -40> voice.pitch
+breath -> fold.amount
+voice -> fold -> lowpass -> ears

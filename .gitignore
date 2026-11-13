@@ -2,3 +2,6 @@ build/
 tools/scqtool
 docs/manual/*.html
 .DS_Store
+docs/guide/*.html
+docs/guide/tinydream/tinydream
+docs/guide/tinydream/*.wav
