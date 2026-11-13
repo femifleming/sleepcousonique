@@ -122,6 +122,11 @@ static const struct sp1_ladder_entry ladder0[] = {
 	{ 1693, M_T2|M_T3|M_T4 },                    /* measured */
 	{ 1755, M_T1|M_T2|M_T3|M_T4 },               /* measured */
 	{ 1813, M_PLAY },                            /* measured */
+	/* Sleepcousonique: a second SP-1's PLAY reads 1847-1852 (2026-11-13, 15 presses), which
+	 * the table above took for T1|PLAY (1866) -- a chord, so PLAY was never dispatched.
+	 * Two centres for PLAY: both units' single press decodes as PLAY, and a T1|PLAY chord
+	 * on either still reads as a chord. */
+	{ 1850, M_PLAY },                            /* measured, second unit */
 	{ 1866, M_T1|M_PLAY },                       /* measured */
 	{ 1917, M_T2|M_PLAY },                       /* modelled */
 	{ 1965, M_T1|M_T2|M_PLAY },                  /* modelled */
