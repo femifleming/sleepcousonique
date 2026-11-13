@@ -37,6 +37,7 @@ juce_add_gui_app(Sleepcousonique
     COMPANY_NAME "Sleepcousonique"
     BUNDLE_ID "com.sleepcousonique.editor"
     DOCUMENT_EXTENSIONS dream
+    ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/app/icon/icon.png"
     MICROPHONE_PERMISSION_ENABLED FALSE)
 
 juce_add_binary_data(ScqData HEADER_NAME ScqData.h NAMESPACE ScqData
