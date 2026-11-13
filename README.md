@@ -32,7 +32,7 @@ with parts in them), **Buchla** and **Serge**, and the **Nord Modular** editor.
 | `firmware/` | the SP-1 firmware: the engine on Wakes' hardware layer (Zephyr 4.3.1) |
 | `examples/` | dreams |
 | `docs/` | the language, the places, the manual |
-| `tools/` | `scqtool` (check / render / stats), doc and embed scripts |
+| `tools/` | `scqtool` (check / stats / catalog), doc and embed scripts |
 | `tests/` | the editor's text-edit tests |
 
 ## Build the editor

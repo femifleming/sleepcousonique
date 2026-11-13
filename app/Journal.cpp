@@ -6,8 +6,8 @@ using namespace juce;
 static bool isPlaceWord (const String& w)
 {
     if (scq::findPlace (w)) return true;
-    auto stem = w.trimCharactersAtEnd ("0123456789");
-    return stem != w && scq::findPlace (stem) != nullptr;
+    auto base = w.trimCharactersAtEnd ("0123456789");
+    return base != w && scq::findPlace (base) != nullptr;
 }
 
 int DreamTokeniser::readNextToken (CodeDocument::Iterator& it)

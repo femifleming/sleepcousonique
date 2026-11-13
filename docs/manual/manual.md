@@ -11,6 +11,10 @@ You patch the way you would patch a modular, and decide what each fader and butt
 patching it, the way a Shbobo Shnth is programmed from Fish. Then you take the patch with you
 and perform on the SP-1 on its own, with its own audio out.
 
+There are no samples, songs or audio files anywhere in it. Every sound is made live by the
+patch, on the computer while you build it and on the SP-1 when you play it. The firmware
+doesn't read the SP-1's own storage at all.
+
 It is built from four things:
 
 - **The dream journal** (femishonuga.com/dd.html and the LBSE wiki). Patches are written as

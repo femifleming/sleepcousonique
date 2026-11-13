@@ -28,7 +28,7 @@ enum { FAM_SOURCE, FAM_SHAPE, FAM_SPACE, FAM_CURRENT, FAM_HANDS, FAM_EARS };
 enum {            /* place flags */
 	PF_SINGLE = 1,  /* one per scene, named after itself (controls, outputs) */
 	PF_DRIFT  = 2,  /* its nature drifts from night to night */
-	PF_COUNTED = 4  /* name+digit picks the nature: lean1, door3, stem2 */
+	PF_COUNTED = 4  /* name+digit picks the nature: lean1, door3 */
 };
 
 typedef struct {
