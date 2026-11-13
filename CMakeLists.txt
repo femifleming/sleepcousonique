@@ -40,7 +40,7 @@ juce_add_gui_app(Sleepcousonique
     MICROPHONE_PERMISSION_ENABLED FALSE)
 
 juce_add_binary_data(ScqData HEADER_NAME ScqData.h NAMESPACE ScqData
-    SOURCES examples/first-night.dream docs/places.md)
+    SOURCES examples/first-night.dream examples/a-history.dream docs/places.md)
 
 target_sources(Sleepcousonique PRIVATE
     app/Main.cpp

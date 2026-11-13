@@ -43,7 +43,9 @@ shares. The rocker can carry you from scene to scene (see `journey`).
     the route is train 4: 0 3 7 12      ; a train and its stations, in semitones
     the dark is bottle 40               ; a kept value: 0.40
 
-`the NAME is PLACE NATURE`. The nature is optional, and each place has its own default. You can
+`the NAME is PLACE NATURE`. The nature is optional, and each place has its own default. A name can
+be anything, even another place's name: inside that dream your name wins, so new places
+added to Sleepcousonique later can never break a dream you've already written. You can
 also skip naming and use a place directly: `rain -> ears` makes a rain, and `aira3` makes a
 fountain with nature 3.
 
@@ -68,6 +70,15 @@ There are three kinds of signal, as on a Buchla. **Sound** swings about −1 to 
 umber. **Current** sits about 0 to 1 and is drawn deep blue. A **pulse** is 0 or 1 and is drawn gold. Any
 of them can go into any inlet, as on a Serge. Pitch inlets count octaves: 1.0 is one
 octave up. Tuning starts from the 60 Hz hum: `aira 3` is 180 Hz.
+
+## Where the places come from
+
+There are about a hundred places. Each is named for something in the dream journal, and its
+help line says which instrument or idea it comes from: Moog, Buchla, Serge, ARP, EMS,
+Oberheim, Roland, Ciat-Lonbarde and Shbobo, Mutable Instruments, Make Noise, Music Thing,
+Doepfer, the TR-808, the Space Echo, Dattorro's plate, Max/MSP and Pd, SuperCollider and the
+Nord Modular. Right-click the tapestry to browse them by family. The full list, with every
+inlet and outlet, is at the end of this chapter.
 
 ## Lucid groups (morphs)
 

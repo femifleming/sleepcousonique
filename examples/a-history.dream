@@ -1,0 +1,132 @@
+; a history — modular synthesis, one night at a time
+; lift (the rocker) rides between the scenes; the faders are written next to each scene
+
+1964 the moog room
+------------------
+; a clock, a melody that rewrites itself, a ladder filter. lean1 cutoff, lean2 how much it changes
+the clock is tram 4
+the book is notebook 8
+the tune is pufferfish 1
+the osc is turntable 2
+the filter is shaft 1
+the env is sleep
+
+clock.eighth -> book.clock env.gate
+book -40> tune -> osc.pitch
+osc.saw osc.square -> filter
+env -> filter.cut
+lean1 -> filter.cut
+lean2 -> book.change
+filter -> ears lamp
+lift.up -> journey.next
+lift.down -> journey.back
+
+1965 the buchla basement
+------------------------
+; west coast: a complex oscillator, folds, bongos from Euclidean pulses. lean1 timbre, lean2 hits
+the clock is tram 4
+the steps are maze 13
+the voice is twin 2
+the peaks are mountains
+the gate is window
+the drift is wander 1
+
+clock.eighth -> steps.clock
+steps.hit >| gate.light
+lean2 -> steps.hits
+drift ~> voice.index
+lean1 -> voice.timbre peaks.fold
+voice -> peaks -> gate -> ears lamp
+lift.up -> journey.next
+lift.down -> journey.back
+
+1974 serge night
+----------------
+; a slope that cycles, a comparator, a ring modulator and a frequency shifter. lean1 shift, lean2 slope
+the slope is stairs
+the cmp is threshold
+the osc is turntable 4
+the ring is pulley 3
+the portal is stargate 1
+
+slope.end -> slope.start
+lean2 -> slope.rise slope.fall
+slope -> cmp
+40 -> cmp.ref
+cmp.gate -> osc.sync
+osc.tri -> ring -> portal
+lean1 -> portal.shift
+portal.up -> left
+portal.down -> right
+slope -> lamp.track
+lift.up -> journey.next
+lift.down -> journey.back
+
+1980 the drum machine party
+---------------------------
+; a map of beats, three drums, a tape echo. lean1 x, lean2 y, lean3 density, door1 a fill
+the clock is tram 4
+the beats are party
+the kick is trebuchet 1
+the snare is balloon 1
+the hat is grill 1
+the echo is dub 3
+the fill is fire
+
+clock.eighth -> beats.clock
+lean1 -> beats.x
+lean2 -> beats.y
+lean3 -> beats.density
+beats.kick -> kick
+beats.snare -> snare
+beats.hat fill -> hat
+door1 -> fill
+kick -> ears
+snare hat -> echo
+echo -> ears
+beats.accent -> lamp.play
+lift.up -> journey.next
+lift.down -> journey.back
+
+1995 ciat-lonbarde
+------------------
+; a rungler, fighting pendants, crackle and a spring. lean1 chaos, lean2 tilt
+the goblins are goblins 3
+the pendants are pendant 2
+the glitter is glitter
+the spring is cabin 2
+
+lean1 -> goblins.chaos glitter.chaos
+goblins.rungler ~> pendants.pitch
+lean2 -> pendants.tilt
+goblins -> spring
+pendants ~> spring
+glitter.dust -40> spring
+spring -> ears lamp
+lift.up -> journey.next
+lift.down -> journey.back
+
+2016 eurorack
+-------------
+; a cellular automaton plucks sympathetic strings; hold door1 to freeze. lean1 chord, lean2 plate decay
+the clock is tram 4
+the pads are lilypads 30
+the pluck is rebar 4
+the strings are wires 2
+the past is memories 1
+the plate is hotel
+
+clock.eighth -> pads.clock
+pads.pulse -> pluck
+pads.cells -20> pluck.pitch
+pluck -> strings
+lean1 -> strings.chord
+strings -> past
+door1 -> past.hold
+past -> plate
+lean2 -> plate.decay
+plate.l -> left
+plate.r -> right
+pads.alive -> lamp.track
+lift.up -> journey.next
+lift.down -> journey.back

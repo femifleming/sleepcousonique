@@ -48,13 +48,13 @@ lift.down -> journey.back
 ; a golden square of moss in a night pond; the magician shushes you into a trance
 the moss is moss 2
 the magician is magician 2
-the pond is warehouse 3
+the night is warehouse 3
 
 magician.trance -> moss.bloom
 lean1 -> moss.bloom
-moss -> pond
-pond.l -> left
-pond.r -> right
-frog4 ~40> pond
+moss -> night
+night.l -> left
+night.r -> right
+frog4 ~40> night
 lift.up -> journey.next
 lift.down -> journey.back

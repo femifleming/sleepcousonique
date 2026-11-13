@@ -350,7 +350,9 @@ static void st_the(tok *t, int nt)
 	if (find_node(t[1].s, t[1].n) >= 0) { say('E', "there are already ", t[1].s, t[1].n, " here"); return; }
 	int p = find_place(t[3].s, t[3].n);
 	int other = find_place(t[1].s, t[1].n);
-	if (other >= 0 && other != p) { say('E', "", t[1].s, t[1].n, " is another place; give it a name of its own"); return; }
+	/* naming something after another place is allowed: your name wins in this dream
+	 * (so a new place can never break a dream written before it existed) */
+	if (other >= 0 && other != p) say('W', "here ", t[1].s, t[1].n, " means yours, not the place of that name");
 	if (p < 0) {
 		for (int q = 0; q < SCQ_NPLACES && p < 0; q++)
 			if (near(t[3].s, t[3].n, SCQ_PLACES[q].name, str_len(SCQ_PLACES[q].name))) p = q;
@@ -459,9 +461,8 @@ static void statement(const char *s, int n)
 	if (nt <= 0) return;
 	if (t[0].t == T_WORD && (str_eq(t[0].s, t[0].n, "the") || str_eq(t[0].s, t[0].n, "The"))) { st_the(t, nt); return; }
 	if (t[0].t == T_WORD && str_eq(t[0].s, t[0].n, "lucid") && nt > 1 && t[1].t == T_WORD) { st_lucid(t, nt); return; }
-	if (t[0].t == T_WORD && str_eq(t[0].s, t[0].n, "drift")) {
-		if (nt == 2 && t[1].t == T_NUM) G.drift = parse_num(t[1].s, t[1].n);
-		else say('E', "write it as: drift 3", 0, 0, "");
+	if (t[0].t == T_WORD && str_eq(t[0].s, t[0].n, "drift") && nt == 2 && t[1].t == T_NUM) {
+		G.drift = parse_num(t[1].s, t[1].n);    /* otherwise "drift" is just a name */
 		return;
 	}
 	if (t[0].t == T_WORD && str_eq(t[0].s, t[0].n, "sleepers")) { say('W', "sleepers (voices) are not awake yet", 0, 0, ""); return; }
@@ -795,7 +796,7 @@ const char *scq_describe(void)
 	return G.desc;
 }
 
-static char catalog_buf[8192];
+static char catalog_buf[32768];
 const char *scq_catalog(void)
 {
 	static const char *fam[] = { "source", "shape", "space", "current", "hands", "ears" };

@@ -459,6 +459,7 @@ PopupMenu MainComponent::getMenuForIndex (int idx, const String&)
         m.addSeparator();
         m.addItem (5, "Send to SP-1", true);
         m.addItem (6, "Load the first night (example)", true);
+        m.addItem (7, "Load a history of modular (example)", true);
     }
     else if (idx == 1)
     {
@@ -489,6 +490,12 @@ void MainComponent::menuItemSelected (int id, int)
         case 6: askToKeepChanges ([this]
                 {
                     doc.text = String::fromUTF8 (ScqData::firstnight_dream, ScqData::firstnight_dreamSize);
+                    doc.file = File(); nights = 0;
+                    journal.setText (doc.text); compile (true); doc.dirty = false; updateTitle(); tapestry.fitAll();
+                }); break;
+        case 7: askToKeepChanges ([this]
+                {
+                    doc.text = String::fromUTF8 (ScqData::ahistory_dream, ScqData::ahistory_dreamSize);
                     doc.file = File(); nights = 0;
                     journal.setText (doc.text); compile (true); doc.dirty = false; updateTitle(); tapestry.fitAll();
                 }); break;

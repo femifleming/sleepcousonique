@@ -39,7 +39,8 @@ It is built from four things:
 ## Opening it
 
 Open **Sleepcousonique.app**. The first time, it opens *first night*, an example dream with
-three scenes. Sound comes out of your computer at once. The **sound** button (top right)
+three scenes. `File ▸ Load a history of modular` opens a second example: six scenes, from a
+1964 Moog room to 2016 eurorack, each built from the places of its era. Sound comes out of your computer at once. The **sound** button (top right)
 picks the audio device.
 
 `File ▸ Open` opens a `.dream` file, and `File ▸ Save` saves one (⌘O, ⌘S). A dream is a plain
@@ -75,7 +76,7 @@ PLAY and the dots. **SP-1 ears** on the right holds where sound leaves, the eigh
 
 | to | do this |
 |---|---|
-| add a place | right-click the canvas ▸ sources / shapes / spaces / currents |
+| add a place | right-click the canvas ▸ sources / shapes / spaces / currents. Each entry says what the place does and, in brackets, what it comes from |
 | patch | drag from an outlet to an inlet (or from an inlet back to an outlet) |
 | choose the cord's part | the **-> hall / ~> fog / => water / >\| door** buttons choose the part for new cords |
 | change a cord | right-click it: change its part, its amount, show it in the journal, or remove it |

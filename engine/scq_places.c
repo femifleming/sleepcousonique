@@ -820,6 +820,12 @@ static void run_journey(node *n, float in[MAX_IN][B])
 
 /* ------------------------------------------------------------------ the table */
 
+/* ------------------------------------------------------------------ the rest of modular history */
+#include "scq_more_sources.inc"
+#include "scq_more_shapes.inc"
+#include "scq_more_spaces.inc"
+#include "scq_more_currents.inc"
+
 #define P(name, fam, flags, cost, nat, ins, defs, outs, run, init, mem, help) \
 	{ name, fam, flags, cost, nat, ins, defs, outs, run, init, mem, help }
 
@@ -885,6 +891,7 @@ P("magician",  FAM_CURRENT, PF_DRIFT, 20, 1, "in shush", "0 0", "out trance", ru
   "shushes the sound when shush is loud; trance is a slow swing"),
 P("bottle",    FAM_CURRENT, 0, 2, 0, "", "", "out", run_bottle, 0, 0,
   "a kept value: bottle 40 is 0.40"),
+#include "scq_more_table.inc"
 P("lean",      FAM_HANDS, PF_SINGLE | PF_COUNTED, 3, 1, "", "", "out", run_lean, 0, 0,
   "faders: lean1 - lean4, 0 to 1"),
 P("door",      FAM_HANDS, PF_SINGLE | PF_COUNTED, 2, 1, "", "", "out", run_door, 0, 0,

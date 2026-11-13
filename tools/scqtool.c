@@ -44,6 +44,40 @@ int main(int argc, char **argv)
 		printf("%s", scq_describe());
 		return errors ? 1 : 0;
 	}
+	if (!strcmp(argv[1], "probe")) {
+		/* 4 s with a clock tapping the doors; every outlet of every place watched */
+		float l[128], r[128], mx[48][4] = { { 0 } };
+		int bad[48][4] = { { 0 } };
+		for (int k = 0; k < 4; k++) scq_control(k, 0.5f);
+		for (int i = 0; i < 4 * SCQ_RATE; i += 128) {
+			float t = (float)i / SCQ_RATE;
+			scq_control(4, fmodf(t, 0.5f) < 0.1f ? 1.f : 0.f);
+			scq_render(l, r, 128);
+			for (int n = 0; n < 48; n++)
+				for (int p = 0; p < 4; p++) {
+					float v = scq_probe(n, p);
+					if (isnan(v) || isinf(v)) bad[n][p] = 1;
+					else if (fabsf(v) > mx[n][p]) mx[n][p] = fabsf(v);
+				}
+		}
+		int fails = 0;
+		const char *d = scq_describe();
+		for (int n = 0; n < 48; n++) {
+			char key[16];
+			snprintf(key, sizeof key, "\nN %d ", n);
+			const char *at = strstr(d, key);
+			if (!at && !(n == 0 && !strncmp(d, "N 0 ", 4))) continue;
+			char place[32] = "", name[32] = "";
+			sscanf(at ? at + 1 : d, "N %*d %31s %*s %31s", place, name);
+			printf("%-12s %-10s", place, name);
+			for (int p = 0; p < 4; p++) {
+				printf("  %s%.3f", bad[n][p] ? "NaN!" : "", mx[n][p]);
+				if (bad[n][p] || mx[n][p] > 50.f) fails++;
+			}
+			printf("\n");
+		}
+		return fails ? 1 : 0;
+	}
 	if (!strcmp(argv[1], "stats")) {
 		int ns = scene_count(), bad = 0;
 		for (int s = 0; s < ns; s++) {

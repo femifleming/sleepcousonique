@@ -678,7 +678,11 @@ void Tapestry::canvasMenu (Point<float> d)
     for (auto& p : catalog())
     {
         if (p.family >= Hands) continue;
-        fams[p.family].addItem (id++, p.name + "    " + p.help.upToFirstOccurrenceOf (":", false, false).substring (0, 48));
+        // what it does (after the dream image), and where it comes from
+        auto what = p.help.fromFirstOccurrenceOf (": ", false, false).upToFirstOccurrenceOf (" (after", false, false);
+        auto from = p.help.fromFirstOccurrenceOf ("(after ", false, false).upToLastOccurrenceOf (")", false, false);
+        if (what.length() > 58) what = what.substring (0, 56) + "...";
+        fams[p.family].addItem (id++, p.name.paddedRight (' ', 12) + what + (from.isNotEmpty() ? "   [" + from.upToFirstOccurrenceOf (";", false, false) + "]" : String()));
         ids.push_back (p.name);
     }
     for (int f = 0; f < 4; ++f) m.addSubMenu (names[f], fams[f]);
