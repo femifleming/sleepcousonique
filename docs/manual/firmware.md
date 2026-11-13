@@ -20,14 +20,33 @@ the same C code the editor runs.
 1. Take `firmware/dist/sleepcousonique-sp1.bin` (124 KB), or build it yourself (see *Building*, below).
 2. Open the **Solderless** updater (solderless.engineering) in Chrome or Edge and connect the
    SP-1.
-3. Follow its steps to flash the `.bin`. If the SP-1 ever needs rescuing, hold **T1 + T4**
-   while plugging in USB: that is the bootloader's recovery entry, and nothing here
-   touches the bootloader.
+3. Follow its steps to flash the `.bin` (see *If something goes wrong* for boot mode).
 
 > **Not yet run on a real SP-1.** The firmware builds (124 KB of flash, 182 KB of the 256 KB
 > RAM), and the engine is the one tested in the editor, but nobody has flashed this image
 > onto a device yet. Treat the first flash as a
 > test. Keep the Wakes or tape-looper `.bin` nearby so you can go back.
+
+## If something goes wrong
+
+The bootloader is never touched, so the SP-1 can always be brought back:
+
+1. Turn the SP-1 off and unplug it.
+2. Hold **T1 + T4** and plug in USB. Let go when T1 lights: this is boot mode.
+3. Flash any `.bin` with the Solderless updater: this one again, a newer one, Wakes,
+   the tape looper or anything else.
+
+| part of the SP-1's memory | who writes it |
+|---|---|
+| 0x00000–0x1FFFF, the bootloader (T1 + T4 lives here) | **never** this firmware |
+| 0x20000–0xE6FFF, the firmware | only the bootloader, when you flash a `.bin` |
+| 0xE7000–0xFEFFF, the five dream slots | Sleepcousonique, and nothing outside it |
+| 0xFF000, the bootloader's settings page | **never** this firmware |
+
+On battery, a crash or unexpected restart turns the SP-1 off instead of looping. Press
+**••** to start it again. A dream that misbehaves doesn't need a reflash: send a different
+one, or step to another slot with **••** + VOL. Reflashing the firmware may clear the slots,
+so keep your `.dream` files on the computer.
 
 ## Playing it
 
