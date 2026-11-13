@@ -324,6 +324,7 @@ static void add_cord(const endpoint *a, const endpoint *b, int kind, float amt, 
 	c->dport = (uint8_t)b->port;
 	c->kind = (uint8_t)kind;
 	c->s = 0.f;
+	c->direct = 0;
 	c->line = (int16_t)G.line;
 	switch (kind) {
 	case K_HALL:   c->a = has_amt ? amt * 0.01f : 1.f; break;
@@ -582,6 +583,25 @@ static void compile_scene(int idx, int report)
 		G.cstart[k] = (uint16_t)c;
 	}
 	for (int k = 0; k < G.nc; k++) G.n[G.c[k].dst].patched |= (uint16_t)(1u << G.c[k].dport);
+	/* how each inlet gets its block: a lone plain wire from another place is read where it
+	 * lies (no copy); anything else is summed into scratch each block */
+	for (int k = 0; k < G.nn; k++) {
+		node *n = &G.n[k];
+		for (int p = 0; p < n->nin; p++) {
+			int count = 0, only = -1;
+			for (int c = G.cstart[k]; c < G.cstart[k + 1]; c++)
+				if (G.c[c].dport == p) { count++; only = c; }
+			n->direct[p] = 0;
+			if (count == 0) continue;
+			cord *c = &G.c[only];
+			if (count == 1 && c->kind == K_HALL && c->a == 1.f && c->src >= 0 && c->src != k) {
+				n->direct[p] = G.n[c->src].out[c->sport];
+				c->direct = 1;
+			} else {
+				n->mixed |= (uint16_t)(1u << p);
+			}
+		}
+	}
 	uint8_t mark[MAX_NODES] = { 0 };
 	int pos = 0;
 	for (int k = 0; k < G.nn; k++) visit(k, mark, &pos);
@@ -673,15 +693,23 @@ float scq_probe(int node, int port)
 	return G.n[node].out[port][B - 1];
 }
 
-static void gather(node *n, int k, float in[MAX_IN][B])
+static const float ZEROS[B];
+
+static void gather(node *n, int k, const float *in[MAX_IN], float scratch[MAX_IN][B])
 {
 	for (int p = 0; p < n->nin; p++) {
-		if (!(n->patched & (1u << p))) { float d = n->def[p]; LOOP in[p][i] = d; }
-		else LOOP in[p][i] = 0.f;
+		if (n->direct[p]) { in[p] = n->direct[p]; continue; }
+		if (n->mixed & (1u << p)) { LOOP scratch[p][i] = 0.f; in[p] = scratch[p]; continue; }
+		float d = n->def[p];
+		if (d == 0.f) { in[p] = ZEROS; continue; }
+		LOOP scratch[p][i] = d;
+		in[p] = scratch[p];
 	}
+	if (!n->mixed) return;
 	for (int ci = G.cstart[k]; ci < G.cstart[k + 1]; ci++) {
 		cord *c = &G.c[ci];
-		float *dst = in[c->dport];
+		if (c->direct) continue;
+		float *dst = scratch[c->dport];
 		if (c->kind == K_BOTTLE) { float v = c->a; LOOP dst[i] += v; continue; }
 		const float *src = G.n[c->src].out[c->sport];
 		switch (c->kind) {
@@ -706,12 +734,13 @@ static void gather(node *n, int k, float in[MAX_IN][B])
 
 static void run_block(void)
 {
-	float in[MAX_IN][B];
+	static float scratch[MAX_IN][B];        /* static: off the audio thread's small stack */
+	const float *in[MAX_IN];
 	LOOP { W.outL[i] = 0.f; W.outR[i] = 0.f; }
 	for (int o = 0; o < G.nn; o++) {
 		int k = G.order[o];
 		node *n = &G.n[k];
-		gather(n, k, in);
+		gather(n, k, in, scratch);
 		SCQ_PLACES[n->type].run(n, in);
 	}
 	if ((W.want_next || W.want_back) && G.nsc > 1 && G.pending < 0) {
@@ -730,11 +759,13 @@ void scq_render(float *left, float *right, int frames)
 		if (G.pending >= 0 && G.fading == 0) G.fading = -1;
 		if (G.nn > 0 && !G.waiting) run_block();
 		else LOOP { W.outL[i] = W.outR[i] = 0.f; }
-		LOOP {
+		if (G.fading == 0) {
+			LOOP { left[f + i] = scq_softclip(W.outL[i]); right[f + i] = scq_softclip(W.outR[i]); }
+		} else LOOP {
 			if (G.fading < 0) { G.gain -= 1.f / 480.f; if (G.gain < 0.f) G.gain = 0.f; }
-			else if (G.fading > 0) { G.gain += 1.f / 480.f; if (G.gain >= 1.f) { G.gain = 1.f; G.fading = 0; } }
-			left[f + i] = scq_tanh(W.outL[i]) * G.gain;
-			right[f + i] = scq_tanh(W.outR[i]) * G.gain;
+			else { G.gain += 1.f / 480.f; if (G.gain >= 1.f) { G.gain = 1.f; G.fading = 0; } }
+			left[f + i] = scq_softclip(W.outL[i]) * G.gain;
+			right[f + i] = scq_softclip(W.outR[i]) * G.gain;
 		}
 		if (G.fading < 0 && G.gain <= 0.f) {
 #ifdef SCQ_DEVICE

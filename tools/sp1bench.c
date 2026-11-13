@@ -89,21 +89,19 @@ int main(int argc, char **argv)
 		int ok = 0, auds = 0;
 		double avg = -1, max = -1;
 		end = now() + 25.0;
-		while (now() < end && auds < 3) {
+		/* skip the first engine report after OK (it straddles the load), keep the next */
+		while (now() < end && auds < 2) {
 			if (read_line(line, sizeof line, end) < 0) break;
 			if (!strncmp(line, "OK", 2)) ok = 1;
-			if (!strncmp(line, "ERR", 3)) { printf("%-28s %s\n", argv[a], line); break; }
-			char *c = strstr(line, "cyc avg=");
-			if (ok && c) {
-				auds++;
-				if (auds >= 2) {
-					avg = atof(c + 8);
-					char *m = strstr(line, "max=");
-					if (m) max = atof(m + 4);
-					const char *base = strrchr(argv[a], '/');
-					printf("%-16s %s\n", base ? base + 1 : argv[a], strstr(line, "blk="));
-					fflush(stdout);
-				}
+			if (!strncmp(line, "ERR", 3)) { printf("%-20s %s\n", argv[a], line); break; }
+			char *c = strstr(line, "SCQ engine avg=");
+			if (ok && c && ++auds == 2) {
+				avg = atof(c + 15);
+				char *m = strstr(line, "max=");
+				max = m ? atof(m + 4) : -1;
+				const char *base = strrchr(argv[a], '/');
+				printf("%-20s engine %5.1f%%  max %5.1f%%\n", base ? base + 1 : argv[a], avg, max);
+				fflush(stdout);
 			}
 		}
 		if (avg < 0 && ok) printf("%-28s (no report)\n", argv[a]);

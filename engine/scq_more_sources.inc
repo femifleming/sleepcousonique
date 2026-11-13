@@ -66,7 +66,7 @@ static void vowel_at(float v, float out[6])
 /* ---------------------------------------------------------------- oscillators */
 
 /* turntable — the classic analog oscillator: saw, square, triangle, sine (after Moog 921 / Minimoog) */
-static void run_turntable(node *n, float in[MAX_IN][B])
+static void run_turntable(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0], tri = n->s[1];
 	float base = 60.f * n->nature * scq_exp2(in[0][0]);            /* pitch per block */
@@ -89,7 +89,7 @@ static void run_turntable(node *n, float in[MAX_IN][B])
 }
 
 /* pendant — sacred sandwiched multivibrator pendants: two square waves that fight (after Ciat-Lonbarde's Fourses / Plumbutter) */
-static void run_pendant(node *n, float in[MAX_IN][B])
+static void run_pendant(node *n, const float *const in[MAX_IN])
 {
 	float pa = n->s[0], pb = n->s[1], lp = n->s[2];
 	float base = 60.f * n->nature, k = scq_exp2(in[0][0]);
@@ -110,7 +110,7 @@ static void run_pendant(node *n, float in[MAX_IN][B])
 }
 
 /* goblins — three hooded goblins: two triangles and a shift register that eats its own tail (after Rob Hordijk's Benjolin / rungler) */
-static void run_goblins(node *n, float in[MAX_IN][B])
+static void run_goblins(node *n, const float *const in[MAX_IN])
 {
 	float pa = n->s[0], pb = n->s[1], run = n->s[3], lp = n->s[4];
 	uint32_t reg = (uint32_t)n->s[2];
@@ -143,7 +143,7 @@ static void init_goblins(node *n) { n->s[2] = (float)(n->rng & 0xffu); }
 
 /* multiwave — Lakhovsky's multiple wave oscillator: sixteen partials (after Lakhovsky; Harmor / Partials; Buchla 259's harmonic thinking) */
 static uint32_t mem_multiwave(float nature) { (void)nature; return 16 * sizeof(float); }
-static void run_multiwave(node *n, float in[MAX_IN][B])
+static void run_multiwave(node *n, const float *const in[MAX_IN])
 {
 	float *ph = (float *)n->mem;
 	float f0 = 60.f * n->nature * scq_exp2(in[0][0]);
@@ -174,7 +174,7 @@ static void run_multiwave(node *n, float in[MAX_IN][B])
 }
 
 /* pulsar — undulating pulsar wavetables: a burst of formant in each period (after Curtis Roads' pulsar synthesis; Kyma) */
-static void run_pulsar(node *n, float in[MAX_IN][B])
+static void run_pulsar(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0];
 	const float inc = 60.f * n->nature * scq_exp2(in[0][0]) * INV_SR;
@@ -195,7 +195,7 @@ static void run_pulsar(node *n, float in[MAX_IN][B])
 }
 
 /* torpedo — the smiling torpedo: two-operator FM with feedback (after Chowning / Yamaha DX; Buchla 259's FM) */
-static void run_torpedo(node *n, float in[MAX_IN][B])
+static void run_torpedo(node *n, const float *const in[MAX_IN])
 {
 	float pc = n->s[0], pm = n->s[1], last = n->s[2];
 	const float f = 240.f * scq_exp2(in[0][0]);
@@ -214,7 +214,7 @@ static void run_torpedo(node *n, float in[MAX_IN][B])
 }
 
 /* beacon — the inevitably spherical probe beacon: phase distortion (after Casio CZ; Nord Modular's PD oscillator) */
-static void run_beacon(node *n, float in[MAX_IN][B])
+static void run_beacon(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0];
 	const float inc = 60.f * n->nature * scq_exp2(in[0][0]) * INV_SR;
@@ -231,7 +231,7 @@ static void run_beacon(node *n, float in[MAX_IN][B])
 }
 
 /* record — the 7-inch with the purple glitter label: one wave that turns from sine to pulse (after PPG / Waldorf wavetables; Plaits) */
-static void run_record(node *n, float in[MAX_IN][B])
+static void run_record(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0], tri = n->s[1];
 	const float dt = scq_clamp(60.f * n->nature * scq_exp2(in[0][0]) * INV_SR, 0.f, 0.45f);
@@ -263,7 +263,7 @@ static const float CHORDS[6][4] = {
 	{ 1.f, 1.2f, 1.5f, 1.8f },      /* minor 7    */
 	{ 1.f, 1.25f, 1.5f, 1.75f },    /* 4:5:6:7    */
 };
-static void run_throne(node *n, float in[MAX_IN][B])
+static void run_throne(node *n, const float *const in[MAX_IN])
 {
 	int c = (int)(scq_clamp(in[1][0], 0.f, 0.999f) * 6.f);
 	float spread = scq_clamp(in[2][0], 0.f, 1.f) * 0.004f;
@@ -284,7 +284,7 @@ static void run_throne(node *n, float in[MAX_IN][B])
 
 /* rave — the warehouse rave: seven detuned saws (after Roland JP-8000's supersaw) */
 static const float RAVE_D[7] = { -0.110f, -0.063f, -0.019f, 0.f, 0.019f, 0.062f, 0.107f };
-static void run_rave(node *n, float in[MAX_IN][B])
+static void run_rave(node *n, const float *const in[MAX_IN])
 {
 	float base = 60.f * n->nature * scq_exp2(in[0][0]);
 	float det = scq_clamp(in[1][0], 0.f, 1.f);
@@ -306,7 +306,7 @@ static void run_rave(node *n, float in[MAX_IN][B])
 
 /* nuns — nuns into cats into fairies, as the speaker preaches: a singing voice (after FOF / IRCAM CHANT; Doepfer A-104 formants) */
 static uint32_t mem_nuns(float nature) { (void)nature; return 8 * sizeof(float); }
-static void run_nuns(node *n, float in[MAX_IN][B])
+static void run_nuns(node *n, const float *const in[MAX_IN])
 {
 	float *st = (float *)n->mem;
 	float ph = n->s[0];
@@ -327,7 +327,7 @@ static void run_nuns(node *n, float in[MAX_IN][B])
 }
 
 /* hum — the 60 Hz hum the journal tunes to: mains buzz and its harmonics (after the 60 Hz just-intonation control writing) */
-static void run_hum(node *n, float in[MAX_IN][B])
+static void run_hum(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0];
 	float f = 60.f * n->nature;
@@ -347,7 +347,7 @@ static void run_hum(node *n, float in[MAX_IN][B])
 /* ---------------------------------------------------------------- noise and chaos */
 
 /* faucet — the generative freshwater faucet: white, pink, brown and blue water */
-static void run_faucet(node *n, float in[MAX_IN][B])
+static void run_faucet(node *n, const float *const in[MAX_IN])
 {
 	float b0 = n->s[0], b1 = n->s[1], b2 = n->s[2], br = n->s[3], last = n->s[4];
 	LOOP {
@@ -366,7 +366,7 @@ static void run_faucet(node *n, float in[MAX_IN][B])
 }
 
 /* glitter — golden glitter: crackle and dust (after SuperCollider's Crackle and Dust) */
-static void run_glitter(node *n, float in[MAX_IN][B])
+static void run_glitter(node *n, const float *const in[MAX_IN])
 {
 	float y1 = n->s[0], y2 = n->s[1];
 	if (y1 == 0.f && y2 == 0.f) y1 = 0.3f;
@@ -382,7 +382,7 @@ static void run_glitter(node *n, float in[MAX_IN][B])
 }
 
 /* spillway — the icy spillway: a Lorenz attractor, three ways out (after Lorenz; chaos modules) */
-static void run_spillway(node *n, float in[MAX_IN][B])
+static void run_spillway(node *n, const float *const in[MAX_IN])
 {
 	float x = n->s[0], y = n->s[1], z = n->s[2];
 	if (x == 0.f && y == 0.f && z == 0.f) { x = 0.1f; y = 0.f; z = 0.f; }
@@ -403,7 +403,7 @@ static void init_spillway(node *n) { n->s[0] = 0.1f; n->s[1] = 0.f; n->s[2] = 1.
 
 /* marimba — the marimba in the basement: a struck bar (after Mutable Rings / Elements' modal voices) */
 static const float BAR_R[3] = { 1.f, 3.99f, 10.65f };
-static void run_marimba(node *n, float in[MAX_IN][B])
+static void run_marimba(node *n, const float *const in[MAX_IN])
 {
 	float f0 = 60.f * n->nature * scq_exp2(in[1][0]);
 	float T = 0.15f + 2.f * scq_clamp(in[2][0], 0.f, 1.f);
@@ -433,7 +433,7 @@ static void run_marimba(node *n, float in[MAX_IN][B])
 /* rebar — swinging on rebar: a plucked string (after Karplus-Strong; Fish's string; Rings) */
 #define REBAR_LEN 2048
 static uint32_t mem_rebar(float nature) { (void)nature; return REBAR_LEN * sizeof(float); }
-static void run_rebar(node *n, float in[MAX_IN][B])
+static void run_rebar(node *n, const float *const in[MAX_IN])
 {
 	float *buf = (float *)n->mem;
 	uint32_t w = (uint32_t)n->s[0];
@@ -465,7 +465,7 @@ static void run_rebar(node *n, float in[MAX_IN][B])
 }
 
 /* trebuchet — the swinging wooden trebuchet: a kick drum (after the TR-808 bass drum; Mutable Peaks) */
-static void run_trebuchet(node *n, float in[MAX_IN][B])
+static void run_trebuchet(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0], env = n->s[1], penv = n->s[2];
 	float f0 = 60.f * n->nature * scq_exp2(in[1][0]);
@@ -483,7 +483,7 @@ static void run_trebuchet(node *n, float in[MAX_IN][B])
 }
 
 /* balloon — the balloon pop, the speculative gunshot: a snare (after the TR-808 / 909 snare) */
-static void run_balloon(node *n, float in[MAX_IN][B])
+static void run_balloon(node *n, const float *const in[MAX_IN])
 {
 	float p1 = n->s[0], p2 = n->s[1], te = n->s[2], ne = n->s[3], hp = n->s[4], bp1 = n->s[5], bp2 = n->s[6];
 	float f = 180.f * n->nature * scq_exp2(in[1][0]);
@@ -506,7 +506,7 @@ static void run_balloon(node *n, float in[MAX_IN][B])
 
 /* grill — the sizzle of the grill: a metallic hi-hat, six squares (after the TR-808 cymbal circuit) */
 static const float HAT_F[6] = { 205.3f, 304.4f, 369.6f, 522.7f, 540.f, 800.f };
-static void run_grill(node *n, float in[MAX_IN][B])
+static void run_grill(node *n, const float *const in[MAX_IN])
 {
 	float env = n->s[6], h1 = n->s[7], h2 = n->s[8];
 	float k = n->nature * scq_exp2(in[2][0]);

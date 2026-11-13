@@ -34,7 +34,7 @@ static inline int natural(float nature, int lo, int hi)
 /* ------------------------------------------------------------------ sources */
 
 /* aira — the fountain labeled aira: a pure tone at nature x 60 Hz */
-static void run_aira(node *n, float in[MAX_IN][B])
+static void run_aira(node *n, const float *const in[MAX_IN])
 {
 	float base = 60.f * n->nature * scq_exp2(in[0][0]), ph = n->s[0];   /* pitch per block */
 	LOOP {
@@ -47,7 +47,7 @@ static void run_aira(node *n, float in[MAX_IN][B])
 }
 
 /* twin — two partials, 60n and 60(n+1): their difference is always the hum */
-static void run_twin(node *n, float in[MAX_IN][B])
+static void run_twin(node *n, const float *const in[MAX_IN])
 {
 	float pa = n->s[0], pb = n->s[1];
 	float k = scq_exp2(in[0][0]);                                /* pitch per block */
@@ -66,7 +66,7 @@ static void run_twin(node *n, float in[MAX_IN][B])
 }
 
 /* rain — drops: random strikes on tiny resonators. nature = drops per second / 8 */
-static void run_rain(node *n, float in[MAX_IN][B])
+static void run_rain(node *n, const float *const in[MAX_IN])
 {
 	/* s: 0 y1, 1 y2, 2 c1, 3 c2, 4 pulse timer */
 	float y1 = n->s[0], y2 = n->s[1], c1 = n->s[2], c2 = n->s[3], pt = n->s[4];
@@ -91,7 +91,7 @@ static void run_rain(node *n, float in[MAX_IN][B])
 }
 
 /* thunder — rare rumbles, or when struck. nature = how often (per minute) */
-static void run_thunder(node *n, float in[MAX_IN][B])
+static void run_thunder(node *n, const float *const in[MAX_IN])
 {
 	float env = n->s[0], lp = n->s[1], lp2 = n->s[2];
 	float decay = 1.f - 1.f / (2.5f * SR);
@@ -110,7 +110,7 @@ static void run_thunder(node *n, float in[MAX_IN][B])
 }
 
 /* flood — water rising: noise through a resonant lowpass that climbs with the level */
-static void run_flood(node *n, float in[MAX_IN][B])
+static void run_flood(node *n, const float *const in[MAX_IN])
 {
 	float ic1 = n->s[0], ic2 = n->s[1], wander = n->s[2], wt = n->s[3];
 	float level = scq_clamp(in[0][0], 0.f, 1.f);
@@ -131,7 +131,7 @@ static void run_flood(node *n, float in[MAX_IN][B])
 }
 
 /* wind — a cold draft: soft noise through a wandering band */
-static void run_wind(node *n, float in[MAX_IN][B])
+static void run_wind(node *n, const float *const in[MAX_IN])
 {
 	float ic1 = n->s[0], ic2 = n->s[1], wander = n->s[2], wt = n->s[3], pk = n->s[4];
 	if (scq_rand01(&n->rng) < 0.003f) wt = scq_rand01(&n->rng);
@@ -155,7 +155,7 @@ static void run_wind(node *n, float in[MAX_IN][B])
 /* ------------------------------------------------------------------ shapes */
 
 /* mountains — dark umber peaks: a sine wavefolder */
-static void run_mountains(node *n, float in[MAX_IN][B])
+static void run_mountains(node *n, const float *const in[MAX_IN])
 {
 	float base = 1.f + 0.5f * (n->nature - 1.f);
 	LOOP {
@@ -165,7 +165,7 @@ static void run_mountains(node *n, float in[MAX_IN][B])
 }
 
 /* window — a lamp shining on a photocell (the lowpass gate) */
-static void run_window(node *n, float in[MAX_IN][B])
+static void run_window(node *n, const float *const in[MAX_IN])
 {
 	float v = n->s[0], l1 = n->s[1], l2 = n->s[2];
 	const float att = 1.f / (0.002f * SR), rel = 1.f / (0.25f * SR);
@@ -181,7 +181,7 @@ static void run_window(node *n, float in[MAX_IN][B])
 }
 
 /* basement — the house show downstairs: a resonant lowpass, warm */
-static void run_basement(node *n, float in[MAX_IN][B])
+static void run_basement(node *n, const float *const in[MAX_IN])
 {
 	float ic1 = n->s[0], ic2 = n->s[1];
 	float fc = scq_clamp(480.f * n->nature * scq_exp2(in[1][0]), 20.f, 16000.f);
@@ -214,7 +214,7 @@ static void init_horns(node *n)
 		m[b * 5 + 2] = g * m[b * 5 + 1];
 	}
 }
-static void run_horns(node *n, float in[MAX_IN][B])
+static void run_horns(node *n, const float *const in[MAX_IN])
 {
 	float *m = (float *)n->mem;
 	LOOP n->out[0][i] = in[0][i];
@@ -233,7 +233,7 @@ static void run_horns(node *n, float in[MAX_IN][B])
 }
 
 /* lighter — the lighter that explodes: a flick of fire and drive */
-static void run_lighter(node *n, float in[MAX_IN][B])
+static void run_lighter(node *n, const float *const in[MAX_IN])
 {
 	float flame = n->s[0];
 	float decay = 1.f - 1.f / (0.4f * SR);
@@ -247,7 +247,7 @@ static void run_lighter(node *n, float in[MAX_IN][B])
 }
 
 /* copper — the grounding rod: blocks DC, lets the music through */
-static void run_copper(node *n, float in[MAX_IN][B])
+static void run_copper(node *n, const float *const in[MAX_IN])
 {
 	float lp = n->s[0], c = scq_coef_hz(20.f * n->nature, SR);
 	LOOP {
@@ -258,13 +258,13 @@ static void run_copper(node *n, float in[MAX_IN][B])
 }
 
 /* blanket — puts the fire out: a plain amplifier */
-static void run_blanket(node *n, float in[MAX_IN][B])
+static void run_blanket(node *n, const float *const in[MAX_IN])
 {
 	LOOP n->out[0][i] = in[0][i] * in[1][i];
 }
 
 /* crystal — the crystal matrix: four in, four out, turned by an angle */
-static void run_crystal(node *n, float in[MAX_IN][B])
+static void run_crystal(node *n, const float *const in[MAX_IN])
 {
 	float th = n->nature * 0.0625f + in[4][0] * 0.25f;        /* in turns */
 	float c = scq_sin2pi(th + 0.25f), s = scq_sin2pi(th);
@@ -283,7 +283,7 @@ static void run_crystal(node *n, float in[MAX_IN][B])
 
 /* tunnel — tubular architecture, tubular acoustics: a tuned comb */
 static uint32_t mem_tunnel(float nature) { (void)nature; return 2048 * sizeof(float); }
-static void run_tunnel(node *n, float in[MAX_IN][B])
+static void run_tunnel(node *n, const float *const in[MAX_IN])
 {
 	float *buf = (float *)n->mem;
 	uint32_t w = (uint32_t)n->s[0];
@@ -308,7 +308,7 @@ static void run_tunnel(node *n, float in[MAX_IN][B])
 
 /* hallway — the long grey hallway: a delay. nature x 50 ms, up to a second */
 static uint32_t mem_hallway(float nature) { return (uint32_t)natural(nature, 1, 20) * 2400 * sizeof(int16_t); }
-static void run_hallway(node *n, float in[MAX_IN][B])
+static void run_hallway(node *n, const float *const in[MAX_IN])
 {
 	int16_t *buf = (int16_t *)n->mem;
 	uint32_t L = n->memlen / sizeof(int16_t);
@@ -344,7 +344,7 @@ static uint32_t mem_warehouse(float nature)
 	for (int k = 0; k < 4; k++) t += wh_len(nature, k);
 	return t * sizeof(int16_t);
 }
-static void run_warehouse(node *n, float in[MAX_IN][B])
+static void run_warehouse(node *n, const float *const in[MAX_IN])
 {
 	int16_t *base = (int16_t *)n->mem;
 	int16_t *line[4];
@@ -380,7 +380,7 @@ static void run_warehouse(node *n, float in[MAX_IN][B])
 /* bell — the cargo train's deep bell: four struck modes */
 static const float BELL_R[4] = { 1.f, 2.76f, 5.40f, 8.93f };
 static const float BELL_A[4] = { 1.f, 0.6f, 0.4f, 0.25f };
-static void run_bell(node *n, float in[MAX_IN][B])
+static void run_bell(node *n, const float *const in[MAX_IN])
 {
 	/* s: 0..3 y1, 4..7 y2, 8 prev strike */
 	float f0 = 120.f * n->nature * scq_exp2(in[1][0]);
@@ -408,7 +408,7 @@ static void run_bell(node *n, float in[MAX_IN][B])
 }
 
 /* elevator — the lift into the night sky: a tone that rises forever */
-static void run_elevator(node *n, float in[MAX_IN][B])
+static void run_elevator(node *n, const float *const in[MAX_IN])
 {
 	/* s: 0..7 phases, 8 position */
 	float pos = n->s[8];
@@ -450,7 +450,7 @@ static void init_moss(node *n)
 	}
 }
 static const float MOSS_RATE[6] = { 1.f, 2.f, 0.5f, 1.5f, 1.f, 0.75f };
-static void run_moss(node *n, float in[MAX_IN][B])
+static void run_moss(node *n, const float *const in[MAX_IN])
 {
 	int16_t *buf = (int16_t *)n->mem;
 	float *gr = (float *)(buf + MOSS_LEN);  /* per grain: pos, rate, env phase, env inc */
@@ -500,7 +500,7 @@ static void init_frog(node *n)
 	float *m = (float *)n->mem;
 	for (int k = 0; k < 8; k++) m[k * 5 + 2] = scq_rand01(&n->rng) * 2.f * SR;
 }
-static void run_frog(node *n, float in[MAX_IN][B])
+static void run_frog(node *n, const float *const in[MAX_IN])
 {
 	float *m = (float *)n->mem;   /* per frog: phase, mod phase, timer, freq, env */
 	int count = natural(n->nature, 1, 8);
@@ -540,7 +540,7 @@ static void run_frog(node *n, float in[MAX_IN][B])
 
 /* stairs — the spiral staircase (Serge's universal slope): rises, falls, follows.
  * Patch its end into its start and it climbs forever. */
-static void run_stairs(node *n, float in[MAX_IN][B])
+static void run_stairs(node *n, const float *const in[MAX_IN])
 {
 	float v = n->s[0], mode = n->s[1], et = n->s[3];
 	const float up = 1.f / (0.001f * scq_exp2(scq_clamp(in[2][0], 0.f, 1.f) * 13.3f) * SR);   /* rates per block */
@@ -572,7 +572,7 @@ static void run_stairs(node *n, float in[MAX_IN][B])
 static void init_stairs(node *n) { n->s[3] = PULSE_SAMPLES; }
 
 /* jakes — they look like people but aren't: smooth wandering random */
-static void run_jakes(node *n, float in[MAX_IN][B])
+static void run_jakes(node *n, const float *const in[MAX_IN])
 {
 	float from = n->s[0], to = n->s[1], ph = n->s[2];
 	float f = 0.3f * n->nature * scq_exp2(scq_clamp(in[0][0], 0.f, 1.f) * 6.f);
@@ -588,7 +588,7 @@ static void run_jakes(node *n, float in[MAX_IN][B])
 }
 
 /* connors — the other ones: stepped random, held until the next pulse */
-static void run_connors(node *n, float in[MAX_IN][B])
+static void run_connors(node *n, const float *const in[MAX_IN])
 {
 	float v = n->s[0], ph = n->s[1], pt = n->s[3];
 	int clocked = n->patched & 1;
@@ -609,7 +609,7 @@ static void run_connors(node *n, float in[MAX_IN][B])
 }
 
 /* escalator — steps that move smoothly (Serge's smooth & stepped) */
-static void run_escalator(node *n, float in[MAX_IN][B])
+static void run_escalator(node *n, const float *const in[MAX_IN])
 {
 	float held = n->s[0], v = n->s[1];
 	const float c = scq_coef_time(scq_clamp(in[2][0], 0.f, 1.f) * 1.f, SR);   /* glide per block */
@@ -633,7 +633,7 @@ static void init_train(node *n)
 		m[32] = (float)c;
 	}
 }
-static void run_train(node *n, float in[MAX_IN][B])
+static void run_train(node *n, const float *const in[MAX_IN])
 {
 	float *m = (float *)n->mem;
 	int count = (int)m[32];
@@ -662,7 +662,7 @@ static const float PF_SCALE[5][9] = {
 	{ 8, 0, .169925f, .321928f, .459432f, .584963f, .700440f, .807355f, .906891f }, /* otonal 8-15 */
 	{ 8, 0, .093109f, .192645f, .299560f, .415037f, .540568f, .678072f, .830075f }, /* utonal      */
 };
-static void run_pufferfish(node *n, float in[MAX_IN][B])
+static void run_pufferfish(node *n, const float *const in[MAX_IN])
 {
 	const float *sc = PF_SCALE[natural(n->nature, 1, 5) - 1];
 	int cnt = (int)sc[0];
@@ -687,7 +687,7 @@ static void run_pufferfish(node *n, float in[MAX_IN][B])
 /* cat — the cat that teaches expressions you mirror back: learns a gesture, repeats it */
 #define CAT_LEN 6000
 static uint32_t mem_cat(float nature) { (void)nature; return CAT_LEN * sizeof(int16_t); }
-static void run_cat(node *n, float in[MAX_IN][B])
+static void run_cat(node *n, const float *const in[MAX_IN])
 {
 	int16_t *buf = (int16_t *)n->mem;
 	/* s: 0 learning, 1 length, 2 play pos, 3 decimation, 4 smooth */
@@ -713,7 +713,7 @@ static void run_cat(node *n, float in[MAX_IN][B])
 }
 
 /* magician — shushes you into a trance: a ducker and a slow swing */
-static void run_magician(node *n, float in[MAX_IN][B])
+static void run_magician(node *n, const float *const in[MAX_IN])
 {
 	float env = n->s[0], ph = n->s[1];
 	float att = scq_coef_time(0.005f, SR), rel = scq_coef_time(0.3f, SR);
@@ -729,7 +729,7 @@ static void run_magician(node *n, float in[MAX_IN][B])
 }
 
 /* bottle — a kept value (the water bottle). bottle 40 = 0.40 */
-static void run_bottle(node *n, float in[MAX_IN][B])
+static void run_bottle(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
 	LOOP n->out[0][i] = n->nature * 0.01f;
@@ -737,7 +737,7 @@ static void run_bottle(node *n, float in[MAX_IN][B])
 
 /* ------------------------------------------------------------------ hands */
 
-static void run_lean(node *n, float in[MAX_IN][B])
+static void run_lean(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
 	int k = natural(n->nature, 1, 4) - 1;
@@ -745,13 +745,13 @@ static void run_lean(node *n, float in[MAX_IN][B])
 	LOOP { v += (t - v) * 0.004f; n->out[0][i] = v; }
 	n->s[0] = v;
 }
-static void run_door(node *n, float in[MAX_IN][B])
+static void run_door(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
 	float v = W.ctl[SCQ_CTL_DOOR1 + natural(n->nature, 1, 4) - 1];
 	LOOP n->out[0][i] = v;
 }
-static void run_lift(node *n, float in[MAX_IN][B])
+static void run_lift(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
 	float v = W.ctl[SCQ_CTL_LIFT];
@@ -768,13 +768,13 @@ static void run_lift(node *n, float in[MAX_IN][B])
 	}
 	n->s[1] = up; n->s[2] = dn;
 }
-static void run_wake(node *n, float in[MAX_IN][B])
+static void run_wake(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
 	float v = W.ctl[SCQ_CTL_WAKE];
 	LOOP n->out[0][i] = v;
 }
-static void run_lucid(node *n, float in[MAX_IN][B])
+static void run_lucid(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
 	float v = W.ctl[SCQ_CTL_LUCID];
@@ -783,12 +783,12 @@ static void run_lucid(node *n, float in[MAX_IN][B])
 
 /* ------------------------------------------------------------------ ears */
 
-static void run_left(node *n, float in[MAX_IN][B])  { (void)n; LOOP W.outL[i] += in[0][i]; }
-static void run_right(node *n, float in[MAX_IN][B]) { (void)n; LOOP W.outR[i] += in[0][i]; }
-static void run_ears(node *n, float in[MAX_IN][B])  { (void)n; LOOP { W.outL[i] += in[0][i]; W.outR[i] += in[0][i]; } }
+static void run_left(node *n, const float *const in[MAX_IN])  { (void)n; LOOP W.outL[i] += in[0][i]; }
+static void run_right(node *n, const float *const in[MAX_IN]) { (void)n; LOOP W.outR[i] += in[0][i]; }
+static void run_ears(node *n, const float *const in[MAX_IN])  { (void)n; LOOP { W.outL[i] += in[0][i]; W.outR[i] += in[0][i]; } }
 
 /* lamp — red while charging, then white: the eight LEDs */
-static void run_lamp(node *n, float in[MAX_IN][B])
+static void run_lamp(node *n, const float *const in[MAX_IN])
 {
 	float env = n->s[0], t1 = n->s[1], t2 = n->s[2];
 	float att = scq_coef_time(0.01f, SR), rel = scq_coef_time(0.2f, SR);
@@ -808,7 +808,7 @@ static void run_lamp(node *n, float in[MAX_IN][B])
 }
 
 /* journey — riding between scenes. Sometimes you miss your stop. */
-static void run_journey(node *n, float in[MAX_IN][B])
+static void run_journey(node *n, const float *const in[MAX_IN])
 {
 	LOOP {
 		if (edge(in[0][i], &n->s[0])) W.want_next = 1;

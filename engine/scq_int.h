@@ -19,7 +19,7 @@
 #define LOOP   for (int i = 0; i < B; i++)
 
 typedef struct node node;
-typedef void (*place_run)(node *n, float in[MAX_IN][B]);
+typedef void (*place_run)(node *n, const float *const in[MAX_IN]);
 typedef void (*place_init)(node *n);
 typedef uint32_t (*place_mem)(float nature);
 
@@ -55,6 +55,8 @@ struct node {
 	char     name[NAME_LEN];
 	int16_t  line;
 	float    def[MAX_IN];
+	const float *direct[MAX_IN];  /* a lone plain wire: read the source's buffer itself */
+	uint16_t mixed;               /* bit per inlet that has to be summed each block      */
 	float    out[MAX_OUT][B];
 	float    s[MAX_STATE];
 	uint32_t rng;
@@ -72,6 +74,7 @@ typedef struct {
 	float   a, b;     /* amount; range high */
 	float   s;        /* state (fog / water) */
 	int16_t line;
+	uint8_t direct;   /* this cord is read in place: nothing to do per block */
 } cord;
 
 extern const place SCQ_PLACES[];

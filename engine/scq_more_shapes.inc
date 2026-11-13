@@ -4,7 +4,7 @@
  */
 
 /* shaft — the vertical shaft you climb out of: a four-pole transistor ladder (after Moog 904A; Huovilainen) */
-static void run_shaft(node *n, float in[MAX_IN][B])
+static void run_shaft(node *n, const float *const in[MAX_IN])
 {
 	float *y = &n->s[0];
 	float fc = scq_clamp(480.f * n->nature * scq_exp2(in[1][0]), 20.f, 16000.f);
@@ -22,7 +22,7 @@ static void run_shaft(node *n, float in[MAX_IN][B])
 }
 
 /* pond — the night pond: lowpass, bandpass, highpass and notch at once (after Oberheim SEM; Serge VCFQ) */
-static void run_pond(node *n, float in[MAX_IN][B])
+static void run_pond(node *n, const float *const in[MAX_IN])
 {
 	float fc = 480.f * n->nature * scq_exp2(in[1][0]);
 	svf_c c = svf_make(fc, 2.f - 1.96f * scq_clamp(in[2][0], 0.f, 1.f));
@@ -38,7 +38,7 @@ static void run_pond(node *n, float in[MAX_IN][B])
 }
 
 /* preacher — as the speaker preaches: a vowel filter (after the Doepfer A-104 Trautonium formant filter; talk boxes) */
-static void run_preacher(node *n, float in[MAX_IN][B])
+static void run_preacher(node *n, const float *const in[MAX_IN])
 {
 	float v[6];
 	vowel_at(in[1][0], v);
@@ -53,7 +53,7 @@ static void run_preacher(node *n, float in[MAX_IN][B])
 }
 
 /* glass — climbing through glass: a six-stage phaser (after the Mu-Tron Bi-Phase; Electro-Harmonix Small Stone) */
-static void run_glass(node *n, float in[MAX_IN][B])
+static void run_glass(node *n, const float *const in[MAX_IN])
 {
 	float *z = &n->s[0];            /* 6 stage states */
 	float ph = n->s[6], fbk = n->s[7];
@@ -79,7 +79,7 @@ static void run_glass(node *n, float in[MAX_IN][B])
 /* conduit — conduit to conduit, like stargates: a flanger (after the Electric Mistress; bucket-brigade delays) */
 #define CONDUIT_LEN 1024
 static uint32_t mem_conduit(float nature) { (void)nature; return CONDUIT_LEN * sizeof(float); }
-static void run_conduit(node *n, float in[MAX_IN][B])
+static void run_conduit(node *n, const float *const in[MAX_IN])
 {
 	float *buf = (float *)n->mem;
 	uint32_t w = (uint32_t)n->s[0];
@@ -105,7 +105,7 @@ static void run_conduit(node *n, float in[MAX_IN][B])
 /* fairies — nuns into cats into fairies: a three-voice ensemble chorus (after the Solina / ARP string ensemble) */
 #define FAIRY_LEN 2048
 static uint32_t mem_fairies(float nature) { (void)nature; return FAIRY_LEN * sizeof(float); }
-static void run_fairies(node *n, float in[MAX_IN][B])
+static void run_fairies(node *n, const float *const in[MAX_IN])
 {
 	float *buf = (float *)n->mem;
 	uint32_t w = (uint32_t)n->s[0];
@@ -134,7 +134,7 @@ static void run_fairies(node *n, float in[MAX_IN][B])
 }
 
 /* pulley — the pulley system: a ring modulator, with its own carrier if you give it none (after Bode; EMS VCS3; Buchla 285) */
-static void run_pulley(node *n, float in[MAX_IN][B])
+static void run_pulley(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0];
 	int own = !(n->patched & 2);
@@ -154,7 +154,7 @@ static void run_pulley(node *n, float in[MAX_IN][B])
 static const float HIL_A[4] = { 0.6923878f, 0.9360654f, 0.9882295f, 0.9987488f };
 static const float HIL_B[4] = { 0.4021921f, 0.8561711f, 0.9722910f, 0.9952885f };
 static uint32_t mem_stargate(float nature) { (void)nature; return 34 * sizeof(float); }
-static void run_stargate(node *n, float in[MAX_IN][B])
+static void run_stargate(node *n, const float *const in[MAX_IN])
 {
 	float *m = (float *)n->mem;          /* 8 stages x (x1 x2 y1 y2), then delay, phase */
 	float ph = m[33];
@@ -182,7 +182,7 @@ static void run_stargate(node *n, float in[MAX_IN][B])
 }
 
 /* flashdrive — the stolen 516 GB flash drive: fewer bits, fewer samples (after the SP-1200 / early samplers; decimators) */
-static void run_flashdrive(node *n, float in[MAX_IN][B])
+static void run_flashdrive(node *n, const float *const in[MAX_IN])
 {
 	float held = n->s[0], cnt = n->s[1];
 	LOOP {
@@ -199,7 +199,7 @@ static void run_flashdrive(node *n, float in[MAX_IN][B])
 }
 
 /* tungsten — tungsten lamplight at night: a warm tube stage (after tube preamps; the Culture Vulture) */
-static void run_tungsten(node *n, float in[MAX_IN][B])
+static void run_tungsten(node *n, const float *const in[MAX_IN])
 {
 	float lp = n->s[0];
 	LOOP {
@@ -213,7 +213,7 @@ static void run_tungsten(node *n, float in[MAX_IN][B])
 }
 
 /* pillow — muffled into a pillow: a compressor (after the LA-2A / 1176; Fish's press) */
-static void run_pillow(node *n, float in[MAX_IN][B])
+static void run_pillow(node *n, const float *const in[MAX_IN])
 {
 	float env = n->s[0];
 	float sq = scq_clamp(in[1][0], 0.f, 1.f);
@@ -232,7 +232,7 @@ static void run_pillow(node *n, float in[MAX_IN][B])
 }
 
 /* blur — scenes blurring together: a crossfade between two things */
-static void run_blur(node *n, float in[MAX_IN][B])
+static void run_blur(node *n, const float *const in[MAX_IN])
 {
 	(void)n;
 	LOOP {
@@ -244,7 +244,7 @@ static void run_blur(node *n, float in[MAX_IN][B])
 /* radio — the DJ radio station in the basement: an eight-band vocoder (after the EMS Vocoder; Mutable Warps) */
 static const float VOC_F[8] = { 180.f, 300.f, 500.f, 800.f, 1300.f, 2100.f, 3400.f, 5500.f };
 static uint32_t mem_radio(float nature) { (void)nature; return (8 * 5 + 2) * sizeof(float); }
-static void run_radio(node *n, float in[MAX_IN][B])
+static void run_radio(node *n, const float *const in[MAX_IN])
 {
 	float *m = (float *)n->mem;           /* per band: c1 c2 m1 m2 env */
 	float ph = m[40];
@@ -273,7 +273,7 @@ static void run_radio(node *n, float in[MAX_IN][B])
 }
 
 /* sonder — a glowing presence: an envelope follower, with a gate when something is there (after the ARP 2600 envelope follower) */
-static void run_sonder(node *n, float in[MAX_IN][B])
+static void run_sonder(node *n, const float *const in[MAX_IN])
 {
 	float env = n->s[0];
 	float att = scq_coef_time(0.001f + 0.2f * scq_clamp(in[1][0], 0.f, 1.f), SR);
@@ -288,7 +288,7 @@ static void run_sonder(node *n, float in[MAX_IN][B])
 }
 
 /* camera — taking photos of the basement: sample & hold and track & hold (after the ARP 2600 S&H; Buchla 266) */
-static void run_camera(node *n, float in[MAX_IN][B])
+static void run_camera(node *n, const float *const in[MAX_IN])
 {
 	float held = n->s[0], track = n->s[1];
 	int noise = !(n->patched & 1);
@@ -303,7 +303,7 @@ static void run_camera(node *n, float in[MAX_IN][B])
 }
 
 /* velcro — the key velcroed to a hood: logic, and / or / xor / not (after Serge and Doepfer logic) */
-static void run_velcro(node *n, float in[MAX_IN][B])
+static void run_velcro(node *n, const float *const in[MAX_IN])
 {
 	(void)n;
 	LOOP {
@@ -316,7 +316,7 @@ static void run_velcro(node *n, float in[MAX_IN][B])
 }
 
 /* threshold — standing at the threshold: a comparator (after Serge and Buchla comparators) */
-static void run_threshold(node *n, float in[MAX_IN][B])
+static void run_threshold(node *n, const float *const in[MAX_IN])
 {
 	float st = n->s[0];
 	LOOP {
@@ -330,7 +330,7 @@ static void run_threshold(node *n, float in[MAX_IN][B])
 }
 
 /* puddle — reflections in a puddle: flip, fold up, cut in half, and the sign (after Serge / Make Noise rectifiers; Fish's reflect) */
-static void run_puddle(node *n, float in[MAX_IN][B])
+static void run_puddle(node *n, const float *const in[MAX_IN])
 {
 	(void)n;
 	LOOP {
@@ -343,7 +343,7 @@ static void run_puddle(node *n, float in[MAX_IN][B])
 }
 
 /* van — the van in the driveway: places a sound left or right (after Buchla 227 quad panning; equal-power pans) */
-static void run_van(node *n, float in[MAX_IN][B])
+static void run_van(node *n, const float *const in[MAX_IN])
 {
 	(void)n;
 	LOOP {
@@ -354,7 +354,7 @@ static void run_van(node *n, float in[MAX_IN][B])
 }
 
 /* ripple — the ripple subwoofers: one and two octaves under whatever comes in (after Boss OC-2; sub-oscillator dividers) */
-static void run_ripple(node *n, float in[MAX_IN][B])
+static void run_ripple(node *n, const float *const in[MAX_IN])
 {
 	float last = n->s[0], env = n->s[1], lp1 = n->s[4], lp2 = n->s[5];
 	int ff1 = (int)n->s[2], ff2 = (int)n->s[3];

@@ -16,7 +16,7 @@ static inline float ring16(const int16_t *b, uint32_t len, uint32_t w, float d)
 /* cabin — the cabin in the woods: a spring reverb, boing and all (after Accutronics springs in the Buchla, VCS3 and ARP 2600) */
 #define CABIN_LEN 2400
 static uint32_t mem_cabin(float nature) { (void)nature; return CABIN_LEN * sizeof(float) + 12 * sizeof(float); }
-static void run_cabin(node *n, float in[MAX_IN][B])
+static void run_cabin(node *n, const float *const in[MAX_IN])
 {
 	float *buf = (float *)n->mem;
 	float *ap = buf + CABIN_LEN;        /* 12 allpass states: the spring's dispersion */
@@ -50,7 +50,7 @@ static uint32_t mem_hotel(float nature)
 	for (int k = 0; k < 12; k++) t += HOTEL_LEN[k];
 	return t * sizeof(int16_t);
 }
-static void run_hotel(node *n, float in[MAX_IN][B])
+static void run_hotel(node *n, const float *const in[MAX_IN])
 {
 	int16_t *base = (int16_t *)n->mem;
 	int16_t *line[12];
@@ -103,7 +103,7 @@ static void run_hotel(node *n, float in[MAX_IN][B])
 
 /* balcony — a party on the balcony: echoes that cross from ear to ear (after ping-pong delays) */
 static uint32_t mem_balcony(float nature) { return 2u * (uint32_t)natural(nature, 1, 12) * 1200u * sizeof(int16_t); }
-static void run_balcony(node *n, float in[MAX_IN][B])
+static void run_balcony(node *n, const float *const in[MAX_IN])
 {
 	uint32_t L = n->memlen / sizeof(int16_t) / 2;
 	int16_t *a = (int16_t *)n->mem, *b = a + L;
@@ -126,7 +126,7 @@ static void init_balcony(node *n) { n->s[1] = 1.f; }
 
 /* dub — dub echoes of the steaming train horn: a tape echo, warm and wobbling (after Roland RE-201 Space Echo; Echoplex; Serge Wilson delay) */
 static uint32_t mem_dub(float nature) { return (uint32_t)natural(nature, 1, 8) * 4800u * sizeof(int16_t); }
-static void run_dub(node *n, float in[MAX_IN][B])
+static void run_dub(node *n, const float *const in[MAX_IN])
 {
 	int16_t *buf = (int16_t *)n->mem;
 	uint32_t L = n->memlen / sizeof(int16_t);
@@ -153,7 +153,7 @@ static void init_dub(node *n) { n->s[1] = 0.6f; }
 
 /* memories — the rooms are memories: freeze the last moment and live inside it (after Mutable Clouds' freeze; looping delays) */
 static uint32_t mem_memories(float nature) { return (uint32_t)natural(nature, 1, 6) * 12000u * sizeof(int16_t); }
-static void run_memories(node *n, float in[MAX_IN][B])
+static void run_memories(node *n, const float *const in[MAX_IN])
 {
 	int16_t *buf = (int16_t *)n->mem;
 	uint32_t L = n->memlen / sizeof(int16_t);
@@ -182,7 +182,7 @@ static void run_memories(node *n, float in[MAX_IN][B])
 /* wires — copper wiring in the plexiglass sculpture: four sympathetic strings tuned to a chord (after Mutable Rings; Fish's zither; sitar drones) */
 #define WIRE_LEN 1024
 static uint32_t mem_wires(float nature) { (void)nature; return 4 * WIRE_LEN * sizeof(float); }
-static void run_wires(node *n, float in[MAX_IN][B])
+static void run_wires(node *n, const float *const in[MAX_IN])
 {
 	float *buf = (float *)n->mem;
 	uint32_t w = (uint32_t)n->s[0];
@@ -213,7 +213,7 @@ static void run_wires(node *n, float in[MAX_IN][B])
 /* persona — a morphing persona: shifts pitch without changing time (after Eventide's H910; granular pitch shifters) */
 #define PERSONA_LEN 2048
 static uint32_t mem_persona(float nature) { (void)nature; return PERSONA_LEN * sizeof(float); }
-static void run_persona(node *n, float in[MAX_IN][B])
+static void run_persona(node *n, const float *const in[MAX_IN])
 {
 	float *buf = (float *)n->mem;
 	uint32_t w = (uint32_t)n->s[0];
@@ -246,7 +246,7 @@ static void run_persona(node *n, float in[MAX_IN][B])
 /* steam — steam off the train: smears a sound in time without echo (after allpass diffusers; Schroeder) */
 static const uint16_t STEAM_LEN[4] = { 229, 172, 611, 446 };
 static uint32_t mem_steam(float nature) { (void)nature; return (229 + 172 + 611 + 446) * sizeof(float); }
-static void run_steam(node *n, float in[MAX_IN][B])
+static void run_steam(node *n, const float *const in[MAX_IN])
 {
 	float *base = (float *)n->mem;
 	uint32_t w = (uint32_t)n->s[0];

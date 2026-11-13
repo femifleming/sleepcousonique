@@ -63,6 +63,13 @@ static inline float scq_tanh(float x)
 	return x * (27.f + x2) / (27.f + 9.f * x2);
 }
 
+/* a gentle soft clip with no division: cubic, flat beyond +-1.5 (the output stage) */
+static inline float scq_softclip(float x)
+{
+	x = scq_clamp(x, -1.5f, 1.5f);
+	return x - 0.148148f * x * x * x;
+}
+
 /* tan(x) for 0 <= x < 1.4 (filter warping) */
 static inline float scq_tan(float x)
 {
