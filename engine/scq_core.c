@@ -14,6 +14,7 @@
  *   ; anything after a semicolon is a note to yourself
  */
 #include "scq_int.h"
+#include "scq_costs.h"
 
 typedef struct { int start, end, line0, ts, te; } scene;
 
@@ -46,6 +47,7 @@ typedef struct {
 	uint32_t nights;
 	float    drift;
 	float    load;
+	float    scene_load[SCQ_MAX_SCENES];
 	int      line;               /* line being compiled, for messages */
 	int      quiet;              /* don't report (already reported) */
 	int      waiting;            /* SCQ_DEVICE: faded out, waiting for scq_service() */
@@ -606,16 +608,19 @@ static void compile_scene(int idx, int report)
 	int pos = 0;
 	for (int k = 0; k < G.nn; k++) visit(k, mark, &pos);
 
-	/* load: rough cycles per sample against what the SP-1 can spare (~1000 of 1333) */
-	float cyc = 0.f;
+	/* load, from costs measured on an SP-1 (tools/bench_places.sh + tools/calibrate.py):
+	 * cycles per sample, against the 1333 a 64 MHz chip has at 48 kHz */
+	float cyc = (float)SCQ_COST_FIXED;
 	for (int k = 0; k < G.nn; k++) {
 		const place *pl = &SCQ_PLACES[G.n[k].type];
-		float cost = (float)pl->cost + 6.f;
-		if (pl->run == SCQ_PLACES[find_place("frog", 4)].run) cost = 10.f + 30.f * scq_clamp(G.n[k].nature, 1.f, 8.f);
+		float cost = (float)pl->cost;
+		if (pl->run == SCQ_PLACES[find_place("frog", 4)].run)       /* measured with 3 frogs */
+			cost *= scq_clamp(G.n[k].nature, 1.f, 8.f) / 3.f;
 		cyc += cost;
 	}
-	cyc += 4.f * (float)G.nc;
-	G.load = cyc / 1000.f;
+	for (int k = 0; k < G.nc; k++)
+		if (!G.c[k].direct) cyc += (float)SCQ_COST_CORD;           /* a plain wire costs nothing */
+	G.load = cyc / 1333.f;
 }
 
 /* ------------------------------------------------------------- the public face */
@@ -630,7 +635,7 @@ int scq_load(const char *text, int len, uint32_t nights)
 	G.msgn = 0; G.msg[0] = 0; G.errors = 0;
 	if (!G.rng) G.rng = 0x5eed1234u ^ nights;
 	find_scenes();
-	for (int s = 0; s < G.nsc; s++) compile_scene(s, s == 0 ? 3 : 2);
+	for (int s = 0; s < G.nsc; s++) { compile_scene(s, s == 0 ? 3 : 2); G.scene_load[s] = G.load; }
 	int errors = G.errors;
 	if (G.cur >= G.nsc) G.cur = 0;
 	compile_scene(G.cur, 0);
@@ -646,6 +651,11 @@ const char *scq_messages(void) { return G.msg; }
 /* Check a text without touching what is playing (the desktop editor only: it costs a
  * second engine's worth of memory, which the SP-1 doesn't have). */
 static engine G1;
+static float checked_load[SCQ_MAX_SCENES];
+static int checked_scenes;
+int scq_checked_scenes(void) { return checked_scenes; }
+float scq_checked_load(int s) { return (s >= 0 && s < checked_scenes) ? checked_load[s] : 0.f; }
+
 int scq_check(const char *text, int len, uint32_t nights, char *msgs, int cap)
 {
 	Gp = &G1;
@@ -654,6 +664,8 @@ int scq_check(const char *text, int len, uint32_t nights, char *msgs, int cap)
 	int n = 0;
 	while (G.msg[n] && n < cap - 1) { msgs[n] = G.msg[n]; n++; }
 	if (cap > 0) msgs[n] = 0;
+	checked_scenes = G.nsc;
+	for (int k = 0; k < G.nsc; k++) checked_load[k] = G.scene_load[k];
 	Gp = &G0;
 	return e;
 }
@@ -679,6 +691,8 @@ void scq_goto_scene(int index)
 
 int scq_scene(void) { return G.cur; }
 int scq_node_count(void) { return G.nn; }
+int scq_scene_count(void) { return G.nsc; }
+float scq_scene_load(int s) { return (s >= 0 && s < G.nsc) ? G.scene_load[s] : 0.f; }
 
 void scq_control(int which, float value)
 {

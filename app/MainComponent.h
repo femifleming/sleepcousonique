@@ -62,6 +62,7 @@ private:
     juce::String statusText, lastCode, lastMessages;
     juce::uint32 typedAt = 0;
     bool pendingTyping = false;
+    bool sendAnyway = false;
     juce::uint32 nights = 0;
     std::unique_ptr<juce::FileChooser> chooser;
     juce::ApplicationProperties props;

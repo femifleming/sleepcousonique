@@ -78,7 +78,9 @@ Host::Result Host::check (const juce::String& text, juce::uint32 nights)
     std::vector<char> msgs (4096);
     const juce::ScopedLock sl (lock);
     int e = scq_check (utf8.data(), (int) utf8.size(), nights, msgs.data(), (int) msgs.size());
-    return { {}, juce::String::fromUTF8 (msgs.data()), e };
+    Result r { {}, juce::String::fromUTF8 (msgs.data()), e, {} };
+    for (int k = 0; k < scq_checked_scenes(); ++k) r.sceneLoads.push_back (scq_checked_load (k));
+    return r;
 }
 
 void Host::setAmount (int cord, float amount) { const juce::ScopedLock sl (lock); scq_set_amount (cord, amount); }

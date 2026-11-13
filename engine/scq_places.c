@@ -410,29 +410,33 @@ static void run_bell(node *n, const float *const in[MAX_IN])
 /* elevator — the lift into the night sky: a tone that rises forever */
 static void run_elevator(node *n, const float *const in[MAX_IN])
 {
-	/* s: 0..7 phases, 8 position */
-	float pos = n->s[8];
+	/* s: 0 phase of the lowest octave, 8 position within the octave. Every partial is an
+	 * octave of the lowest, so one sine and cosine give them all by doubling the angle:
+	 * sin 2x = 2 sin x cos x, cos 2x = cos^2 x - sin^2 x */
+	float pos = n->s[8], ph = n->s[0];
 	pos += in[0][0] * (float)B * INV_SR;
-	pos -= scq_floor(pos);
+	if (pos >= 1.f) { pos -= 1.f; ph = 2.f * ph; ph -= scq_floor(ph); }   /* the ladder steps down an octave */
+	if (pos < 0.f)  { pos += 1.f; ph = 0.5f * ph; }
 	n->s[8] = pos;
-	float inc[8], amp[8];
 	float k0 = scq_exp2(in[1][0]);
+	float inc = 30.f * n->nature * scq_exp2(pos) * k0 * INV_SR;
+	float amp[8];
 	for (int k = 0; k < 8; k++) {
 		float oct = (float)k + pos;
-		inc[k] = scq_min(30.f * n->nature * scq_exp2(oct) * k0, 20000.f) * INV_SR;
 		float s = scq_sin2pi(oct / 16.f);
-		amp[k] = s * s * 0.3f;
+		amp[k] = (inc * scq_exp2((float)k) < 0.45f) ? s * s * 0.3f : 0.f;
 	}
 	LOOP {
-		float sum = 0.f;
-		for (int k = 0; k < 8; k++) {
-			float p = n->s[k] + inc[k];
-			p -= scq_floor(p);
-			n->s[k] = p;
-			sum += amp[k] * scq_sin2pi(p);
+		ph += inc; ph -= scq_floor(ph);
+		float s = scq_sin2pi(ph), c = scq_sin2pi(ph + 0.25f), sum = amp[0] * s;
+		for (int k = 1; k < 8; k++) {
+			float s2 = 2.f * s * c, c2 = c * c - s * s;
+			s = s2; c = c2;
+			sum += amp[k] * s;
 		}
 		n->out[0][i] = sum;
 	}
+	n->s[0] = ph;
 }
 
 /* moss — a golden square of moss in a night pond: it blooms into grains */
@@ -829,84 +833,84 @@ static void run_journey(node *n, const float *const in[MAX_IN])
 	{ name, fam, flags, cost, nat, ins, defs, outs, run, init, mem, help }
 
 const place SCQ_PLACES[] = {
-P("aira",      FAM_SOURCE, PF_DRIFT, 30, 3, "pitch fm", "0 0", "out", run_aira, 0, 0,
+P("aira",      FAM_SOURCE, PF_DRIFT, 100, 3, "pitch fm", "0 0", "out", run_aira, 0, 0,
   "the fountain labeled aira: a pure tone, nature x 60 Hz"),
-P("twin",      FAM_SOURCE, PF_DRIFT, 70, 3, "pitch index timbre", "0 0 0", "out a b", run_twin, 0, 0,
+P("twin",      FAM_SOURCE, PF_DRIFT, 207, 3, "pitch index timbre", "0 0 0", "out a b", run_twin, 0, 0,
   "two partials, 60n and 60(n+1); index bends a with b, timbre folds it. Their difference is the hum"),
-P("rain",      FAM_SOURCE, PF_DRIFT, 25, 1, "density", "0", "out pulse", run_rain, 0, 0,
+P("rain",      FAM_SOURCE, PF_DRIFT, 60, 1, "density", "0", "out pulse", run_rain, 0, 0,
   "drops on tiny resonators, 8 x nature per second; pulse marks each drop"),
-P("thunder",   FAM_SOURCE, 0, 25, 1, "strike", "0", "out", run_thunder, 0, 0,
+P("thunder",   FAM_SOURCE, 0, 113, 1, "strike", "0", "out", run_thunder, 0, 0,
   "a rumble when struck, and on its own about nature times a minute"),
-P("flood",     FAM_SOURCE, PF_DRIFT, 45, 1, "level", "0.5", "out", run_flood, 0, 0,
+P("flood",     FAM_SOURCE, PF_DRIFT, 87, 1, "level", "0.5", "out", run_flood, 0, 0,
   "rising water: noise whose band climbs with the level"),
-P("wind",      FAM_SOURCE, PF_DRIFT, 40, 1, "gust", "0.3", "out", run_wind, 0, 0,
+P("wind",      FAM_SOURCE, PF_DRIFT, 87, 1, "gust", "0.3", "out", run_wind, 0, 0,
   "a cold draft: soft noise through a wandering band"),
-P("frog",      FAM_SOURCE, 0, 90, 3, "wake pitch", "0 0", "out pulse", run_frog, init_frog, mem_frog,
+P("frog",      FAM_SOURCE, 0, 140, 3, "wake pitch", "0 0", "out pulse", run_frog, init_frog, mem_frog,
   "nature frogs (1-8) croaking on their own; a pulse into wake makes them all croak"),
-P("elevator",  FAM_SOURCE, PF_DRIFT, 140, 1, "rate pitch", "0.1 0", "out", run_elevator, 0, 0,
+P("elevator",  FAM_SOURCE, PF_DRIFT, 240, 1, "rate pitch", "0.1 0", "out", run_elevator, 0, 0,
   "the lift into the night sky: rises forever (rate in octaves per second, negative falls)"),
-P("bell",      FAM_SOURCE, PF_DRIFT, 70, 1, "strike pitch decay", "0 0 0.5", "out", run_bell, 0, 0,
+P("bell",      FAM_SOURCE, PF_DRIFT, 220, 1, "strike pitch decay", "0 0 0.5", "out", run_bell, 0, 0,
   "the cargo train's deep bell: four modes, struck by edges or by sound"),
-P("mountains", FAM_SHAPE, PF_DRIFT, 20, 1, "in fold", "0 0", "out", run_mountains, 0, 0,
+P("mountains", FAM_SHAPE, PF_DRIFT, 87, 1, "in fold", "0 0", "out", run_mountains, 0, 0,
   "dark umber peaks: a wavefolder. More fold, more peaks"),
-P("window",    FAM_SHAPE, 0, 45, 1, "in light", "0 1", "out", run_window, 0, 0,
+P("window",    FAM_SHAPE, 0, 73, 1, "in light", "0 1", "out", run_window, 0, 0,
   "a lamp on a photocell (lowpass gate). Pulse the light for a pluck"),
-P("basement",  FAM_SHAPE, PF_DRIFT, 30, 1, "in cut res", "0 0 0.2", "out band", run_basement, 0, 0,
+P("basement",  FAM_SHAPE, PF_DRIFT, 100, 1, "in cut res", "0 0 0.2", "out band", run_basement, 0, 0,
   "the house show downstairs: a warm resonant lowpass at nature x 480 Hz"),
-P("horns",     FAM_SHAPE, PF_DRIFT, 120, 1, "in band1 band2 band3 band4 band5 band6 band7 band8",
+P("horns",     FAM_SHAPE, PF_DRIFT, 47, 1, "in band1 band2 band3 band4 band5 band6 band7 band8",
   "0 0 0 0 0 0 0 0 0", "out", run_horns, init_horns, mem_horns,
   "horn-loaded speakers: eight fixed resonant bands; patch into a band to raise it"),
-P("lighter",   FAM_SHAPE, 0, 25, 1, "in flick", "0 0", "out", run_lighter, 0, 0,
+P("lighter",   FAM_SHAPE, 0, 100, 1, "in flick", "0 0", "out", run_lighter, 0, 0,
   "the lighter that explodes: a flick of fire and drive"),
-P("copper",    FAM_SHAPE, 0, 8, 1, "in", "0", "out", run_copper, 0, 0,
+P("copper",    FAM_SHAPE, 0, 33, 1, "in", "0", "out", run_copper, 0, 0,
   "the grounding rod: takes the DC out"),
-P("blanket",   FAM_SHAPE, 0, 4, 1, "in gain", "0 1", "out", run_blanket, 0, 0,
+P("blanket",   FAM_SHAPE, 0, 33, 1, "in gain", "0 1", "out", run_blanket, 0, 0,
   "a blanket over the sound: plain amplifier"),
-P("crystal",   FAM_SHAPE, 0, 30, 0, "in1 in2 in3 in4 turn", "0 0 0 0 0", "out1 out2 out3 out4", run_crystal, 0, 0,
+P("crystal",   FAM_SHAPE, 0, 87, 0, "in1 in2 in3 in4 turn", "0 0 0 0 0", "out1 out2 out3 out4", run_crystal, 0, 0,
   "the crystal matrix: four in, four out, mixed by turning (nature sets the resting angle)"),
-P("tunnel",    FAM_SPACE, PF_DRIFT, 30, 2, "in pitch decay", "0 0 0.5", "out", run_tunnel, 0, mem_tunnel,
+P("tunnel",    FAM_SPACE, PF_DRIFT, 113, 2, "in pitch decay", "0 0 0.5", "out", run_tunnel, 0, mem_tunnel,
   "tubular acoustics: a comb tuned to nature x 60 Hz. Pulses pluck it"),
-P("hallway",   FAM_SPACE, PF_DRIFT, 30, 6, "in length feedback", "0 1 0.3", "out", run_hallway, init_hallway, mem_hallway,
+P("hallway",   FAM_SPACE, PF_DRIFT, 180, 6, "in length feedback", "0 1 0.3", "out", run_hallway, init_hallway, mem_hallway,
   "the long grey hallway: a delay, nature x 50 ms long"),
-P("warehouse", FAM_SPACE, PF_DRIFT, 90, 2, "in size", "0 0.7", "out l r", run_warehouse, 0, mem_warehouse,
+P("warehouse", FAM_SPACE, PF_DRIFT, 353, 2, "in size", "0 0.7", "out l r", run_warehouse, 0, mem_warehouse,
   "a big room with wooden floors: reverb"),
-P("moss",      FAM_SPACE, 0, 160, 1, "in bloom", "0 0.3", "out", run_moss, init_moss, mem_moss,
+P("moss",      FAM_SPACE, 0, 287, 1, "in bloom", "0 0.3", "out", run_moss, init_moss, mem_moss,
   "golden moss in a night pond: grains of what you plant, or of itself"),
-P("stairs",    FAM_CURRENT, 0, 25, 1, "in start rise fall", "0 0 0.3 0.5", "out end", run_stairs, init_stairs, 0,
+P("stairs",    FAM_CURRENT, 0, 100, 1, "in start rise fall", "0 0 0.3 0.5", "out end", run_stairs, init_stairs, 0,
   "the spiral staircase (universal slope): rises and falls when started, follows otherwise; end into start cycles"),
-P("jakes",     FAM_CURRENT, PF_DRIFT, 12, 1, "rate follow", "0 0", "out", run_jakes, 0, 0,
+P("jakes",     FAM_CURRENT, PF_DRIFT, 100, 1, "rate follow", "0 0", "out", run_jakes, 0, 0,
   "they look like people but aren't: smooth wandering random, or an imitation of follow"),
-P("connors",   FAM_CURRENT, PF_DRIFT, 10, 1, "clock", "0", "out pulse", run_connors, 0, 0,
+P("connors",   FAM_CURRENT, PF_DRIFT, 47, 1, "clock", "0", "out pulse", run_connors, 0, 0,
   "stepped random, new on each clock pulse (or nature / 2 times a second on its own)"),
-P("escalator", FAM_CURRENT, 0, 12, 1, "in clock glide", "0 0 0.2", "out", run_escalator, 0, 0,
+P("escalator", FAM_CURRENT, 0, 60, 1, "in clock glide", "0 0 0.2", "out", run_escalator, 0, 0,
   "smooth & stepped: holds the input on each pulse and glides to it"),
-P("train",     FAM_CURRENT, 0, 10, 8, "next back reset", "0 0 0", "out pulse step", run_train, init_train, mem_train,
+P("train",     FAM_CURRENT, 0, 127, 8, "next back reset", "0 0 0", "out pulse step", run_train, init_train, mem_train,
   "the train and its stations (semitones): the train route is train 8: 0 3 7 10"),
-P("pufferfish",FAM_CURRENT, 0, 20, 1, "in", "0", "out pulse", run_pufferfish, 0, 0,
+P("pufferfish",FAM_CURRENT, 0, 207, 1, "in", "0", "out pulse", run_pufferfish, 0, 0,
   "plays quantized notes: just major, just minor, pentatonic, otonal, utonal (nature 1-5)"),
-P("cat",       FAM_CURRENT, 0, 6, 1, "in learn", "0 0", "out", run_cat, 0, mem_cat,
+P("cat",       FAM_CURRENT, 0, 33, 1, "in learn", "0 0", "out", run_cat, 0, mem_cat,
   "learns a gesture while learn is held, then mirrors it back, over and over (up to 8 s)"),
-P("magician",  FAM_CURRENT, PF_DRIFT, 20, 1, "in shush", "0 0", "out trance", run_magician, 0, 0,
+P("magician",  FAM_CURRENT, PF_DRIFT, 113, 1, "in shush", "0 0", "out trance", run_magician, 0, 0,
   "shushes the sound when shush is loud; trance is a slow swing"),
-P("bottle",    FAM_CURRENT, 0, 2, 0, "", "", "out", run_bottle, 0, 0,
+P("bottle",    FAM_CURRENT, 0, 20, 0, "", "", "out", run_bottle, 0, 0,
   "a kept value: bottle 40 is 0.40"),
 #include "scq_more_table.inc"
-P("lean",      FAM_HANDS, PF_SINGLE | PF_COUNTED, 3, 1, "", "", "out", run_lean, 0, 0,
+P("lean",      FAM_HANDS, PF_SINGLE | PF_COUNTED, 20, 1, "", "", "out", run_lean, 0, 0,
   "faders: lean1 - lean4, 0 to 1"),
-P("door",      FAM_HANDS, PF_SINGLE | PF_COUNTED, 2, 1, "", "", "out", run_door, 0, 0,
+P("door",      FAM_HANDS, PF_SINGLE | PF_COUNTED, 20, 1, "", "", "out", run_door, 0, 0,
   "track buttons: door1 - door4, 1 while held"),
-P("lift",      FAM_HANDS, PF_SINGLE, 3, 0, "", "", "out up down", run_lift, 0, 0,
+P("lift",      FAM_HANDS, PF_SINGLE, 20, 0, "", "", "out up down", run_lift, 0, 0,
   "the rocker: out is -1, 0 or 1; up and down pulse"),
-P("wake",      FAM_HANDS, PF_SINGLE, 2, 0, "", "", "out", run_wake, 0, 0,
+P("wake",      FAM_HANDS, PF_SINGLE, 20, 0, "", "", "out", run_wake, 0, 0,
   "PLAY, 1 while held"),
-P("lucid",     FAM_HANDS, PF_SINGLE, 2, 0, "", "", "out", run_lucid, 0, 0,
+P("lucid",     FAM_HANDS, PF_SINGLE, 20, 0, "", "", "out", run_lucid, 0, 0,
   "the dots button, 1 while held"),
-P("left",      FAM_EARS, PF_SINGLE, 2, 0, "in", "0", "", run_left, 0, 0, "left ear"),
-P("right",     FAM_EARS, PF_SINGLE, 2, 0, "in", "0", "", run_right, 0, 0, "right ear"),
-P("ears",      FAM_EARS, PF_SINGLE, 3, 0, "in", "0", "", run_ears, 0, 0, "both ears"),
-P("lamp",      FAM_EARS, PF_SINGLE, 8, 0, "in track play", "0 0 0", "out", run_lamp, 0, 0,
+P("left",      FAM_EARS, PF_SINGLE, 20, 0, "in", "0", "", run_left, 0, 0, "left ear"),
+P("right",     FAM_EARS, PF_SINGLE, 20, 0, "in", "0", "", run_right, 0, 0, "right ear"),
+P("ears",      FAM_EARS, PF_SINGLE, 20, 0, "in", "0", "", run_ears, 0, 0, "both ears"),
+P("lamp",      FAM_EARS, PF_SINGLE, 40, 0, "in track play", "0 0 0", "out", run_lamp, 0, 0,
   "the eight LEDs: sound lights both rows as a bar; track and play light one row each"),
-P("journey",   FAM_EARS, PF_SINGLE, 3, 0, "next back miss", "0 0 0", "", run_journey, 0, 0,
+P("journey",   FAM_EARS, PF_SINGLE, 20, 0, "next back miss", "0 0 0", "", run_journey, 0, 0,
   "rides to the next or last scene on a pulse; miss is the chance of the wrong stop"),
 };
 const int SCQ_NPLACES = (int)(sizeof(SCQ_PLACES) / sizeof(SCQ_PLACES[0]));

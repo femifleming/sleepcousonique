@@ -149,21 +149,46 @@ static void run_multiwave(node *n, const float *const in[MAX_IN])
 	float f0 = 60.f * n->nature * scq_exp2(in[0][0]);
 	float tilt = scq_clamp(in[1][0], 0.f, 1.f), odd = scq_clamp(in[2][0], 0.f, 1.f);
 	float stretch = scq_clamp(in[3][0], -1.f, 1.f) * 0.02f;
-	float inc[16], amp[16], norm = 0.f;
+	float amp[16], norm = 0.f;
+	int top = 0;
 	for (int k = 0; k < 16; k++) {
 		float h = (float)(k + 1);
 		float f = f0 * h * (1.f + stretch * (h - 1.f));
-		inc[k] = f < 0.45f * SR ? f * INV_SR : 0.f;
-		float a = scq_exp2(-tilt * 4.f * scq_log2(h));
-		if ((k & 1) == 1) a *= 1.f - odd;          /* even harmonics fall away */
-		amp[k] = inc[k] > 0.f ? a : 0.f;
-		norm += amp[k];
+		float a = 0.f;
+		if (f < 0.45f * SR) {
+			a = scq_exp2(-tilt * 4.f * scq_log2(h));
+			if ((k & 1) == 1) a *= 1.f - odd;          /* even harmonics fall away */
+			top = k + 1;
+		}
+		amp[k] = a;
+		norm += a;
 	}
 	float g = 0.8f / scq_max(norm, 0.5f);
+	if (scq_abs(stretch) < 1e-5f) {
+		/* true harmonics: one sine and cosine, the rest by recurrence,
+		 * sin((k+1)x) = 2cos(x)sin(kx) - sin((k-1)x): a multiply and a subtract each */
+		float p = ph[0], inc = f0 * INV_SR;
+		LOOP {
+			p += inc; p -= scq_floor(p);
+			float s1 = scq_sin2pi(p), c2 = 2.f * scq_sin2pi(p + 0.25f);
+			float sp = 0.f, sk = s1, sum = amp[0] * s1;
+			for (int k = 1; k < top; k++) {
+				float sn = c2 * sk - sp;
+				sp = sk; sk = sn;
+				sum += amp[k] * sn;
+			}
+			n->out[0][i] = sum * g;
+		}
+		ph[0] = p;
+		return;
+	}
+	/* stretched (inharmonic) partials: each its own sine, at most eight */
+	if (top > 8) top = 8;
+	float inc[8];
+	for (int k = 0; k < top; k++) inc[k] = f0 * (float)(k + 1) * (1.f + stretch * (float)k) * INV_SR;
 	LOOP {
 		float sum = 0.f;
-		for (int k = 0; k < 16; k++) {
-			if (amp[k] == 0.f) continue;
+		for (int k = 0; k < top; k++) {
 			float p = ph[k] + inc[k];
 			p -= scq_floor(p);
 			ph[k] = p;
@@ -330,16 +355,17 @@ static void run_nuns(node *n, const float *const in[MAX_IN])
 static void run_hum(node *n, const float *const in[MAX_IN])
 {
 	float ph = n->s[0];
-	float f = 60.f * n->nature;
+	float inc = 60.f * n->nature * INV_SR;
 	float buzz = scq_clamp(in[0][0], 0.f, 1.f);
+	float amp[8], a = 1.f;
+	for (int h = 1; h <= 8; h++) { amp[h - 1] = a; a *= (h & 1) ? 0.35f + 0.5f * buzz : 0.25f + 0.3f * buzz; }
+	float drive = 0.6f + buzz * 2.f;
 	LOOP {
-		ph += f * INV_SR; ph -= scq_floor(ph);
-		float o = 0.f, a = 1.f;
-		for (int h = 1; h <= 8; h++) {
-			o += a * scq_sin2pi(ph * (float)h);
-			a *= (h & 1) ? 0.35f + 0.5f * buzz : 0.25f + 0.3f * buzz;
-		}
-		n->out[0][i] = scq_tanh(o * (0.6f + buzz * 2.f)) * 0.5f * scq_clamp(in[1][i], 0.f, 1.f);
+		ph += inc; ph -= scq_floor(ph);
+		float s1 = scq_sin2pi(ph), c2 = 2.f * scq_sin2pi(ph + 0.25f);
+		float sp = 0.f, sk = s1, o = amp[0] * s1;
+		for (int h = 1; h < 8; h++) { float sn = c2 * sk - sp; sp = sk; sk = sn; o += amp[h] * sn; }
+		n->out[0][i] = scq_tanh(o * drive) * 0.5f * scq_clamp(in[1][i], 0.f, 1.f);
 	}
 	n->s[0] = ph;
 }
@@ -476,7 +502,7 @@ static void run_trebuchet(node *n, const float *const in[MAX_IN])
 		if (edge(in[0][i], &n->s[3])) { env = 1.f; penv = 1.f; ph = 0.f; }
 		ph += f0 * (1.f + punch * penv) * INV_SR;
 		ph -= scq_floor(ph);
-		n->out[0][i] = scq_tanh(scq_sin2pi(ph) * env * 1.4f);
+		n->out[0][i] = scq_softclip(scq_sin2pi(ph) * env * 1.4f);
 		env *= decay; penv *= pdecay;
 	}
 	n->s[0] = ph; n->s[1] = env; n->s[2] = penv;
@@ -498,7 +524,7 @@ static void run_balloon(node *n, const float *const in[MAX_IN])
 		float w = scq_noise(&n->rng);
 		hp += 0.2f * (w - hp);
 		float bp = svf_run(&c, &bp1, &bp2, w - hp, 0);
-		n->out[0][i] = scq_tanh(tone * (1.f - snap * 0.5f) + bp * ne * (0.6f + snap));
+		n->out[0][i] = scq_softclip(tone * (1.f - snap * 0.5f) + bp * ne * (0.6f + snap));
 		te *= td; ne *= nd;
 	}
 	n->s[0] = p1; n->s[1] = p2; n->s[2] = te; n->s[3] = ne; n->s[4] = hp; n->s[5] = bp1; n->s[6] = bp2;
@@ -506,24 +532,25 @@ static void run_balloon(node *n, const float *const in[MAX_IN])
 
 /* grill — the sizzle of the grill: a metallic hi-hat, six squares (after the TR-808 cymbal circuit) */
 static const float HAT_F[6] = { 205.3f, 304.4f, 369.6f, 522.7f, 540.f, 800.f };
+static uint32_t mem_grill(float nature) { (void)nature; return 6 * sizeof(uint32_t); }
 static void run_grill(node *n, const float *const in[MAX_IN])
 {
+	/* six squares on whole-number phases: the top bit is the square, an add moves it */
+	uint32_t *ph = (uint32_t *)n->mem;
 	float env = n->s[6], h1 = n->s[7], h2 = n->s[8];
 	float k = n->nature * scq_exp2(in[2][0]);
+	uint32_t inc[6];
+	for (int j = 0; j < 6; j++) inc[j] = (uint32_t)(scq_min(HAT_F[j] * k * INV_SR, 0.45f) * 4294967296.f);
 	float decay = scq_exp2(-1.442695f / ((0.02f + 0.5f * scq_clamp(in[1][0], 0.f, 1.f)) * SR));
 	svf_c c = svf_make(9000.f, 0.6f);
 	LOOP {
 		if (edge(in[0][i], &n->s[9])) env = 1.f;
-		float x = 0.f;
-		for (int j = 0; j < 6; j++) {
-			float p = n->s[j] + HAT_F[j] * k * INV_SR;
-			p -= scq_floor(p);
-			n->s[j] = p;
-			x += p < 0.5f ? 1.f : -1.f;
-		}
+		int sum = 0;
+		for (int j = 0; j < 6; j++) { ph[j] += inc[j]; sum += (int)(ph[j] >> 31); }
+		float x = ((float)sum * 2.f - 6.f) * 0.17f;
 		float lp;
-		float bp = svf_run(&c, &h1, &h2, x * 0.17f, &lp);
-		n->out[0][i] = (x * 0.17f - lp - bp * 0.3f) * env;
+		float bp = svf_run(&c, &h1, &h2, x, &lp);
+		n->out[0][i] = (x - lp - bp * 0.3f) * env;
 		env *= decay;
 	}
 	n->s[6] = env; n->s[7] = h1; n->s[8] = h2;

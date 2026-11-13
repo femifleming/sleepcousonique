@@ -201,7 +201,7 @@ static void run_wires(node *n, const float *const in[MAX_IN])
 			float fr = rp - (float)r0;
 			float y = b[r0 & (WIRE_LEN - 1)] + (b[(r0 + 1) & (WIRE_LEN - 1)] - b[r0 & (WIRE_LEN - 1)]) * fr;
 			n->s[1 + k] += 0.5f * (y - n->s[1 + k]);
-			b[w] = scq_tanh(in[0][i] * 0.15f + n->s[1 + k] * fb);
+			b[w] = scq_softclip(in[0][i] * 0.15f + n->s[1 + k] * fb);
 			sum += y;
 		}
 		w = (w + 1) & (WIRE_LEN - 1);

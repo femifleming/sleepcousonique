@@ -6,14 +6,13 @@
 ; a clock, a melody that rewrites itself, a ladder filter. lean1 cutoff, lean2 how much it changes
 the clock is tram 4
 the book is notebook 8
-the tune is pufferfish 1
 the osc is turntable 2
 the filter is shaft 1
 the env is sleep
 
 clock.eighth -> book.clock env.gate
-book -40> tune -> osc.pitch
-osc.saw osc.square -> filter
+book -40> osc.pitch
+osc -> filter
 env -> filter.cut
 lean1 -> filter.cut
 lean2 -> book.change
@@ -38,11 +37,10 @@ voice -> peaks -> gate -> ears lamp
 
 1974 serge night
 ----------------
-; a slope that cycles, a comparator, a ring modulator and a frequency shifter. lean1 shift, lean2 slope
+; a slope that cycles, a comparator and a frequency shifter. lean1 shift, lean2 slope
 the slope is stairs
 the cmp is threshold
 the osc is turntable 4
-the ring is pulley 3
 the portal is stargate 1
 
 slope.end -> slope.start
@@ -50,7 +48,7 @@ lean2 -> slope.rise slope.fall
 slope -> cmp
 40 -> cmp.ref
 cmp.gate -> osc.sync
-osc.tri -> ring -> portal
+osc.tri -> portal
 lean1 -> portal.shift
 portal.up -> left
 portal.down -> right
@@ -58,14 +56,12 @@ slope -> lamp.track
 
 1980 the drum machine party
 ---------------------------
-; a map of beats, three drums, a tape echo. lean1 x, lean2 y, lean3 density, door1 a fill
+; a map of beats and three drums. lean1 x, lean2 y, lean3 density
 the clock is tram 4
 the beats are party
 the kick is trebuchet 1
 the snare is balloon 1
 the hat is grill 1
-the echo is dub 3
-the fill is fire
 
 clock.eighth -> beats.clock
 lean1 -> beats.x
@@ -73,11 +69,8 @@ lean2 -> beats.y
 lean3 -> beats.density
 beats.kick -> kick
 beats.snare -> snare
-beats.hat fill -> hat
-door1 -> fill
-kick -> ears
-snare hat -> echo
-echo -> ears
+beats.hat -> hat
+kick snare hat -> ears
 beats.accent -> lamp.play
 
 1995 ciat-lonbarde
@@ -98,13 +91,12 @@ spring -> ears lamp
 
 2016 eurorack
 -------------
-; a cellular automaton plucks sympathetic strings; hold door1 to freeze. lean1 chord, lean2 plate decay
+; a cellular automaton plucks sympathetic strings; hold door1 to freeze. lean1 chord
 the clock is tram 4
 the pads are lilypads 30
 the pluck is rebar 4
 the strings are wires 2
 the past is memories 1
-the plate is hotel
 
 clock.eighth -> pads.clock
 pads.pulse -> pluck
@@ -113,8 +105,5 @@ pluck -> strings
 lean1 -> strings.chord
 strings -> past
 door1 -> past.hold
-past -> plate
-lean2 -> plate.decay
-plate.l -> left
-plate.r -> right
+past -> ears
 pads.alive -> lamp.track

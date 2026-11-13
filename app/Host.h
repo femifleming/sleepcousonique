@@ -8,7 +8,7 @@ public:
     Host();
     ~Host() override;
 
-    struct Result { juce::String describe, messages; int errors = 0; };
+    struct Result { juce::String describe, messages; int errors = 0; std::vector<float> sceneLoads; };
     Result load (const juce::String& text, juce::uint32 nights);   // keeps the scene that's playing
     Result describe();
     Result check (const juce::String& text, juce::uint32 nights);   // doesn't disturb the sound

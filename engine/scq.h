@@ -55,6 +55,8 @@ void  scq_render(float *left, float *right, int frames); /* frames: multiple of 
 void  scq_goto_scene(int index);
 int   scq_scene(void);
 int   scq_node_count(void);             /* places in the scene that's playing */
+int   scq_scene_count(void);
+float scq_scene_load(int scene);        /* the SP-1's processor, 1.0 = all of it (measured costs) */
 float scq_lamp(int led);                /* 0..1 */
 float scq_probe(int node, int port);    /* last value of any outlet, for scopes */
 
@@ -65,6 +67,8 @@ void  scq_set_amount(int cord, float amount);
 /* Desktop editor only (built with SCQ_HOST): check text without disturbing the sound.
  * Fills msgs like scq_messages(); returns the number of errors. */
 int   scq_check(const char *text, int len, uint32_t nights, char *msgs, int cap);
+int   scq_checked_scenes(void);         /* after scq_check: each scene's load on the SP-1 */
+float scq_checked_load(int scene);
 
 /* On the SP-1 (built with SCQ_DEVICE) a scene change is compiled outside the audio thread:
  * render fades out and waits in silence; call this from the main loop to finish the change.

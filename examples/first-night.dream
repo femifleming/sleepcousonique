@@ -27,29 +27,21 @@ the clock is stairs
 the bell is bell 2
 the voice is aira 2
 the hall is hallway 9
-the window is window
 
 clock.end -> clock.start route.next
-clock.end >| bell.strike window.light
+clock.end >| bell.strike
 route ~70> voice.pitch
-voice -> window -> hall
-bell ~> hall
+voice bell -> hall
 hall -> ears
-hall => hall.length
 lean1 -> hall.feedback
 lean2 -> clock.fall
-wind ~30> ears
 
 2026-02-07
 ----------
-; a golden square of moss in a night pond; the magician shushes you into a trance
+; a golden square of moss in a night pond; lean1 makes it bloom
 the moss is moss 2
-the magician is magician 2
 the night is warehouse 3
 
-magician.trance -> moss.bloom
 lean1 -> moss.bloom
-moss -> night
-night.l -> left
-night.r -> right
+moss -> night -> ears
 frog4 ~40> night

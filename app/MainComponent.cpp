@@ -290,7 +290,7 @@ void MainComponent::paint (Graphics& g)
         g.drawText (label, r.removeFromTop (14), Justification::left);
         auto b = r.removeFromTop (8).toFloat();
         g.setColour (Colour (0x22000000)); g.fillRoundedRectangle (b, 3);
-        g.setColour (v > 1 ? Colour (0xffb0301f) : c);
+        g.setColour (v > 1 ? Colour (0xffb0301f) : (v > 0.85f && label.startsWith ("load") ? Colour (0xffd98a1a) : c));
         g.fillRoundedRectangle (b.withWidth (b.getWidth() * jlimit (0.0f, 1.0f, v)), 3);
     };
     int w = m.getWidth() / 3;
@@ -403,6 +403,24 @@ void MainComponent::sendToSP1()
 {
     doc.text = journal.getText();
     if (doc.errors > 0) { status ("fix the mistakes in the journal before sending"); return; }
+
+    // every scene must fit the SP-1's processor, or it will stutter there
+    auto chk = host.check (doc.text, nights);
+    StringArray heavy;
+    for (int k = 0; k < (int) chk.sceneLoads.size(); ++k)
+        if (chk.sceneLoads[(size_t) k] > 0.95f)
+            heavy.add ((k < (int) doc.scenes.size() ? doc.scenes[(size_t) k].title : "scene " + String (k + 1))
+                       + "  needs " + String (roundToInt (chk.sceneLoads[(size_t) k] * 100)) + "%");
+    if (! heavy.isEmpty() && ! sendAnyway)
+    {
+        AlertWindow::showOkCancelBox (MessageBoxIconType::WarningIcon, "too heavy for the SP-1",
+            "These scenes need more of the SP-1's processor than it has, so they'll stutter there:\n\n"
+            + heavy.joinIntoString ("\n") + "\n\nThe load meter shows each scene as you build it. "
+            "Removing a heavy place (reverbs, choruses, the vocoder) or a few mixed cords brings it down.",
+            "send anyway", "don't send", this,
+            ModalCallbackFunction::create ([this] (int r) { if (r == 1) { sendAnyway = true; sendToSP1(); sendAnyway = false; } }));
+        return;
+    }
     status ("looking for the SP-1...");
     String port;
     String err;

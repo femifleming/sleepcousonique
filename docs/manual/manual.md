@@ -130,7 +130,12 @@ scene, and `journey.miss` is the chance of getting off at the wrong stop.
 
 ## The meters
 
-- **load:** how much of the SP-1's processor the scene needs. Keep it under 100%.
+- **load:** how much of the SP-1's processor the scene needs. Every place's cost was measured
+  on a real SP-1, so this is close to what the SP-1 will report itself (within a few percent).
+  It turns amber above 85% and red above 100%. Keep every scene under about 90%: a scene over
+  100% stutters on the SP-1, and **send to SP-1** warns you before sending one. Plain wires
+  cost nothing; cords with parts in them, or several cords into one inlet, cost a little;
+  reverbs, choruses and the vocoder cost the most.
 - **memory:** how much of the SP-1's 80 KB of room for delays, grains and gestures the
   scene uses.
 - **ears:** the level coming out.
