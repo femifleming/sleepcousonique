@@ -98,6 +98,90 @@ second position (`cycle1` is `cycle1=on`), and a position word alone picks it wh
 switch has it (`audio`, `pelog`). The first position is the default. On the tapestry,
 right-click a place to set its switches. The full list is in the switches column below.
 
+## Difference tones
+
+`difftone` is two pure sines, f1 and f2 = f1 x ratio, made for the tones your own ears add:
+f2-f1 (the quadratic difference tone) and 2f1-f2 (the cubic), after Alex Chechile's
+*Practical Applications of Difference Tones in Electronic Music Composition and Synthesis*
+(2020). The module adds nothing nonlinear: the difference tones happen in the ear.
+
+    the ear is difftone ratio=1.2      ; f1 960 Hz, f2 1152 Hz: hear 192 Hz and 768 Hz
+    fader1 -> ear.ratio                ; the ratio inlet adds to the knob
+
+Its **ratio** knob (1 to 3) and **tune** knob (the master pitch) sit on the board. Ratios near
+1.2 give the strongest cubic tone, which fades as the ratio widens; the quadratic tone holds
+from about 1.1 to 1.5. Keep f1 around 1-2 kHz (the default, nature 16, is 960 Hz), play it at
+a healthy level, and send `out` (both tones) to the same ear.
+
+## Scales from the scales folder
+
+The quantizer knows 38 scales by heart, and any Scala (`.scl`) file in the scales folder,
+`Documents/Sleepcousonique/scales` (right-click a quantizer ▸ scale ▸ *open the scales folder*).
+Drop a `.scl` file in and use it by its file name, in lower case:
+
+    the q is quantizer scale=young_wtp
+    the r is quantizer scale=raga_yaman
+
+It comes with La Monte Young (`young_wtp`, The Well-Tuned Piano; `young_224_288`, the Dream
+House harmonics), the 22 shrutis (`shruti22`), sixteen ragas in just intonation (`raga_yaman`,
+`raga_bhairav`, `raga_bhairavi`, `raga_todi`, `raga_marwa`, `raga_malkauns`, ...), Wendy Carlos
+(`carlos_harmonic`, `carlos_superjust`), Stockhausen's Studie II (`stockhausen_studie2`, 25 steps
+of 5:1), Busoni's third and sixth tones, John Pierce's eight-tone scale and Terry Riley's Harp of
+New Albion. Scales you delete stay deleted.
+
+The SP-1 has no files, so the editor writes the scales your dream names into the dream itself,
+at the end, whenever it plays or sends it:
+
+    tuning young_wtp: 176.6450 203.9100 ... 1200.0000
+
+cents of each degree after the root, the last being the period (usually 1200). You can write a
+tuning line yourself too; a long one goes on over several lines with the same name.
+
+## Saving the SP-1's processor
+
+The SP-1 has to finish every block of sound in time. The load meter shows the editor's
+estimate; with an SP-1 plugged in it also shows what the SP-1 measures, average and peak. Keep
+the peaks under 100%: past that the SP-1 drops blocks (heard as dropouts) and says so.
+
+**samplerate=** runs any place at a lower rate: `full` (48 kHz), `half`, `quarter` or `eighth`
+(6 kHz). Half the rate is about half the work. Pitches stay where they are; the sound gets
+darker and grittier (the outlets are held between samples, like a sample-rate reducer), and
+delays and reverbs get longer. Currents (LFOs, envelopes, followers, quantizers, sequencers)
+lose almost nothing at `eighth`.
+
+    the wobble is lfo eighth
+    the room is reverb samplerate=half
+
+(There is no bit-depth setting: the SP-1 works in floating point, where fewer bits cost the
+same. For the sound of fewer bits, use `bitcrush`.)
+
+**Bare places** do one job with one outlet: `saw`, `tri`, `pulse`, `white`, `follow`
+(envelope follower), `onepole` (the gentlest lowpass); `sine` with nothing in its `fm` and `vca`
+are already bare. **Lite places** are cut-down versions of heavy ones: `reverblite`,
+`choruslite`, `delaylite`, `fmlite`, `supersawlite`, `froglet` (one frog).
+
+## Tune and attenuverters (the knobs on the module)
+
+Every place with a `pitch` inlet (the oscillators, frogs, bell, string, kick, comb...) has a
+**tune** knob: its base pitch, in octaves, added to whatever reaches `pitch`. It reaches twelve
+octaves either way, from well under a hertz (a slow LFO) to past 15 kHz:
+
+    the a is sine tune=-12          ; one swing every minute or so
+    the b is frogs 3 tune=4         ; frogs four octaves up
+
+Every source, and every place with a `pitch` inlet, also has an **attenuverter** on each inlet,
+`att.INLET`. It scales what's patched into that inlet, never the inlet's own default: 1 is as is
+(and isn't written), 0 shuts the cord out, negative turns it upside down. `att.pitch` goes to
++-10, so one fader can sweep ten octaves; the others go to +-2.
+
+    the c is vco tune=2.5 att.pitch=10 att.fm=-0.5
+    fader1 -> c.pitch               ; fader1 now sweeps ten octaves up from c's tune
+
+On the tapestry the tune knob sits in the board's top corner and the attenuverters next to the
+inlets. Drag them up and down (shift for fine; tune moves in semitones, or cents with shift);
+the sound follows as you drag and the journal line changes when you let go. Double-click a knob
+to put it back (tune 0, attenuverter 1).
+
 ## Lucid groups (morphs)
 
     lucid fader2: peaks.fold 0..90, env.rise 20..5, gate.level 0..60
@@ -142,144 +226,157 @@ the computer is what the SP-1 plays. Every dream can have up to 64 places, 224 p
 
 # The places
 
-Every place has a fixed *nature* (the number after its name), and some have switches and params, set when you name it (the first position is the default). Otherwise you change a place only by running something into its inlets. The first inlet and the first outlet need no name: `voice -> gate` means `voice.out -> gate.in`.
+Every place has a fixed *nature* (the number after its name), and some have switches and params, set when you name it (the first position is the default). Otherwise you change a place only by running something into its inlets. The first inlet and the first outlet need no name: `voice -> gate` means `voice.out -> gate.in`. Every source, and every place with a pitch inlet, also has an attenuverter on each inlet (`att.fm=-0.5`); places with a pitch inlet have a tune knob (`tune=-3`, octaves).
 
 
 ## Sources
 
 | place | nature | in | out | switches | what it is |
 |---|---|---|---|---|---|
-| **sine** | 3 | pitch, fm | out | range=audio / lfo | sine oscillator at nature x 60 Hz |
-| **crossfm** | 3 | pitch, index, fold | out, a, b | — | two sines on harmonics n and n+1; index frequency-modulates a with b, fold wavefolds a; out is both mixed |
-| **rain** | 1 | density | out, pulse | — | rain: random impulses ringing tiny resonators, 8 x nature per second; pulse marks each drop |
-| **thunder** | 1 | strike | out | — | thunder: a filtered noise rumble when struck, and on its own about nature times a minute |
-| **noisesweep** | 1 | level | out | — | noise through a resonant bandpass whose frequency climbs with level |
-| **wind** | 1 | gust | out | — | wind: soft noise through a slowly wandering bandpass |
-| **frogs** | 3 | trig, pitch | out, pulse | — | nature (1-8) chirping FM voices on random timers; a pulse into trig makes them all chirp |
-| **shepard** | 1 | rate, pitch | out | — | Shepard-Risset glissando: rises forever (rate in octaves per second, negative falls) |
-| **bell** | 1 | strike, pitch, decay | out | — | modal bell: four inharmonic modes, struck by pulses or by sound |
-| **vco** | 4 | pitch, fm, width, sync | saw, square, tri, sine | range=audio / lfo | VCO: saw, square, triangle and sine, pulse width and hard sync (after Moog 921, the Minimoog) |
-| **xorsquares** | 2 | pitch, couple | out, a, b | — | two cross-coupled square oscillators, their XOR as sound (after Ciat-Lonbarde Fourses / Plumbutter) |
-| **rungler** | 4 | pitch, chaos, loop | out, steps, a, b | — | two triangle oscillators and a shift register fed back on itself; loop above 0.5 locks the pattern (after Rob Hordijk's Benjolin) |
-| **additive** | 2 | pitch, tilt, odd, stretch | out | — | additive oscillator: sixteen partials; tilt darkens, odd removes the even ones, stretch makes them inharmonic |
-| **pulsar** | 2 | pitch, formant, duty | out | — | pulsar synthesis: a formant burst once a period, duty sets how much of it sounds (after Curtis Roads) |
-| **fm** | 2 | pitch, ratio, index, feedback | out, mod | — | two-operator FM at 240 Hz; nature is the ratio (after Chowning, the DX7) |
-| **phasedist** | 2 | pitch, amount, resonant | out | — | phase distortion oscillator: amount brightens a cosine (after Casio CZ) |
-| **wavetable** | 2 | pitch, scan | out | — | wavetable oscillator: scans sine, triangle, saw, square, pulse (after PPG / Waldorf) |
-| **chord** | 4 | pitch, type, spread | out | — | four-voice just-intonation chord; type picks major, minor, sus, maj7, min7, 4:5:6:7 |
-| **supersaw** | 4 | pitch, detune, mix | out | — | seven detuned saws (after Roland JP-8000) |
-| **formant** | 2 | pitch, vowel | out | — | formant voice oscillator through a, e, i, o, u (after FOF / IRCAM CHANT) |
-| **hum** | 1 | buzz, level | out | — | 60 Hz mains hum and its harmonics |
-| **noise** | 1 | level | white, pink, brown, blue | — | noise: white, pink, brown and blue |
-| **crackle** | 1 | chaos, density | out, dust | — | chaotic crackle, and random dust impulses (after SuperCollider Crackle / Dust) |
-| **lorenz** | 1 | rate, rho | x, y, z | — | Lorenz attractor, slow as modulation or fast as sound |
-| **marimba** | 6 | strike, pitch, decay, bright | out | — | modal marimba: struck bar, three modes |
-| **string** | 4 | pluck, pitch, damp, bright | out | — | Karplus-Strong plucked string |
-| **kick** | 1 | strike, pitch, punch, decay | out | — | kick drum: a falling sine (after TR-808) |
-| **snare** | 1 | strike, tone, snap | out | — | snare drum (after TR-808 / 909) |
-| **hihat** | 1 | strike, decay, pitch | out | — | metallic hi-hat from six squares (after TR-808) |
-| **sinesaw** | 3 | pitch, fm | sine, saw | range=audio / lfo | sine and sawtooth oscillator; range=audio|lfo (after Buchla 158) |
-| **square** | 3 | pitch, fm, width | out | range=audio / lfo | square / pulse oscillator, width -1..1; range=audio|lfo (after Buchla 144; Doepfer A-110) |
-| **harmonics** | 3 | pitch | h1, h2, h3, h4 | — | harmonic generator: the first four harmonics of one pitch, each on its own out (after Buchla 148) |
+| **sine** | 3 | pitch, fm | out | range=audio / lfo, tune=0, samplerate=full / half / quarter / eighth | sine oscillator at nature x 60 Hz |
+| **crossfm** | 3 | pitch, index, fold | out, a, b | tune=0, samplerate=full / half / quarter / eighth | two sines on harmonics n and n+1; index frequency-modulates a with b, fold wavefolds a; out is both mixed |
+| **rain** | 1 | density | out, pulse | samplerate=full / half / quarter / eighth | rain: random impulses ringing tiny resonators, 8 x nature per second; pulse marks each drop |
+| **thunder** | 1 | strike | out | samplerate=full / half / quarter / eighth | thunder: a filtered noise rumble when struck, and on its own about nature times a minute |
+| **noisesweep** | 1 | level | out | samplerate=full / half / quarter / eighth | noise through a resonant bandpass whose frequency climbs with level |
+| **wind** | 1 | gust | out | samplerate=full / half / quarter / eighth | wind: soft noise through a slowly wandering bandpass |
+| **frogs** | 3 | trig, pitch | out, pulse | tune=0, samplerate=full / half / quarter / eighth | nature (1-8) chirping FM voices on random timers; a pulse into trig makes them all chirp |
+| **shepard** | 1 | rate, pitch | out | tune=0, samplerate=full / half / quarter / eighth | Shepard-Risset glissando: rises forever (rate in octaves per second, negative falls) |
+| **bell** | 1 | strike, pitch, decay | out | tune=0, samplerate=full / half / quarter / eighth | modal bell: four inharmonic modes, struck by pulses or by sound |
+| **vco** | 4 | pitch, fm, width, sync | saw, square, tri, sine | range=audio / lfo, tune=0, samplerate=full / half / quarter / eighth | VCO: saw, square, triangle and sine, pulse width and hard sync (after Moog 921, the Minimoog) |
+| **xorsquares** | 2 | pitch, couple | out, a, b | tune=0, samplerate=full / half / quarter / eighth | two cross-coupled square oscillators, their XOR as sound (after Ciat-Lonbarde Fourses / Plumbutter) |
+| **rungler** | 4 | pitch, chaos, loop | out, steps, a, b | tune=0, samplerate=full / half / quarter / eighth | two triangle oscillators and a shift register fed back on itself; loop above 0.5 locks the pattern (after Rob Hordijk's Benjolin) |
+| **additive** | 2 | pitch, tilt, odd, stretch | out | tune=0, samplerate=full / half / quarter / eighth | additive oscillator: sixteen partials; tilt darkens, odd removes the even ones, stretch makes them inharmonic |
+| **pulsar** | 2 | pitch, formant, duty | out | tune=0, samplerate=full / half / quarter / eighth | pulsar synthesis: a formant burst once a period, duty sets how much of it sounds (after Curtis Roads) |
+| **fm** | 2 | pitch, ratio, index, feedback | out, mod | tune=0, samplerate=full / half / quarter / eighth | two-operator FM at 240 Hz; nature is the ratio (after Chowning, the DX7) |
+| **phasedist** | 2 | pitch, amount, resonant | out | tune=0, samplerate=full / half / quarter / eighth | phase distortion oscillator: amount brightens a cosine (after Casio CZ) |
+| **wavetable** | 2 | pitch, scan | out | tune=0, samplerate=full / half / quarter / eighth | wavetable oscillator: scans sine, triangle, saw, square, pulse (after PPG / Waldorf) |
+| **chord** | 4 | pitch, type, spread | out | tune=0, samplerate=full / half / quarter / eighth | four-voice just-intonation chord; type picks major, minor, sus, maj7, min7, 4:5:6:7 |
+| **supersaw** | 4 | pitch, detune, mix | out | tune=0, samplerate=full / half / quarter / eighth | seven detuned saws (after Roland JP-8000) |
+| **formant** | 2 | pitch, vowel | out | tune=0, samplerate=full / half / quarter / eighth | formant voice oscillator through a, e, i, o, u (after FOF / IRCAM CHANT) |
+| **hum** | 1 | buzz, level | out | samplerate=full / half / quarter / eighth | 60 Hz mains hum and its harmonics |
+| **noise** | 1 | level | white, pink, brown, blue | samplerate=full / half / quarter / eighth | noise: white, pink, brown and blue |
+| **crackle** | 1 | chaos, density | out, dust | samplerate=full / half / quarter / eighth | chaotic crackle, and random dust impulses (after SuperCollider Crackle / Dust) |
+| **lorenz** | 1 | rate, rho | x, y, z | samplerate=full / half / quarter / eighth | Lorenz attractor, slow as modulation or fast as sound |
+| **marimba** | 6 | strike, pitch, decay, bright | out | tune=0, samplerate=full / half / quarter / eighth | modal marimba: struck bar, three modes |
+| **string** | 4 | pluck, pitch, damp, bright | out | tune=0, samplerate=full / half / quarter / eighth | Karplus-Strong plucked string |
+| **kick** | 1 | strike, pitch, punch, decay | out | tune=0, samplerate=full / half / quarter / eighth | kick drum: a falling sine (after TR-808) |
+| **snare** | 1 | strike, tone, snap | out | samplerate=full / half / quarter / eighth | snare drum (after TR-808 / 909) |
+| **hihat** | 1 | strike, decay, pitch | out | tune=0, samplerate=full / half / quarter / eighth | metallic hi-hat from six squares (after TR-808) |
+| **sinesaw** | 3 | pitch, fm | sine, saw | range=audio / lfo, tune=0, samplerate=full / half / quarter / eighth | sine and sawtooth oscillator; range=audio|lfo (after Buchla 158) |
+| **square** | 3 | pitch, fm, width | out | range=audio / lfo, tune=0, samplerate=full / half / quarter / eighth | square / pulse oscillator, width -1..1; range=audio|lfo (after Buchla 144; Doepfer A-110) |
+| **harmonics** | 3 | pitch | h1, h2, h3, h4 | tune=0, samplerate=full / half / quarter / eighth | harmonic generator: the first four harmonics of one pitch, each on its own out (after Buchla 148) |
+| **saw** | 3 | pitch | out | tune=0, samplerate=full / half / quarter / eighth | a sawtooth and nothing else: the cheapest saw, at nature x 60 Hz |
+| **tri** | 3 | pitch | out | tune=0, samplerate=full / half / quarter / eighth | a triangle and nothing else, at nature x 60 Hz |
+| **pulse** | 3 | pitch, width | out | tune=0, samplerate=full / half / quarter / eighth | a pulse wave and nothing else; width -1..1, 0 is square |
+| **white** | 0 | — | out | samplerate=full / half / quarter / eighth | white noise and nothing else |
+| **fmlite** | 2 | pitch, ratio, index | out | tune=0, samplerate=full / half / quarter / eighth | two-operator FM, no feedback; nature is the ratio (fm, cut down) |
+| **supersawlite** | 4 | pitch, detune | out | tune=0, samplerate=full / half / quarter / eighth | three detuned plain saws (supersaw, cut down) |
+| **froglet** | 3 | trig, pitch | out | tune=0, samplerate=full / half / quarter / eighth | one frog: a falling chirp on its own timer or on a pulse; silent between chirps costs almost nothing (frogs, cut down) |
+| **difftone** | 16 | pitch, ratio | out, f1, f2 | ratio=1.2, tune=0, samplerate=full / half / quarter / eighth | two sines for difference tones: f1 at nature x 60 Hz, f2 = f1 x ratio (knob, 1-3; strongest near 1.2); your ear makes f2-f1 and 2f1-f2 (after Alex Chechile) |
 
 ## Shapes
 
 | place | nature | in | out | switches | what it is |
 |---|---|---|---|---|---|
-| **folder** | 1 | in, fold | out | — | wavefolder; more fold, more folds |
-| **lpg** | 1 | in, level | out | mode=both / lowpass / vca | lowpass gate (vactrol-style); pulse level for a pluck |
-| **lowpass** | 1 | in, cutoff, res | out, band | — | resonant 2-pole lowpass at nature x 480 Hz, with a bandpass out |
-| **filterbank** | 1 | in, band1, band2, band3, band4, band5, band6, band7, band8 | out | — | fixed filter bank: eight resonant bands; patch into a band to raise it |
-| **saturator** | 1 | in, burst | out | — | tanh saturator; a pulse into burst kicks the drive up with a crackle that dies away |
-| **dcblock** | 1 | in | out | — | DC blocker (highpass at nature x 20 Hz) |
-| **vca** | 1 | in, gain | out | response=lin / exp | VCA: in times gain |
-| **matrix** | 0 | in1, in2, in3, in4, rotate | out1, out2, out3, out4 | — | 4 x 4 rotation matrix mixer; rotate turns it (nature sets the resting angle) |
-| **ladder** | 1 | in, cutoff, res | out, band | — | 4-pole transistor ladder lowpass at nature x 480 Hz (after Moog 904A) |
-| **svf** | 1 | in, cutoff, res | low, band, high, notch | — | state-variable filter: lowpass, bandpass, highpass and notch at once (after Oberheim SEM, Serge VCFQ) |
-| **vowelfilter** | 1 | in, vowel, shift | out | — | vowel / formant filter, a to u (after Doepfer A-104) |
-| **phaser** | 1 | in, rate, depth, feedback | out | — | six-stage phaser |
-| **flanger** | 1 | in, rate, depth, feedback | out, wet | — | flanger |
-| **chorus** | 1 | in, depth | out, l, r | — | three-voice ensemble chorus (after Solina / ARP string ensembles) |
-| **ringmod** | 2 | in, mod, pitch | out | — | ring modulator, with its own sine carrier if nothing is patched to mod |
-| **freqshift** | 1 | in, shift | up, down | — | frequency shifter, up and down at once (after Bode, Buchla 285) |
-| **bitcrush** | 1 | in, crush, decimate | out | — | bit crusher and sample-rate reducer |
-| **tube** | 1 | in, drive, bias | out | — | asymmetric tube-style saturation |
-| **compressor** | 1 | in, amount, side | out, gain | — | compressor; side is an external sidechain |
-| **crossfade** | 1 | a, b, mix | out | — | crossfade from a to b |
-| **vocoder** | 2 | carrier, modulator | out | — | eight-band vocoder; modulator through carrier, or through its own buzz |
-| **follower** | 1 | in, attack, release | out, gate | — | envelope follower, and a gate while something is there |
-| **samplehold** | 1 | in, clock | held, track | — | sample & hold and track & hold; samples noise when nothing is patched |
-| **logic** | 1 | a, b | and, or, xor, not | — | logic on pulses |
-| **comparator** | 1 | in, ref | gate, inverse | — | comparator: high while in is above ref |
-| **rectify** | 1 | in | invert, full, half, sign | — | inverter, full-wave and half-wave rectifier, sign |
-| **pan** | 1 | in, position | l, r | — | panner: -1 left to 1 right |
-| **suboctave** | 1 | in | sub1, sub2 | — | sub-octave divider: one and two octaves down |
-| **mixer** | 0 | in1, in2, in3, in4, in5, in6 | out | — | six-input mixer; set levels with amounts on the cords (after Buchla 106; Doepfer A-138) |
-| **vcmix** | 0 | in1, in2, in3, in4, level1, level2, level3, level4 | out | — | voltage-controlled mixer: four inputs with a level each (after Buchla 107; Doepfer A-135) |
-| **vcgate** | 0 | a, b, levela, levelb | a, b | — | dual voltage-controlled gate / VCA (after Buchla 110) |
-| **quadvca** | 0 | in1, in2, in3, in4, cv1, cv2, cv3, cv4 | out1, out2, out3, out4 | response=lin / exp | four VCAs; response=lin|exp (after Doepfer A-130 / A-131 / A-132) |
-| **duallpg** | 0 | in1, cv1, in2, cv2 | out1, out2 | mode1=both / lowpass / vca, mode2=both / lowpass / vca | two low pass gates (vactrol response); mode1 / mode2 = both|lowpass|vca; pulse a cv for a pluck (after Buchla 292) |
-| **highpass** | 1 | in, cutoff, res | out | — | resonant 2-pole highpass at nature x 120 Hz (after the Doepfer A-100 filters) |
-| **attenuverter** | 0 | in, amount, offset | out | — | attenuverter and offset: in x amount (-1..1) + offset (after Doepfer A-183-2) |
-| **sineshaper** | 0 | in, drive | out | — | sine waveshaper: a triangle in becomes a sine; drive folds it further (after Serge waveshapers) |
-| **minmax** | 0 | a, b | max, min | — | the higher and the lower of two signals (after Serge Peak & Trough) |
-| **cvprocessor** | 0 | a, b, offset, time | out | — | control voltage processor: sums a, b and an offset, then lags it by time (after Buchla 156) |
-| **slew** | 0 | in, rise, fall | out | shape=lin / exp | slew limiter with separate rise and fall; shape=lin|exp (after Doepfer A-170) |
-| **dualprocessor** | 0 | in1, rate1, in2, rate2 | out1, out2 | mode1=lag / slew, mode2=lag / slew | two voltage-controlled lag / slew processors: smooth control voltages, or a gentle lowpass on audio (rate 0..1 is 20 Hz-20 kHz); mode1 / mode2 = lag|slew (after the Serge Dual Processor) |
+| **folder** | 1 | in, fold | out | samplerate=full / half / quarter / eighth | wavefolder; more fold, more folds |
+| **lpg** | 1 | in, level | out | mode=both / lowpass / vca, samplerate=full / half / quarter / eighth | lowpass gate (vactrol-style); pulse level for a pluck |
+| **lowpass** | 1 | in, cutoff, res | out, band | samplerate=full / half / quarter / eighth | resonant 2-pole lowpass at nature x 480 Hz, with a bandpass out |
+| **filterbank** | 1 | in, band1, band2, band3, band4, band5, band6, band7, band8 | out | samplerate=full / half / quarter / eighth | fixed filter bank: eight resonant bands; patch into a band to raise it |
+| **saturator** | 1 | in, burst | out | samplerate=full / half / quarter / eighth | tanh saturator; a pulse into burst kicks the drive up with a crackle that dies away |
+| **dcblock** | 1 | in | out | samplerate=full / half / quarter / eighth | DC blocker (highpass at nature x 20 Hz) |
+| **vca** | 1 | in, gain | out | response=lin / exp, samplerate=full / half / quarter / eighth | VCA: in times gain |
+| **matrix** | 0 | in1, in2, in3, in4, rotate | out1, out2, out3, out4 | samplerate=full / half / quarter / eighth | 4 x 4 rotation matrix mixer; rotate turns it (nature sets the resting angle) |
+| **ladder** | 1 | in, cutoff, res | out, band | samplerate=full / half / quarter / eighth | 4-pole transistor ladder lowpass at nature x 480 Hz (after Moog 904A) |
+| **svf** | 1 | in, cutoff, res | low, band, high, notch | samplerate=full / half / quarter / eighth | state-variable filter: lowpass, bandpass, highpass and notch at once (after Oberheim SEM, Serge VCFQ) |
+| **vowelfilter** | 1 | in, vowel, shift | out | samplerate=full / half / quarter / eighth | vowel / formant filter, a to u (after Doepfer A-104) |
+| **phaser** | 1 | in, rate, depth, feedback | out | samplerate=full / half / quarter / eighth | six-stage phaser |
+| **flanger** | 1 | in, rate, depth, feedback | out, wet | samplerate=full / half / quarter / eighth | flanger |
+| **chorus** | 1 | in, depth | out, l, r | samplerate=full / half / quarter / eighth | three-voice ensemble chorus (after Solina / ARP string ensembles) |
+| **ringmod** | 2 | in, mod, pitch | out | tune=0, samplerate=full / half / quarter / eighth | ring modulator, with its own sine carrier if nothing is patched to mod |
+| **freqshift** | 1 | in, shift | up, down | samplerate=full / half / quarter / eighth | frequency shifter, up and down at once (after Bode, Buchla 285) |
+| **bitcrush** | 1 | in, crush, decimate | out | samplerate=full / half / quarter / eighth | bit crusher and sample-rate reducer |
+| **tube** | 1 | in, drive, bias | out | samplerate=full / half / quarter / eighth | asymmetric tube-style saturation |
+| **compressor** | 1 | in, amount, side | out, gain | samplerate=full / half / quarter / eighth | compressor; side is an external sidechain |
+| **crossfade** | 1 | a, b, mix | out | samplerate=full / half / quarter / eighth | crossfade from a to b |
+| **vocoder** | 2 | carrier, modulator | out | samplerate=full / half / quarter / eighth | eight-band vocoder; modulator through carrier, or through its own buzz |
+| **follower** | 1 | in, attack, release | out, gate | samplerate=full / half / quarter / eighth | envelope follower, and a gate while something is there |
+| **samplehold** | 1 | in, clock | held, track | samplerate=full / half / quarter / eighth | sample & hold and track & hold; samples noise when nothing is patched |
+| **logic** | 1 | a, b | and, or, xor, not | samplerate=full / half / quarter / eighth | logic on pulses |
+| **comparator** | 1 | in, ref | gate, inverse | samplerate=full / half / quarter / eighth | comparator: high while in is above ref |
+| **rectify** | 1 | in | invert, full, half, sign | samplerate=full / half / quarter / eighth | inverter, full-wave and half-wave rectifier, sign |
+| **pan** | 1 | in, position | l, r | samplerate=full / half / quarter / eighth | panner: -1 left to 1 right |
+| **suboctave** | 1 | in | sub1, sub2 | samplerate=full / half / quarter / eighth | sub-octave divider: one and two octaves down |
+| **mixer** | 0 | in1, in2, in3, in4, in5, in6 | out | samplerate=full / half / quarter / eighth | six-input mixer; set levels with amounts on the cords (after Buchla 106; Doepfer A-138) |
+| **vcmix** | 0 | in1, in2, in3, in4, level1, level2, level3, level4 | out | samplerate=full / half / quarter / eighth | voltage-controlled mixer: four inputs with a level each (after Buchla 107; Doepfer A-135) |
+| **vcgate** | 0 | a, b, levela, levelb | a, b | samplerate=full / half / quarter / eighth | dual voltage-controlled gate / VCA (after Buchla 110) |
+| **quadvca** | 0 | in1, in2, in3, in4, cv1, cv2, cv3, cv4 | out1, out2, out3, out4 | response=lin / exp, samplerate=full / half / quarter / eighth | four VCAs; response=lin|exp (after Doepfer A-130 / A-131 / A-132) |
+| **duallpg** | 0 | in1, cv1, in2, cv2 | out1, out2 | mode1=both / lowpass / vca, mode2=both / lowpass / vca, samplerate=full / half / quarter / eighth | two low pass gates (vactrol response); mode1 / mode2 = both|lowpass|vca; pulse a cv for a pluck (after Buchla 292) |
+| **highpass** | 1 | in, cutoff, res | out | samplerate=full / half / quarter / eighth | resonant 2-pole highpass at nature x 120 Hz (after the Doepfer A-100 filters) |
+| **attenuverter** | 0 | in, amount, offset | out | samplerate=full / half / quarter / eighth | attenuverter and offset: in x amount (-1..1) + offset (after Doepfer A-183-2) |
+| **sineshaper** | 0 | in, drive | out | samplerate=full / half / quarter / eighth | sine waveshaper: a triangle in becomes a sine; drive folds it further (after Serge waveshapers) |
+| **minmax** | 0 | a, b | max, min | samplerate=full / half / quarter / eighth | the higher and the lower of two signals (after Serge Peak & Trough) |
+| **cvprocessor** | 0 | a, b, offset, time | out | samplerate=full / half / quarter / eighth | control voltage processor: sums a, b and an offset, then lags it by time (after Buchla 156) |
+| **slew** | 0 | in, rise, fall | out | shape=lin / exp, samplerate=full / half / quarter / eighth | slew limiter with separate rise and fall; shape=lin|exp (after Doepfer A-170) |
+| **dualprocessor** | 0 | in1, rate1, in2, rate2 | out1, out2 | mode1=lag / slew, mode2=lag / slew, samplerate=full / half / quarter / eighth | two voltage-controlled lag / slew processors: smooth control voltages, or a gentle lowpass on audio (rate 0..1 is 20 Hz-20 kHz); mode1 / mode2 = lag|slew (after the Serge Dual Processor) |
+| **follow** | 2 | in | out | samplerate=full / half / quarter / eighth | an envelope follower and nothing else: release nature x 50 ms |
+| **onepole** | 4 | in, cutoff | out | samplerate=full / half / quarter / eighth | the gentlest lowpass, one pole at nature x 120 Hz; cutoff in octaves |
+| **choruslite** | 1 | in, depth | out | samplerate=full / half / quarter / eighth | one-voice chorus with a triangle sweep (chorus, cut down) |
 
 ## Spaces
 
 | place | nature | in | out | switches | what it is |
 |---|---|---|---|---|---|
-| **comb** | 2 | in, pitch, decay | out | — | comb filter tuned to nature x 60 Hz; pulses pluck it |
-| **delay** | 6 | in, time, feedback | out | — | delay, nature x 50 ms long; time scales it |
-| **reverb** | 2 | in, size | out, l, r | — | stereo room reverb |
-| **granular** | 1 | in, density | out | — | granular: grains of what you patch in, or of its own buffer |
-| **spring** | 2 | in, decay | out | — | spring reverb |
-| **plate** | 1 | in, decay, damp | out, l, r | — | plate reverb (after Dattorro) |
-| **pingpong** | 6 | in, time, feedback | l, r | — | ping-pong delay, nature x 25 ms |
-| **tapeecho** | 3 | in, time, feedback, wow | out, wet | — | tape echo with wow, nature x 100 ms (after Roland Space Echo) |
-| **freeze** | 1 | in, hold, length | out | — | freeze: hold loops the last nature x 250 ms |
-| **sympathetic** | 2 | in, pitch, decay, chord | out | — | four sympathetic strings tuned to a chord |
-| **pitchshift** | 1 | in, shift | out | — | pitch shifter, shift in octaves |
-| **diffuser** | 1 | in, amount | out | — | allpass diffuser: smears in time without echoes |
+| **comb** | 2 | in, pitch, decay | out | tune=0, samplerate=full / half / quarter / eighth | comb filter tuned to nature x 60 Hz; pulses pluck it |
+| **delay** | 6 | in, time, feedback | out | samplerate=full / half / quarter / eighth | delay, nature x 50 ms long; time scales it |
+| **reverb** | 2 | in, size | out, l, r | samplerate=full / half / quarter / eighth | stereo room reverb |
+| **granular** | 1 | in, density | out | samplerate=full / half / quarter / eighth | granular: grains of what you patch in, or of its own buffer |
+| **spring** | 2 | in, decay | out | samplerate=full / half / quarter / eighth | spring reverb |
+| **plate** | 1 | in, decay, damp | out, l, r | samplerate=full / half / quarter / eighth | plate reverb (after Dattorro) |
+| **pingpong** | 6 | in, time, feedback | l, r | samplerate=full / half / quarter / eighth | ping-pong delay, nature x 25 ms |
+| **tapeecho** | 3 | in, time, feedback, wow | out, wet | samplerate=full / half / quarter / eighth | tape echo with wow, nature x 100 ms (after Roland Space Echo) |
+| **freeze** | 1 | in, hold, length | out | samplerate=full / half / quarter / eighth | freeze: hold loops the last nature x 250 ms |
+| **sympathetic** | 2 | in, pitch, decay, chord | out | tune=0, samplerate=full / half / quarter / eighth | four sympathetic strings tuned to a chord |
+| **pitchshift** | 1 | in, shift | out | samplerate=full / half / quarter / eighth | pitch shifter, shift in octaves |
+| **diffuser** | 1 | in, amount | out | samplerate=full / half / quarter / eighth | allpass diffuser: smears in time without echoes |
+| **reverblite** | 2 | in, size | out | samplerate=full / half / quarter / eighth | a small cheap room: two cross-fed lines, mono (reverb, cut down) |
+| **delaylite** | 6 | in, time, feedback | out | samplerate=full / half / quarter / eighth | delay, nature x 50 ms; time and feedback read once a block, no smoothing (delay, cut down) |
 
 ## Currents
 
 | place | nature | in | out | switches | what it is |
 |---|---|---|---|---|---|
-| **slope** | 1 | in, trig, rise, fall | out, end | cycle=off / on, range=lfo / audio, curve=lin / exp / log | slope / function generator: rises and falls when triggered, follows in otherwise; end into trig cycles (after Serge DUSG) |
-| **smoothrandom** | 1 | rate, follow | out | — | smooth random voltage; with follow patched, it wanders around that instead |
-| **steprandom** | 1 | clock | out, pulse | — | stepped random, a new value on each clock pulse (or nature / 2 times a second on its own) |
-| **glide** | 1 | in, clock, time | out | — | sample & hold with glide: holds in on each clock pulse and slides to it (after Serge Smooth & Stepped) |
-| **seq** | 8 | next, back, reset | out, pulse, step | — | step sequencer of semitones: seq 8: 0 3 7 10 |
-| **quantizer** | 1 | in, root | out, pulse | scale=nature / justmajor / justminor / justpentatonic / otonal / utonal / chromatic / major / minor / dorian / phrygian / lydian / mixolydian / locrian / harmonicminor / melodicminor / majorpentatonic / minorpentatonic / blues / wholetone / diminished / quartertone / tet19 / tet22 / tet31 / tet53 / bohlenpierce / alpha / beta / gamma / slendro / pelog / rast / bayati / partch / justchromatic / pythagorean / meantone / werckmeister | pitch quantizer (octaves in, root transposes); the scale is the nature or scale=: 1 just major, 2 just minor, 3 just pentatonic, 4 otonal 8-15, 5 utonal, 6 chromatic, 7 major, 8 minor, 9 dorian, 10 phrygian, 11 lydian, 12 mixolydian, 13 locrian, 14 harmonic minor, 15 melodic minor, 16 major pentatonic, 17 minor pentatonic, 18 blues, 19 whole tone, 20 diminished, 21 quarter tones (24-TET), 22 19-TET, 23 22-TET, 24 31-TET, 25 53-TET, 26 Bohlen-Pierce, 27-29 Carlos alpha / beta / gamma, 30 slendro, 31 pelog, 32 maqam rast, 33 maqam bayati, 34 Partch 43, 35 just chromatic, 36 Pythagorean, 37 quarter-comma meantone, 38 Werckmeister III |
-| **gesture** | 1 | in, record | out | — | gesture recorder: records in while record is held, then loops it (up to 8 s) |
-| **ducker** | 1 | in, side | out, lfo | — | ducker: turns in down when side is loud; lfo is a slow sine |
-| **value** | 0 | — | out | — | a fixed value: value 40 is 0.40 |
-| **adsr** | 1 | gate, attack, decay, sustain, release | out, end | — | ADSR envelope |
-| **lfo** | 1 | rate, reset | sine, tri, saw, square | range=lfo / audio | LFO, four shapes, 0 to 1 (after Doepfer A-145) |
-| **clock** | 4 | rate, reset | beat, eighth, half, bar | — | clock, 40 to 320 bpm, nature beats to the bar |
-| **divider** | 8 | clock, reset | d2, d3, d4, dn | — | clock divider by 2, 3, 4 and by nature (after Doepfer A-160) |
-| **euclid** | 16 | clock, hits, rotate, reset | hit, miss, step | — | Euclidean rhythm over nature steps |
-| **bernoulli** | 1 | in, chance | a, b | — | Bernoulli gate: each pulse goes to a or b by chance (after Mutable Branches) |
-| **turing** | 16 | clock, change | out, pulse | — | looping random shift register that slowly rewrites itself; nature is its length (after Music Thing Turing Machine) |
-| **drummap** | 1 | clock, x, y, density, reset | kick, snare, hat, accent | — | drum pattern map, x and y move through it (after Mutable Grids) |
-| **burst** | 1 | trig, count, rate | out | — | burst generator: one pulse becomes several |
-| **logistic** | 1 | clock, chaos | out, pulse | — | logistic map, from order into chaos |
-| **phasor** | 1 | rate, reset | ramp, wrap | — | phasor: a 0 to 1 ramp, slow or audio rate |
-| **trigdelay** | 1 | in, time | out | — | trigger delay (after Doepfer A-162) |
-| **switch** | 4 | in1, in2, in3, in4, next, reset | out, step | — | sequential switch over up to four inputs (after Doepfer A-151) |
-| **automaton** | 30 | clock, seed | alive, pulse, cells | — | elementary cellular automaton, nature is the rule (30, 90, 110...) |
-| **randomwalk** | 1 | step, clock | out | — | random walk that turns back at the walls (after the Wogglebug) |
-| **pulser** | 2 | rate, trig | out, ramp | — | timing pulse generator: a pulse every period (nature / 2 per second, rate +-8 octaves); trig fires it now (after Buchla 140) |
-| **dusg** | 0 | in1, trig1, rise1, fall1, in2, trig2, rise2, fall2 | out1, end1, out2, end2 | cycle1=off / on, cycle2=off / on, range=lfo / audio, curve=lin / exp / log | dual universal slope generator: two slopes, each an envelope, LFO, audio oscillator, slew or lowpass; cycle1 / cycle2 = off|on, range=lfo|audio, curve=lin|exp|log (after the Serge DUSG) |
-| **ad** | 0 | trig, attack, decay | out, end | loop=off / on, range=lfo / audio, curve=exp / lin | attack / decay envelope; loop=off|on, range=lfo|audio, curve=exp|lin (after Buchla 180; Doepfer A-142) |
-| **ar** | 0 | gate, attack, release | out | curve=exp / lin | attack / release envelope, held while the gate is; curve=exp|lin (after Doepfer A-141) |
-| **decay** | 0 | trig, decay | out | curve=exp / lin | percussive envelope: jumps to 1 on a pulse and dies away; curve=exp|lin |
-| **stepseq** | 8 | clock, reset, s1, s2, s3, s4, s5, s6, s7, s8 | out, gate, step | dir=forward / backward / pingpong / random | eight-stage sequencer: patch values or faders into s1-s8; nature is the length; dir=forward|backward|pingpong|random (after Buchla 123; Doepfer A-155) |
-| **flipflop** | 0 | clock, reset | out, inverse | — | toggle flip-flop: flips on each clock pulse (after Doepfer and Serge logic) |
-| **trigger** | 0 | in | out | length=2 | gate to trigger: a pulse on each rising edge; length=2 (ms) (after Doepfer A-162) |
+| **slope** | 1 | in, trig, rise, fall | out, end | cycle=off / on, range=lfo / audio, curve=lin / exp / log, samplerate=full / half / quarter / eighth | slope / function generator: rises and falls when triggered, follows in otherwise; end into trig cycles (after Serge DUSG) |
+| **smoothrandom** | 1 | rate, follow | out | samplerate=full / half / quarter / eighth | smooth random voltage; with follow patched, it wanders around that instead |
+| **steprandom** | 1 | clock | out, pulse | samplerate=full / half / quarter / eighth | stepped random, a new value on each clock pulse (or nature / 2 times a second on its own) |
+| **glide** | 1 | in, clock, time | out | samplerate=full / half / quarter / eighth | sample & hold with glide: holds in on each clock pulse and slides to it (after Serge Smooth & Stepped) |
+| **seq** | 8 | next, back, reset | out, pulse, step | samplerate=full / half / quarter / eighth | step sequencer of semitones: seq 8: 0 3 7 10 |
+| **quantizer** | 1 | in, root | out, pulse | scale=nature / justmajor / justminor / justpentatonic / otonal / utonal / chromatic / major / minor / dorian / phrygian / lydian / mixolydian / locrian / harmonicminor / melodicminor / majorpentatonic / minorpentatonic / blues / wholetone / diminished / quartertone / tet19 / tet22 / tet31 / tet53 / bohlenpierce / alpha / beta / gamma / slendro / pelog / rast / bayati / partch / justchromatic / pythagorean / meantone / werckmeister, samplerate=full / half / quarter / eighth | pitch quantizer (octaves in, root transposes); the scale is the nature or scale=: 1 just major, 2 just minor, 3 just pentatonic, 4 otonal 8-15, 5 utonal, 6 chromatic, 7 major, 8 minor, 9 dorian, 10 phrygian, 11 lydian, 12 mixolydian, 13 locrian, 14 harmonic minor, 15 melodic minor, 16 major pentatonic, 17 minor pentatonic, 18 blues, 19 whole tone, 20 diminished, 21 quarter tones (24-TET), 22 19-TET, 23 22-TET, 24 31-TET, 25 53-TET, 26 Bohlen-Pierce, 27-29 Carlos alpha / beta / gamma, 30 slendro, 31 pelog, 32 maqam rast, 33 maqam bayati, 34 Partch 43, 35 just chromatic, 36 Pythagorean, 37 quarter-comma meantone, 38 Werckmeister III |
+| **gesture** | 1 | in, record | out | samplerate=full / half / quarter / eighth | gesture recorder: records in while record is held, then loops it (up to 8 s) |
+| **ducker** | 1 | in, side | out, lfo | samplerate=full / half / quarter / eighth | ducker: turns in down when side is loud; lfo is a slow sine |
+| **value** | 0 | — | out | samplerate=full / half / quarter / eighth | a fixed value: value 40 is 0.40 |
+| **adsr** | 1 | gate, attack, decay, sustain, release | out, end | samplerate=full / half / quarter / eighth | ADSR envelope |
+| **lfo** | 1 | rate, reset | sine, tri, saw, square | range=lfo / audio, samplerate=full / half / quarter / eighth | LFO, four shapes, 0 to 1 (after Doepfer A-145) |
+| **clock** | 4 | rate, reset | beat, eighth, half, bar | samplerate=full / half / quarter / eighth | clock, 40 to 320 bpm, nature beats to the bar |
+| **divider** | 8 | clock, reset | d2, d3, d4, dn | samplerate=full / half / quarter / eighth | clock divider by 2, 3, 4 and by nature (after Doepfer A-160) |
+| **euclid** | 16 | clock, hits, rotate, reset | hit, miss, step | samplerate=full / half / quarter / eighth | Euclidean rhythm over nature steps |
+| **bernoulli** | 1 | in, chance | a, b | samplerate=full / half / quarter / eighth | Bernoulli gate: each pulse goes to a or b by chance (after Mutable Branches) |
+| **turing** | 16 | clock, change | out, pulse | samplerate=full / half / quarter / eighth | looping random shift register that slowly rewrites itself; nature is its length (after Music Thing Turing Machine) |
+| **drummap** | 1 | clock, x, y, density, reset | kick, snare, hat, accent | samplerate=full / half / quarter / eighth | drum pattern map, x and y move through it (after Mutable Grids) |
+| **burst** | 1 | trig, count, rate | out | samplerate=full / half / quarter / eighth | burst generator: one pulse becomes several |
+| **logistic** | 1 | clock, chaos | out, pulse | samplerate=full / half / quarter / eighth | logistic map, from order into chaos |
+| **phasor** | 1 | rate, reset | ramp, wrap | samplerate=full / half / quarter / eighth | phasor: a 0 to 1 ramp, slow or audio rate |
+| **trigdelay** | 1 | in, time | out | samplerate=full / half / quarter / eighth | trigger delay (after Doepfer A-162) |
+| **switch** | 4 | in1, in2, in3, in4, next, reset | out, step | samplerate=full / half / quarter / eighth | sequential switch over up to four inputs (after Doepfer A-151) |
+| **automaton** | 30 | clock, seed | alive, pulse, cells | samplerate=full / half / quarter / eighth | elementary cellular automaton, nature is the rule (30, 90, 110...) |
+| **randomwalk** | 1 | step, clock | out | samplerate=full / half / quarter / eighth | random walk that turns back at the walls (after the Wogglebug) |
+| **pulser** | 2 | rate, trig | out, ramp | samplerate=full / half / quarter / eighth | timing pulse generator: a pulse every period (nature / 2 per second, rate +-8 octaves); trig fires it now (after Buchla 140) |
+| **dusg** | 0 | in1, trig1, rise1, fall1, in2, trig2, rise2, fall2 | out1, end1, out2, end2 | cycle1=off / on, cycle2=off / on, range=lfo / audio, curve=lin / exp / log, samplerate=full / half / quarter / eighth | dual universal slope generator: two slopes, each an envelope, LFO, audio oscillator, slew or lowpass; cycle1 / cycle2 = off|on, range=lfo|audio, curve=lin|exp|log (after the Serge DUSG) |
+| **ad** | 0 | trig, attack, decay | out, end | loop=off / on, range=lfo / audio, curve=exp / lin, samplerate=full / half / quarter / eighth | attack / decay envelope; loop=off|on, range=lfo|audio, curve=exp|lin (after Buchla 180; Doepfer A-142) |
+| **ar** | 0 | gate, attack, release | out | curve=exp / lin, samplerate=full / half / quarter / eighth | attack / release envelope, held while the gate is; curve=exp|lin (after Doepfer A-141) |
+| **decay** | 0 | trig, decay | out | curve=exp / lin, samplerate=full / half / quarter / eighth | percussive envelope: jumps to 1 on a pulse and dies away; curve=exp|lin |
+| **stepseq** | 8 | clock, reset, s1, s2, s3, s4, s5, s6, s7, s8 | out, gate, step | dir=forward / backward / pingpong / random, samplerate=full / half / quarter / eighth | eight-stage sequencer: patch values or faders into s1-s8; nature is the length; dir=forward|backward|pingpong|random (after Buchla 123; Doepfer A-155) |
+| **flipflop** | 0 | clock, reset | out, inverse | samplerate=full / half / quarter / eighth | toggle flip-flop: flips on each clock pulse (after Doepfer and Serge logic) |
+| **trigger** | 0 | in | out | length=2, samplerate=full / half / quarter / eighth | gate to trigger: a pulse on each rising edge; length=2 (ms) (after Doepfer A-162) |
 
 ## Hands (the SP-1's controls)
 

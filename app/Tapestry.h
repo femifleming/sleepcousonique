@@ -22,6 +22,14 @@ public:
     juce::String copySelection() const;
     void removeSelection();
     void fitAll();
+    void themeChanged();                     // the look changed: repaint the canvas
+    void setRouting (bool on);              // cables around the boards, like Max
+    void setLight (float roomLight);        // 1 = daylight .. 0.1 = dark, cables and LEDs glow
+    void setHighlight (int firstLine, int lastLine);   // lines selected in the journal (1-based), or an empty range
+    bool routing = false;
+    float light = 1.0f;
+    void centreOn (int board);              // bring one board to the middle and select it
+    juce::Rectangle<int> findButton() const;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -48,15 +56,32 @@ private:
         int family = 0;
         juce::Rectangle<float> r;
         std::vector<Port> ins, outs;
+        bool hasTune = false, hasAtt = false;
+        float tune = 0;               // the base pitch knob, octaves
+        std::vector<float> att;       // an attenuverter per inlet
+        struct Param { juce::String name; int k = 0; float value = 0, def = 0, lo = 0, hi = 1; };
+        std::vector<Param> params;    // numeric params as knobs (ratio, length...)
     };
+    struct Knob { int board = -1, inlet = -2, param = -1; };   // inlet -1: the tune knob; param >= 0: a param knob
     struct Hit { int board = -1; bool out = false; int port = -1; };
 
     void timerCallback() override;
+    bool cordEnds (int k, juce::Point<float>& a, juce::Point<float>& b) const;
+    juce::Path cordPath (int k) const;      // routed, or the hanging curve
+    mutable std::vector<juce::Path> routes;
+    mutable bool routesDirty = true;
+    int hlFirst = 0, hlLast = -1;
+    bool lit (int line) const { return line >= hlFirst && line <= hlLast; }
     void layout();
     juce::Point<float> inletPos (const Board&, int) const;
     juce::Point<float> outletPos (const Board&, int) const;
     bool endpoint (int node, int port, bool out, int& board, int& row) const;
     Hit portAt (juce::Point<float> design, float slop = 9) const;
+    Knob knobAt (juce::Point<float> design) const;
+    juce::Point<float> tunePos (const Board&) const;
+    juce::Point<float> paramPos (const Board&, int j) const;
+    juce::Point<float> attPos (const Board&, int inlet) const;
+    void drawKnob (juce::Graphics&, juce::Point<float> c, float radius, float value, float range, bool bipolar, bool hot) const;
     int boardAt (juce::Point<float> design) const;
     int cordAt (juce::Point<float> design) const;
     int bottleAt (juce::Point<float> design) const;
@@ -80,7 +105,7 @@ private:
     float zoom = 1.0f;
     juce::Point<float> pan { -20, -20 };
 
-    enum class Mode { None, Pan, Move, Cable, Value } mode = Mode::None;
+    enum class Mode { None, Pan, Move, Cable, Value, Knob } mode = Mode::None;
     juce::Point<float> anchor, dragPos, moveStart;
     Hit cableFrom;
     int moving = -1, valueCord = -1;
@@ -88,6 +113,8 @@ private:
     std::set<int> selected;        // board indices
     int selectedCord = -1, hoverCord = -1;
     Hit hoverPort;
+    Knob knob, hoverKnob;
+    float knobStart = 0;
     int hoverBoard = -1;
     juce::Point<float> dropPos { -1, -1 };
     juce::Point<float> lastMouse;

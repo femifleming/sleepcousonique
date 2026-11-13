@@ -34,7 +34,7 @@
 #include "scq.h"
 #include "scq_default.h"     /* the first night, generated from examples/first-night.dream */
 
-#define SCQ_VERSION   "0.1.0"
+#define SCQ_VERSION   "1.0.0"
 #define SLOTS         5
 #define SLOT_BYTES    (16 * 1024)
 #define STATE_OFF     (SLOTS * SLOT_BYTES)       /* 0x14000: one page of state */
@@ -50,7 +50,7 @@ static int      slot;              /* the slot that is playing */
 static uint32_t nights;            /* boots so far: drift's seed */
 static bool     link_up;
 static bool     audio_live;        /* ON and the audio thread running: flash writes must pause it */
-static volatile uint32_t eng_sum, eng_n, eng_max;   /* engine cycles, from the audio thread */
+static volatile uint32_t eng_sum, eng_n, eng_max, eng_skipped;   /* skipped: over budget, played as silence */   /* engine cycles, from the audio thread */
 static uint32_t report_ms;
 static bool     watching;          /* the editor wants the hands, live */
 static uint32_t watch_ms;
@@ -183,9 +183,24 @@ void sp1_scq_render(float *left, float *right, uint32_t frames)
 		memset(right, 0, frames * sizeof(float));
 		return;
 	}
+	/* Over budget: a dream that takes longer to render than the block lasts starves the
+	 * I2S queue, and the stream errors out and never stays up (heard as near-silence). So
+	 * after a block that used more than 90% of its time, this one is silence: the stream
+	 * keeps running and the overload is heard as dropouts, not as a dead SP-1. */
+	static uint32_t last_c;
+	const uint32_t budget = 1333u * frames;
+	if (last_c > budget / 10u * 9u) {
+		last_c = 0u;
+		k_mutex_unlock(&engine_lock);
+		memset(left, 0, frames * sizeof(float));
+		memset(right, 0, frames * sizeof(float));
+		eng_skipped++;
+		return;
+	}
 	const uint32_t c0 = DWT->CYCCNT;
 	scq_render(left, right, (int)frames);
 	const uint32_t c = DWT->CYCCNT - c0;
+	last_c = c;
 	k_mutex_unlock(&engine_lock);
 	eng_sum += c;
 	eng_n++;
@@ -400,10 +415,16 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 		eng_n = 0u; eng_sum = 0u; eng_max = 0u;
 		/* the audio block is SP1 audio frames at 64 MHz: 1333 cycles per frame */
 		const uint32_t budget = 1333u * (uint32_t)CONFIG_SP1_AUDIO_BLOCK_FRAMES;
-		printk("SCQ engine avg=%u%% max=%u%%  places=%d scene=%d slot=%d\n",
+		const uint32_t skipped = eng_skipped;
+		eng_skipped = 0u;
+		printk("SCQ engine avg=%u%% max=%u%%  places=%d scene=%d slot=%d%s\n",
 		       n ? (unsigned)((uint64_t)sum * 100u / ((uint64_t)n * budget)) : 0u,
 		       (unsigned)((uint64_t)mx * 100u / budget),
-		       scq_node_count(), scq_scene() + 1, slot + 1);
+		       scq_node_count(), scq_scene() + 1, slot + 1,
+		       skipped ? "  OVER BUDGET: blocks dropped" : "");
+		if (skipped) {
+			printk("SCQ over budget: %u blocks played as silence in 5 s; the dream is too heavy\n", (unsigned)skipped);
+		}
 	}
 
 	if (sp1_faders_valid()) {

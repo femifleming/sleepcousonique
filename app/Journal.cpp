@@ -92,16 +92,17 @@ int DreamTokeniser::readNextToken (CodeDocument::Iterator& it)
 
 CodeEditorComponent::ColourScheme DreamTokeniser::getDefaultColourScheme()
 {
+    auto& t = art::theme();
     CodeEditorComponent::ColourScheme s;
     s.set ("plain",   art::ink);
-    s.set ("note",    Colour (0xff8a8578));
-    s.set ("date",    art::umber);
-    s.set ("word",    Colour (0xff6b5f8a));
-    s.set ("place",   art::blue);
-    s.set ("passage", Colour (0xffa87a12));
-    s.set ("number",  art::copper.darker (0.2f));
-    s.set ("map",     Colour (0xffcfc9bb));
-    s.set ("hand",    Colour (0xff3d7a4e));
+    s.set ("note",    t.note);
+    s.set ("date",    t.date);
+    s.set ("word",    t.word);
+    s.set ("place",   t.place);
+    s.set ("passage", t.passage);
+    s.set ("number",  t.number);
+    s.set ("map",     t.map);
+    s.set ("hand",    t.hand);
     return s;
 }
 
@@ -109,14 +110,9 @@ Journal::Journal()
 {
     code.addListener (this);
     editor.setFont (art::mono (14.5f));
-    editor.setColour (CodeEditorComponent::backgroundColourId, art::paper);
-    editor.setColour (CodeEditorComponent::defaultTextColourId, art::ink);
-    editor.setColour (CodeEditorComponent::lineNumberBackgroundId, Colour (0xfff2ede0));
-    editor.setColour (CodeEditorComponent::lineNumberTextId, Colour (0xffb0a890));
-    editor.setColour (CodeEditorComponent::highlightColourId, art::gold.withAlpha (0.3f));
-    editor.setColour (CaretComponent::caretColourId, art::ink);
-    editor.setColour (ScrollBar::thumbColourId, Colour (0x40000000));
+    applyTheme();
     editor.setLineNumbersShown (true);
+    editor.undo = [this] (bool redo) { if (onUndo) onUndo (redo); };
     editor.setScrollbarThickness (10);
     editor.setTabSize (4, true);
     addAndMakeVisible (editor);
@@ -134,6 +130,28 @@ void Journal::setText (const String& t)
     settingText = false;
     editor.scrollToLine (top);
     editor.moveCaretTo (CodeDocument::Position (code, jmin (caret, code.getNumCharacters())), false);
+}
+
+void Journal::applyTheme()
+{
+    auto& t = art::theme();
+    editor.setColour (CodeEditorComponent::backgroundColourId, art::paper);
+    editor.setColour (CodeEditorComponent::defaultTextColourId, art::ink);
+    editor.setColour (CodeEditorComponent::lineNumberBackgroundId, t.gutter);
+    editor.setColour (CodeEditorComponent::lineNumberTextId, t.gutterText);
+    editor.setColour (CodeEditorComponent::highlightColourId, art::gold.withAlpha (0.3f));
+    editor.setColour (CaretComponent::caretColourId, art::ink);
+    editor.setColour (ScrollBar::thumbColourId, t.dark ? Colour (0x40ffffff) : Colour (0x40000000));
+    editor.setColourScheme (tokeniser.getDefaultColourScheme());
+    repaint();
+}
+
+Range<int> Journal::selectedLines() const
+{
+    auto sel = editor.getHighlightedRegion();
+    if (sel.isEmpty()) return {};
+    CodeDocument::Position a (code, sel.getStart()), b (code, jmax (sel.getStart(), sel.getEnd() - 1));
+    return { a.getLineNumber() + 1, b.getLineNumber() + 2 };      // end exclusive
 }
 
 void Journal::showLine (int line1)
@@ -165,9 +183,9 @@ void Journal::resized()
 void Journal::paint (Graphics& g)
 {
     if (msgArea.isEmpty()) return;
-    g.setColour (Colour (0xfff2ede0));
+    g.setColour (art::theme().gutter);
     g.fillRect (msgArea);
-    g.setColour (Colour (0x22000000));
+    g.setColour (art::theme().line);
     g.drawHorizontalLine (msgArea.getY(), 0, (float) getWidth());
     auto r = msgArea.reduced (10, 5);
     g.setFont (art::mono (12));
@@ -179,7 +197,7 @@ void Journal::paint (Graphics& g)
     for (int i = 0; i < jmin (6, (int) messages.size()); ++i)
     {
         auto& m = messages[(size_t) i];
-        g.setColour (m.error ? Colour (0xffa3301f) : Colour (0xff8a6a12));
+        g.setColour (m.error ? art::theme().sound : art::theme().date);
         g.drawText ((m.error ? "line " : "line ") + String (m.line) + "   " + m.text, r.removeFromTop (18), Justification::left);
     }
 }

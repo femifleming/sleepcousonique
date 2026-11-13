@@ -64,6 +64,13 @@ float scq_probe(int node, int port);    /* last value of any outlet, for scopes 
  * Same units as the text: percent, or milliseconds for water. */
 void  scq_set_amount(int cord, float amount);
 
+/* Turn a place's tune knob (base pitch, octaves) while it plays (index as listed by scq_describe). */
+void  scq_set_tune(int node, float octaves);
+/* Turn an inlet's attenuverter (scales what's patched in) while it plays. */
+void  scq_set_att(int node, int inlet, float amount);
+/* Turn a numeric param (k = its place in the place's switches and params) while it plays. */
+void  scq_set_param(int node, int k, float value);
+
 /* Desktop editor only (built with SCQ_HOST): check text without disturbing the sound.
  * Fills msgs like scq_messages(); returns the number of errors. */
 int   scq_check(const char *text, int len, uint32_t nights, char *msgs, int cap);

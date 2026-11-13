@@ -57,6 +57,8 @@ const std::vector<PlaceInfo>& catalog()
             p.outs = juce::StringArray::fromTokens (parts[1].trim(), ",", "");
             p.help = parts[2].trim();
             for (int i = 3; i < parts.size(); ++i) p.help << "|" << parts[i];
+            p.tune = p.ins.contains ("pitch");
+            p.att = p.family == Source || p.tune;     // same rule as place_has_att() in the engine
             v.push_back (p);
         }
         return v;
@@ -246,6 +248,11 @@ void Document::setOption (int id, const juce::String& key, const juce::String& v
         auto it = opts.find (o.name);
         if (it != opts.end() && it->second != o.def) written << " " << o.name << "=" << it->second;
     }
+    for (auto& in : p->ins)                       // then the attenuverters, in inlet order, 1 left out
+    {
+        auto it = opts.find ("att." + in);
+        if (it != opts.end() && it->second.getFloatValue() != 1.0f) written << " att." << in << "=" << it->second;
+    }
     auto ls = lines();
     auto& l = ls.getReference (n->line - 1);
     auto code = l.upToFirstOccurrenceOf (";", false, false), note = l.fromFirstOccurrenceOf (";", true, false);
@@ -297,7 +304,7 @@ juce::String Document::cordText (const CordInfo& c) const
     return src + " " + arrow + " " + dst;
 }
 
-void Document::expandLineExcept (juce::StringArray& ls, int line1, int dropCord, std::function<void (CordInfo&)> change, int changeCord) const
+void Document::expandLineExcept (juce::StringArray& ls, int line1, int dropCord, std::function<void (CordInfo&)> change, int changeCord, const std::set<int>* drops) const
 {
     int i0 = line1 - 1;
     if (i0 < 0 || i0 >= ls.size()) return;
@@ -307,7 +314,7 @@ void Document::expandLineExcept (juce::StringArray& ls, int line1, int dropCord,
     juce::StringArray out;
     for (int k = 0; k < (int) cords.size(); ++k)
     {
-        if (cords[(size_t) k].line != line1 || k == dropCord) continue;
+        if (cords[(size_t) k].line != line1 || k == dropCord || (drops && drops->count (k))) continue;
         auto c = cords[(size_t) k];
         if (k == changeCord && change) change (c);
         out.add (indent + cordText (c));
@@ -341,6 +348,16 @@ void Document::removeCord (int ci)
     if (ci < 0 || ci >= (int) cords.size()) return;
     auto ls = lines();
     expandLineExcept (ls, cords[(size_t) ci].line, ci);
+    setLines (ls);
+}
+
+void Document::removeCords (const std::set<int>& drop)
+{
+    std::set<int, std::greater<int>> touched;          // bottom line first, so the lines above keep their numbers
+    for (int k : drop) if (k >= 0 && k < (int) cords.size()) touched.insert (cords[(size_t) k].line);
+    if (touched.empty()) return;
+    auto ls = lines();
+    for (int line1 : touched) expandLineExcept (ls, line1, -1, {}, -1, &drop);
     setLines (ls);
 }
 

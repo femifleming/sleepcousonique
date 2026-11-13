@@ -1,0 +1,13 @@
+! pierce_8tone.scl
+!
+John R. Pierce, Eight-Tone Canon (1966, Bell Labs): 8 equal steps of the octave
+ 8
+!
+ 150.00000
+ 300.00000
+ 450.00000
+ 600.00000
+ 750.00000
+ 900.00000
+ 1050.00000
+ 1200.00000

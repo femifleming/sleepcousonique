@@ -1,4 +1,5 @@
 // Checks that every visual edit leaves a journal the engine still understands.
+#include "../app/Scales.h"
 #include <juce_core/juce_core.h>
 #include "../app/Model.h"
 #include "scq.h"
@@ -91,6 +92,30 @@ int main()
         scq::Document x;
         x.text = f.loadFileAsString();
         CHECK (compile (x) == 0, ("example " + f.getFileName()).toRawUTF8());
+    }
+    // option-click on a port: several cables out in one edit, even two from one chain line
+    {
+        scq::Document r;
+        r.text = "the a is sine\nthe b is lowpass\nthe c is sine 2\na -> b -> out\nc -> out\nc -> b.cutoff\n";
+        compile (r);
+        std::set<int> drop;
+        for (int k = 0; k < (int) r.cords.size(); ++k)
+            if (r.cords[(size_t) k].dst == r.cords[(size_t) k].dst && r.node (r.cords[(size_t) k].dst) && r.node (r.cords[(size_t) k].dst)->name == "out") drop.insert (k);
+        CHECK (drop.size() == 2, "two cables into out");
+        r.removeCords (drop);
+        CHECK (compile (r) == 0, "still compiles after removing them");
+        int intoOut = 0;
+        for (auto& c : r.cords) if (r.node (c.dst) && r.node (c.dst)->name == "out") ++intoOut;
+        CHECK (intoOut == 0 && r.cords.size() == 2, "a -> b and c -> b.cutoff stay, nothing into out");
+    }
+
+    // every scale in the scales folder becomes a tuning the engine takes, and quantizes to it
+    for (auto& sc : scales::names())
+    {
+        auto withT = scales::withTunings ("the q is quantizer scale=" + sc + "\nfader1 -> q\nq -> out\n");
+        auto utf8 = withT.toStdString();
+        int e = scq_load (utf8.data(), (int) utf8.size(), 0);
+        CHECK (e == 0 && withT.contains ("tuning " + sc + ":"), ("scale " + sc).toRawUTF8());
     }
     std::printf (failures ? "\n%d FAILED\n" : "\nall good\n", failures);
     return failures ? 1 : 0;

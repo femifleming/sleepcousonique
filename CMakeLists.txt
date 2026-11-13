@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Universal binary")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS")
 
-project(Sleepcousonique VERSION 0.1.0 LANGUAGES C CXX)
+project(Sleepcousonique VERSION 1.0.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 99)
@@ -33,15 +33,16 @@ endif()
 
 juce_add_gui_app(Sleepcousonique
     PRODUCT_NAME "Sleepcousonique"
-    VERSION 0.1.0
+    VERSION 1.0.0
     COMPANY_NAME "Sleepcousonique"
     BUNDLE_ID "com.sleepcousonique.editor"
     DOCUMENT_EXTENSIONS dream
     ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/app/icon/icon.png"
     MICROPHONE_PERMISSION_ENABLED FALSE)
 
+file(GLOB SCQ_SCALE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/scales/*.scl)
 juce_add_binary_data(ScqData HEADER_NAME ScqData.h NAMESPACE ScqData
-    SOURCES examples/first-night.dream examples/a-history.dream docs/places.md)
+    SOURCES examples/first-night.dream examples/a-history.dream docs/places.md ${SCQ_SCALE_FILES})
 
 target_sources(Sleepcousonique PRIVATE
     app/Main.cpp
@@ -52,6 +53,8 @@ target_sources(Sleepcousonique PRIVATE
     app/Journal.cpp
     app/Hands.cpp
     app/Serial.cpp
+    app/Scales.cpp
+    app/Router.cpp
     app/MainComponent.cpp)
 
 target_compile_definitions(Sleepcousonique PRIVATE
@@ -71,6 +74,6 @@ target_link_libraries(Sleepcousonique
 
 # tests for the text edits the tapestry makes
 juce_add_console_app(ScqTests PRODUCT_NAME "ScqTests")
-target_sources(ScqTests PRIVATE tests/ModelTest.cpp app/Model.cpp)
+target_sources(ScqTests PRIVATE tests/ModelTest.cpp app/Model.cpp app/Scales.cpp)
 target_compile_definitions(ScqTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
-target_link_libraries(ScqTests PRIVATE scq_engine juce::juce_core juce::juce_graphics PUBLIC juce::juce_recommended_config_flags)
+target_link_libraries(ScqTests PRIVATE scq_engine ScqData juce::juce_core juce::juce_graphics PUBLIC juce::juce_recommended_config_flags)

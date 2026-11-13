@@ -62,6 +62,11 @@ struct node {
 	float    s[MAX_STATE];
 	float    opt[MAX_OPT];         /* switch positions (0, 1, ...) or param values */
 	uint8_t  optset;              /* bit per option written in the dream */
+	uint8_t  rdiv;                /* samplerate=: runs at SCQ_RATE / rdiv (1, 2, 4, 8) */
+	int8_t   pitchin;             /* the pitch inlet, or -1 */
+	float    tune;                /* base pitch knob, octaves added to the pitch inlet */
+	uint16_t attset;              /* bit per inlet whose attenuverter isn't 1 */
+	float    att[MAX_IN];         /* attenuverters: scale what's patched in (not the default) */
 	uint32_t rng;
 	void    *mem;
 	uint32_t memlen;
@@ -90,6 +95,8 @@ typedef struct {
 	float    lamp[SCQ_LEDS];
 	int      want_next, want_back;
 	float    miss;
+	int      nb;          /* the block the running place sees: SCQ_BLOCK, or less at a lower samplerate */
+	float    sr, isr;     /* the sample rate it sees, and 1/that */
 } world;
 
 extern world W;
@@ -99,5 +106,10 @@ int place_nports(const char *list);
 const char *place_renamed(const char *old, int len);
 /* "name=a|b|c" switches (default a) and "name=5" params, space separated; "" if none */
 const char *place_opts(const char *place);   /* new name of an old place, or 0 */
+int place_has_att(const place *p);
+/* tunings written in the dream ("tuning NAME: cents ... period"): period, n, then n degrees in
+ * cents (0 first), as the built-in scales; 0 past the last */
+const float *scq_tuning(int index);
+#define RATE_OPT "samplerate=full|half|quarter|eighth"   /* every place but the SP-1's own */           /* sources and pitched places: an attenuverter per inlet */
 
 #endif

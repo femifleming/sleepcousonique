@@ -3,6 +3,7 @@
 #include "Serial.h"
 #include "ScqData.h"
 #include "scq.h"
+#include "Scales.h"
 
 using namespace juce;
 
@@ -10,41 +11,64 @@ namespace
 {
 struct Look : LookAndFeel_V4
 {
-    Look()
+    Look() { refresh(); }
+    void refresh()
     {
-        setColour (TextButton::buttonColourId, Colour (0xfff4f0e4));
+        auto& t = art::theme();
+        setColour (TextButton::buttonColourId, t.button);
         setColour (TextButton::buttonOnColourId, art::ink);
-        setColour (TextButton::textColourOffId, art::ink);
-        setColour (TextButton::textColourOnId, art::paper);
-        setColour (PopupMenu::backgroundColourId, art::paper);
+        setColour (TextButton::textColourOffId, t.buttonText);
+        setColour (TextButton::textColourOnId, t.pop ? Colour (0xff1a1a1a) : t.window);
+        setColour (PopupMenu::backgroundColourId, t.pop ? t.card : art::paper);
         setColour (PopupMenu::textColourId, art::ink);
-        setColour (PopupMenu::highlightedBackgroundColourId, art::blue);
-        setColour (PopupMenu::highlightedTextColourId, art::paper);
+        setColour (PopupMenu::highlightedBackgroundColourId, t.pop ? t.checkB : art::blue);
+        setColour (PopupMenu::highlightedTextColourId, t.pop ? Colour (0xff1a1a1a) : art::paper);
         setColour (PopupMenu::headerTextColourId, art::umber);
-        setColour (AlertWindow::backgroundColourId, art::paper);
+        setColour (AlertWindow::backgroundColourId, t.pop ? t.card : art::paper);
         setColour (AlertWindow::textColourId, art::ink);
-        setColour (TextEditor::backgroundColourId, Colours::white);
+        setColour (AlertWindow::outlineColourId, t.line);
+        setColour (TextEditor::backgroundColourId, t.dark ? t.surface : Colours::white);
         setColour (TextEditor::textColourId, art::ink);
-        setColour (ResizableWindow::backgroundColourId, art::paper);
+        setColour (TextEditor::outlineColourId, t.line);
+        setColour (ResizableWindow::backgroundColourId, t.window);
+        setColour (ScrollBar::thumbColourId, t.dark ? Colour (0x40ffffff) : Colour (0x40000000));
+        setColour (ListBox::backgroundColourId, t.card);
+        setColour (ComboBox::backgroundColourId, t.button);
+        setColour (ComboBox::textColourId, t.buttonText);
+        setColour (Label::textColourId, art::ink);
     }
     void drawButtonBackground (Graphics& g, Button& b, const Colour& bg, bool over, bool down) override
     {
+        auto& t = art::theme();
         auto r = b.getLocalBounds().toFloat().reduced (1.5f);
+        if (t.pop)                    // flat; on is checker
+        {
+            if (b.getToggleState()) art::fillChecker (g, r, 7);
+            else
+            {
+                auto c = bg;
+                if (over) c = c.brighter (t.dark ? 0.15f : 0.06f);
+                if (down) c = c.darker (0.15f);
+                g.setColour (c); g.fillRect (r);
+            }
+            return;
+        }
         auto c = b.getToggleState() ? art::ink : bg;
         if (over && ! b.getToggleState()) c = c.darker (0.06f);
         if (down) c = c.darker (0.15f);
         g.setColour (c);
         g.fillRoundedRectangle (r, 4);
-        g.setColour (Colour (0x33000000));
+        g.setColour (t.dark ? Colour (0x33ffffff) : Colour (0x33000000));
         g.drawRoundedRectangle (r, 4, 1);
     }
-    Font getTextButtonFont (TextButton&, int h) override { return art::mono (jmin (13.0f, (float) h * 0.5f)); }
-    Font getPopupMenuFont() override { return art::mono (13.5f); }
+    Font getTextButtonFont (TextButton&, int h) override { return art::label (jmin (13.0f, (float) h * 0.5f)); }
+    Font getPopupMenuFont() override { return art::theme().pop ? art::label (13.0f) : art::mono (13.5f); }
 };
 }
 
 MainComponent::MainComponent()
 {
+    art::setTheme (true, true);              // openprocess, dark, until the settings say otherwise
     laf = std::make_unique<Look>();
     setLookAndFeel (laf.get());
     PropertiesFile::Options o;
@@ -102,8 +126,10 @@ MainComponent::MainComponent()
 
     journal.onTyped = [this] { pendingTyping = true; typedAt = Time::getMillisecondCounter(); doc.dirty = true; updateTitle(); };
     journal.onPickMessage = [this] (int line) { journal.showLine (line); };
+    journal.onUndo = [this] (bool redo) { undoRedo (redo); };
     tapestry.onTextEdited = [this] (bool recompile)
     {
+        remember();
         journal.setText (doc.text);
         if (recompile) compile (true);
         else { lastCode = codeOf (doc.text); doc.readPositions(); tapestry.refresh(); }
@@ -147,6 +173,8 @@ MainComponent::MainComponent()
     journal.setText (doc.text);
     compile (true);
     doc.dirty = false;
+    resetHistory();
+    applyLook();
     updateTitle();
     startTimerHz (20);
     MessageManager::callAsync ([this] { tapestry.fitAll(); });
@@ -154,6 +182,7 @@ MainComponent::MainComponent()
 
 MainComponent::~MainComponent()
 {
+    Desktop::getInstance().removeDarkModeSettingListener (this);
     setLookAndFeel (nullptr);
 }
 
@@ -220,6 +249,7 @@ void MainComponent::timerCallback()
     {
         pendingTyping = false;
         doc.text = journal.getText();
+        remember();                  // a burst of typing is one step
         compile();
     }
     if (host.scene() != doc.scene)   // a journey happened (or a tab was pressed)
@@ -227,9 +257,17 @@ void MainComponent::timerCallback()
         auto r = host.describe();
         doc.readDescription (r.describe.toRawUTF8(), lastMessages.toRawUTF8());
         tapestry.refresh();
+        tapestry.fitAll();           // a new scene: show all of it
         refreshScenes();
     }
     repaint (meters);
+    repaint (linkArea);
+    {   // lines selected in the journal light up in the tapestry
+        auto sel = journal.selectedLines();
+        if (hlShot) {}
+        else if (sel.isEmpty()) tapestry.setHighlight (0, -1);
+        else tapestry.setHighlight (sel.getStart(), sel.getEnd() - 1);
+    }
 }
 
 void MainComponent::setView (int v)
@@ -256,6 +294,7 @@ void MainComponent::resized()
     auto sa = sceneArea.reduced (10, 4);
     for (auto* b : sceneBtns) b->setBounds (sa.removeFromLeft (jmin (170, 30 + 8 * b->getButtonText().length())).withTrimmedRight (6));
     addSceneBtn.setBounds (sa.removeFromLeft (84));
+    linkArea = sceneArea.reduced (10, 0).removeFromRight (360);
 
     statusArea = r.removeFromBottom (24);
     hands.setBounds (r.removeFromBottom (176));
@@ -274,39 +313,91 @@ void MainComponent::resized()
 
 void MainComponent::paint (Graphics& g)
 {
-    g.fillAll (Colour (0xffe8e3d6));
-    g.setColour (Colour (0xfff2ede0));
+    auto& th = art::theme();
+    g.fillAll (th.window);
+    g.setColour (th.bar);
     g.fillRect (sceneArea);
-    g.setColour (Colour (0x22000000));
+    g.setColour (th.line);
     g.drawHorizontalLine (sceneArea.getY(), 0, (float) getWidth());
     g.drawHorizontalLine (sceneArea.getBottom() - 1, 0, (float) getWidth());
+
+    // is the SP-1 there: plugged in and talking (its hands arrive ~30 times a second)
+    {
+        bool open = link.connected();
+        auto h = open ? link.hands() : serial::Link::Hands {};
+        auto now = Time::getMillisecondCounter();
+        if (h.count != handsSeen) { handsSeen = h.count; handsAt = now; }
+        bool live = open && handsAt != 0 && now - handsAt < 1500;
+        String text = ! open ? "SP-1 not connected"
+                    : live ? "SP-1 connected  " + link.port().fromLastOccurrenceOf ("/", false, false)
+                             + "  slot " + String (h.slot) + "  scene " + String (h.scene)
+                    : "SP-1 found, waiting for it to answer...";
+        auto r = linkArea.toFloat();
+        auto dot = Rectangle<float> (12, 12).withCentre ({ r.getRight() - 8, r.getCentreY() });
+        auto green = Colour (0xff3f8f4a);
+        if (live)
+        {
+            float pulse = 0.55f + 0.45f * std::sin ((float) now * 0.006f);   // breathing while the link is live
+            g.setColour (green.withAlpha (0.25f * pulse));
+            g.fillEllipse (dot.expanded (4));
+            g.setColour (green);
+            g.fillEllipse (dot);
+        }
+        else
+        {
+            g.setColour (open ? art::gold : th.chromeDim);
+            g.drawEllipse (dot, 1.8f);
+        }
+        g.setColour (live ? th.chromeText : th.chromeDim);
+        g.setFont (art::label (11.5f));
+        g.drawText (text, r.withTrimmedRight (22), Justification::centredRight);
+    }
 
     // meters: the SP-1's patience (load), its memory, and your ears
     auto m = meters.reduced (0, 8);
     auto bar1 = [&] (Rectangle<int> r, const String& label, float v, Colour c)
     {
-        g.setColour (art::ink);
-        g.setFont (art::mono (11));
+        g.setColour (th.chromeText);
+        g.setFont (art::label (11));
         g.drawText (label, r.removeFromTop (14), Justification::left);
         auto b = r.removeFromTop (8).toFloat();
-        g.setColour (Colour (0x22000000)); g.fillRoundedRectangle (b, 3);
-        g.setColour (v > 1 ? Colour (0xffb0301f) : (v > 0.85f && label.startsWith ("load") ? Colour (0xffd98a1a) : c));
+        auto col = v > 1 ? Colour (0xffd22a26) : (v > 0.85f && label.startsWith ("load") ? Colour (0xffe8861a) : c);
+        if (th.pop)
+        {
+            g.setColour (th.rail); g.fillRect (b);
+            g.setColour (col); g.fillRect (b.withWidth (b.getWidth() * jlimit (0.0f, 1.0f, v)));
+            return;
+        }
+        g.setColour (th.dark ? Colour (0x22ffffff) : Colour (0x22000000)); g.fillRoundedRectangle (b, 3);
+        g.setColour (col);
         g.fillRoundedRectangle (b.withWidth (b.getWidth() * jlimit (0.0f, 1.0f, v)), 3);
     };
     int w = m.getWidth() / 3;
-    bar1 (m.removeFromLeft (w - 8), "load " + String (roundToInt (doc.load * 100)) + "%", doc.load, art::blue);
+    {
+        // the estimate, and when an SP-1 is plugged in, what it measures (avg, and its peaks)
+        auto meas = link.connected() ? link.measured() : serial::Link::Measured {};
+        bool fresh = meas.avg >= 0 && Time::getMillisecondCounter() - meas.when < 12000;
+        String label = "load " + String (roundToInt (doc.load * 100)) + "%";
+        float v = doc.load;
+        if (fresh)
+        {
+            label << "   SP-1 " << meas.avg << "%, peaks " << meas.peak << "%" << (meas.over ? "  TOO HEAVY" : "");
+            v = jmax (v, (float) meas.peak / 100.0f);
+        }
+        bar1 (m.removeFromLeft (w - 8), label, v, th.pop ? th.checkA : art::blue);
+    }
     m.removeFromLeft (8);
     bar1 (m.removeFromLeft (w - 8), "memory " + String (roundToInt (100.0f * (float) doc.poolUsed / (float) doc.poolTotal)) + "%",
-          (float) doc.poolUsed / (float) doc.poolTotal, art::copper);
+          (float) doc.poolUsed / (float) doc.poolTotal, th.pop ? th.current : art::copper);
     m.removeFromLeft (8);
-    bar1 (m, "out", host.level, art::gold);
+    bar1 (m, "out", host.level, th.pop ? th.checkB : art::gold);
 
-    g.setColour (Colour (0xfff2ede0));
+    g.setColour (th.bar);
     g.fillRect (statusArea);
-    g.setColour (art::ink.withAlpha (0.8f));
-    g.setFont (art::mono (12));
+    g.setColour (th.chromeText.withAlpha (0.85f));
+    g.setFont (th.pop ? art::label (11.5f) : art::mono (12));
     g.drawText (statusText, statusArea.reduced (12, 0), Justification::left);
-    g.setColour (art::ink.withAlpha (0.45f));
+    g.setColour (th.chromeDim);
     g.drawText (doc.file.existsAsFile() ? doc.file.getFullPathName() : String ("first night (an example - save to keep it)"),
                 statusArea.reduced (12, 0), Justification::right);
 }
@@ -344,6 +435,7 @@ void MainComponent::newDream()
         journal.setText (doc.text);
         compile (true);
         doc.dirty = false;
+        resetHistory();
         updateTitle();
         tapestry.fitAll();
     });
@@ -362,6 +454,7 @@ void MainComponent::openFile (const File& f)
     journal.setText (doc.text);
     compile (true);
     doc.dirty = false;
+    resetHistory();
     updateTitle();
     tapestry.fitAll();
 }
@@ -408,7 +501,7 @@ void MainComponent::sendToSP1()
     auto chk = host.check (doc.text, nights);
     StringArray heavy;
     for (int k = 0; k < (int) chk.sceneLoads.size(); ++k)
-        if (chk.sceneLoads[(size_t) k] > 0.95f)
+        if (chk.sceneLoads[(size_t) k] > 0.85f)   // headroom: peaks run above the average
             heavy.add ((k < (int) doc.scenes.size() ? doc.scenes[(size_t) k].title : "scene " + String (k + 1))
                        + "  needs " + String (roundToInt (chk.sceneLoads[(size_t) k] * 100)) + "%");
     if (! heavy.isEmpty() && ! sendAnyway)
@@ -424,8 +517,9 @@ void MainComponent::sendToSP1()
     status ("looking for the SP-1...");
     String port;
     String err;
-    if (link.connected()) { err = link.send (doc.text, -1); port = link.port(); }   // -1: the slot that is playing
-    else err = serial::send (doc.text, -1, port);
+    auto sent = scales::withTunings (doc.text);       // the SP-1 has no scales folder: the tunings go with the dream
+    if (link.connected()) { err = link.send (sent, -1); port = link.port(); }   // -1: the slot that is playing
+    else err = serial::send (sent, -1, port);
     if (err.isEmpty()) status ("sent to the SP-1 on " + port);
     else AlertWindow::showMessageBoxAsync (MessageBoxIconType::InfoIcon, "send to SP-1", err);
 }
@@ -449,14 +543,84 @@ void MainComponent::addScene()
     for (int k = 0; k < add.size(); ++k) ls.insert (at + k, add[k]);
     doc.text = ls.joinIntoString ("\n");
     doc.dirty = true;
+    remember();
     journal.setText (doc.text);
     compile (true);
     host.gotoScene ((int) doc.scenes.size() - 1);
     updateTitle();
 }
 
+void MainComponent::themeForShot (bool pop, bool dark)
+{
+    art::setTheme (pop, dark);
+    static_cast<Look*> (laf.get())->refresh();
+    journal.applyTheme();
+    tapestry.themeChanged();
+    sendLookAndFeelChange();
+    repaint();
+}
+
+void MainComponent::applyLook()
+{
+    auto* st = props.getUserSettings();
+    // the look: openprocess (default) or the original journal; light, dark (default) or the computer's
+    static bool listening = false;
+    if (! listening) { Desktop::getInstance().addDarkModeSettingListener (this); listening = true; }
+    bool pop = st->getValue ("look", "openprocess") == "openprocess";
+    auto appearance = st->getValue ("appearance", "dark");
+    bool dark = appearance == "system" ? Desktop::getInstance().isDarkModeActive() : appearance == "dark";
+    art::setTheme (pop, dark);
+    static_cast<Look*> (laf.get())->refresh();
+    journal.applyTheme();
+    tapestry.themeChanged();
+    hands.repaint();
+    sendLookAndFeelChange();
+    repaint();
+    const float slacks[] = { 0.0f, 0.5f, 1.0f, 1.8f, 3.0f };
+    art::cableStyle().opacity = jlimit (0.1f, 1.0f, (float) st->getIntValue ("cableOpacity", 100) / 100.0f);
+    art::cableStyle().slack = slacks[jlimit (0, 4, st->getIntValue ("cableSlack", 2))];
+    tapestry.setLight ((float) st->getIntValue ("roomLight", 100) / 100.0f);
+    tapestry.setRouting (st->getBoolValue ("cableRouter", false));
+    tapestry.repaint();
+}
+
+void MainComponent::remember()
+{
+    if (doc.text == committed) return;
+    undoStack.push_back (committed);
+    if (undoStack.size() > 300) undoStack.erase (undoStack.begin());
+    redoStack.clear();
+    committed = doc.text;
+}
+
+void MainComponent::resetHistory()
+{
+    undoStack.clear(); redoStack.clear();
+    committed = doc.text;
+}
+
+void MainComponent::undoRedo (bool redo)
+{
+    if (pendingTyping) { pendingTyping = false; doc.text = journal.getText(); remember(); }
+    auto& from = redo ? redoStack : undoStack;
+    auto& to = redo ? undoStack : redoStack;
+    if (from.empty()) { status (redo ? "nothing to redo" : "nothing to undo"); return; }
+    to.push_back (doc.text);
+    doc.text = from.back();
+    from.pop_back();
+    committed = doc.text;
+    journal.setText (doc.text);
+    compile (true);
+    doc.dirty = true;
+    updateTitle();
+    status (redo ? "redone" : "undone");
+}
+
 bool MainComponent::keyPressed (const KeyPress& k)
 {
+    if (k == KeyPress ('z', ModifierKeys::commandModifier, 0)) { undoRedo (false); return true; }
+    if (k == KeyPress ('z', ModifierKeys::commandModifier | ModifierKeys::shiftModifier, 0)
+        || k == KeyPress ('Z', ModifierKeys::commandModifier | ModifierKeys::shiftModifier, 0)) { undoRedo (true); return true; }
     if (k == KeyPress ('s', ModifierKeys::commandModifier, 0)) { save (false); return true; }
     if (k == KeyPress ('o', ModifierKeys::commandModifier, 0)) { openDialog(); return true; }
     if (k == KeyPress ('n', ModifierKeys::commandModifier, 0)) { newDream(); return true; }
@@ -466,7 +630,7 @@ bool MainComponent::keyPressed (const KeyPress& k)
 
 // ------------------------------------------------------------------------------------------ menus
 
-StringArray MainComponent::getMenuBarNames() { return { "File", "View", "Help" }; }
+StringArray MainComponent::getMenuBarNames() { return { "File", "Edit", "View", "Help" }; }
 
 PopupMenu MainComponent::getMenuForIndex (int idx, const String&)
 {
@@ -484,11 +648,46 @@ PopupMenu MainComponent::getMenuForIndex (int idx, const String&)
     }
     else if (idx == 1)
     {
+        PopupMenu::Item u ("Undo"); u.itemID = 31; u.isEnabled = ! undoStack.empty() || pendingTyping;
+        u.shortcutKeyDescription = String::fromUTF8 ("\xe2\x8c\x98Z");
+        m.addItem (u);
+        PopupMenu::Item r ("Redo"); r.itemID = 32; r.isEnabled = ! redoStack.empty();
+        r.shortcutKeyDescription = String::fromUTF8 ("\xe2\x87\xa7\xe2\x8c\x98Z");
+        m.addItem (r);
+    }
+    else if (idx == 2)
+    {
         m.addItem (11, "Journal only", true, view == 0);
         m.addItem (12, "Journal and tapestry", true, view == 1);
         m.addItem (13, "Tapestry only", true, view == 2);
         m.addSeparator();
-        m.addItem (14, "Fit the tapestry in view");
+        auto* st = props.getUserSettings();
+        PopupMenu light, opac, slack, route;
+        const int lights[] = { 100, 70, 45, 25, 10 };
+        for (int i = 0; i < 5; ++i) light.addItem (40 + i, String (lights[i]) + "%", true, st->getIntValue ("roomLight", 100) == lights[i]);
+        const int ops[] = { 100, 80, 60, 40, 20 };
+        for (int i = 0; i < 5; ++i) opac.addItem (50 + i, String (ops[i]) + "%", true, st->getIntValue ("cableOpacity", 100) == ops[i]);
+        const char* slacks[] = { "tight", "a little", "normal", "loose", "very loose" };
+        for (int i = 0; i < 5; ++i) slack.addItem (60 + i, slacks[i], true, st->getIntValue ("cableSlack", 2) == i);
+        route.addItem (70, "hanging curves", true, ! st->getBoolValue ("cableRouter", false));
+        route.addItem (71, "around the boards (like Max)", true, st->getBoolValue ("cableRouter", false));
+        PopupMenu look, mode;
+        bool pop = st->getValue ("look", "openprocess") == "openprocess";
+        auto ap = st->getValue ("appearance", "dark");
+        look.addItem (80, "openprocess", true, pop);
+        look.addItem (81, "journal (the original)", true, ! pop);
+        mode.addItem (85, "dark", true, ap == "dark");
+        mode.addItem (86, "light", true, ap == "light");
+        mode.addItem (87, "follow the computer", true, ap == "system");
+        m.addSubMenu ("Look", look);
+        m.addSubMenu ("Light or dark", mode);
+        m.addSeparator();
+        m.addSubMenu ("Room light", light);
+        m.addSubMenu ("Cable opacity", opac);
+        m.addSubMenu ("Cable slack", slack);
+        m.addSubMenu ("Cable routing", route);
+        m.addSeparator();
+        m.addItem (14, "Find my patch (fit the tapestry in view)");
         m.addItem (15, "Sound settings...");
     }
     else
@@ -512,14 +711,30 @@ void MainComponent::menuItemSelected (int id, int)
                 {
                     doc.text = String::fromUTF8 (ScqData::firstnight_dream, ScqData::firstnight_dreamSize);
                     doc.file = File(); nights = 0;
-                    journal.setText (doc.text); compile (true); doc.dirty = false; updateTitle(); tapestry.fitAll();
+                    journal.setText (doc.text); compile (true); doc.dirty = false; resetHistory(); updateTitle(); tapestry.fitAll();
                 }); break;
         case 7: askToKeepChanges ([this]
                 {
                     doc.text = String::fromUTF8 (ScqData::ahistory_dream, ScqData::ahistory_dreamSize);
                     doc.file = File(); nights = 0;
-                    journal.setText (doc.text); compile (true); doc.dirty = false; updateTitle(); tapestry.fitAll();
+                    journal.setText (doc.text); compile (true); doc.dirty = false; resetHistory(); updateTitle(); tapestry.fitAll();
                 }); break;
+        case 40: case 41: case 42: case 43: case 44:
+        {
+            const int lights[] = { 100, 70, 45, 25, 10 };
+            props.getUserSettings()->setValue ("roomLight", lights[id - 40]); applyLook(); break;
+        }
+        case 50: case 51: case 52: case 53: case 54:
+        {
+            const int ops[] = { 100, 80, 60, 40, 20 };
+            props.getUserSettings()->setValue ("cableOpacity", ops[id - 50]); applyLook(); break;
+        }
+        case 60: case 61: case 62: case 63: case 64: props.getUserSettings()->setValue ("cableSlack", id - 60); applyLook(); break;
+        case 70: case 71: props.getUserSettings()->setValue ("cableRouter", id == 71); applyLook(); break;
+        case 80: case 81: props.getUserSettings()->setValue ("look", id == 80 ? "openprocess" : "journal"); applyLook(); break;
+        case 85: case 86: case 87: props.getUserSettings()->setValue ("appearance", id == 85 ? "dark" : (id == 86 ? "light" : "system")); applyLook(); break;
+        case 31: undoRedo (false); break;
+        case 32: undoRedo (true); break;
         case 11: case 12: case 13: setView (id - 11); break;
         case 14: tapestry.fitAll(); break;
         case 15: soundBtn.onClick(); break;

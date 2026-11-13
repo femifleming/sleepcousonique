@@ -18,6 +18,7 @@
 
 typedef struct { int start, end, line0, ts, te; } scene;
 #define MAX_KONST 32
+#define MAX_TUNINGS 32
 
 typedef struct {
 	node     n[MAX_NODES];
@@ -56,6 +57,8 @@ typedef struct {
 	int      quiet;              /* don't report (already reported) */
 	int      waiting;            /* SCQ_DEVICE: faded out, waiting for scq_service() */
 	uint32_t rng;
+	struct { char name[NAME_LEN]; float *d; } tun[MAX_TUNINGS];   /* tunings, in the pool */
+	int      ntun;
 } engine;
 
 static engine G0;
@@ -76,7 +79,10 @@ static void sb_i(sb *s, int v)
 	do { tmp[k++] = (char)('0' + v % 10); v /= 10; } while (v && k < 11);
 	while (k) sb_c(s, tmp[--k]);
 }
-static __attribute__((unused)) void sb_f(sb *s, float v)
+#if defined(__GNUC__)
+__attribute__((unused))
+#endif
+static void sb_f(sb *s, float v)
 {
 	if (v < 0.f) { sb_c(s, '-'); v = -v; }
 	int ip = (int)v;
@@ -289,11 +295,68 @@ static int opt_pos(const optitem *o, const char *w, int wl)
 	return -1;
 }
 
+/* tune: the base pitch knob on every place with a pitch inlet, octaves added to that inlet, so
+ * tune=-12 takes an oscillator well below a hertz and tune=8 up past 15 kHz. With att.pitch=10
+ * a fader sweeps ten octaves. */
+static void pitch_setup(node *n)
+{
+	const place *pl = &SCQ_PLACES[n->type];
+	n->pitchin = (int8_t)place_port(pl, 0, "pitch", 5);
+	n->tune = 0.f;
+	if (n->pitchin < 0) return;
+	const char *spec = place_opts(pl->name);
+	optitem o;
+	for (int k = 0; k < MAX_OPT && opt_at(spec, k, &o); k++)
+		if (o.nl == 4 && o.name[0] == 't' && o.name[1] == 'u' && o.name[2] == 'n' && o.name[3] == 'e') n->tune = n->opt[k];
+}
+
+/* samplerate=full|half|quarter|eighth (or the position word alone): any place but the SP-1's
+ * own runs at 48, 24, 12 or 6 kHz. Returns 1 if the word was one. */
+static int rate_set(node *n, const tok *name, const tok *val)
+{
+	static const char *const POS[4] = { "full", "half", "quarter", "eighth" };
+	const tok *w = val ? val : name;
+	if (val && !str_eq(name->s, name->n, "samplerate")) return 0;
+	int pos = -1;
+	for (int k = 0; k < 4; k++) if (w->t == T_WORD && str_eq(w->s, w->n, POS[k])) pos = k;
+	if (pos < 0) {
+		if (val) { say('E', "samplerate is full, half, quarter or eighth, not ", w->s, w->n, ""); return 1; }
+		return 0;
+	}
+	if (SCQ_PLACES[n->type].flags & PF_SINGLE) { say('E', "", name->s, name->n, ": the SP-1's own places run at full rate"); return 1; }
+	n->rdiv = (uint8_t)(1u << pos);
+	return 1;
+}
+
+/* att.INLET=amount: the attenuverter on a source's inlet. Returns 1 if the word was one. */
+static int att_set(node *n, const tok *name, const tok *val)
+{
+	if (name->n < 5 || name->s[0] != 'a' || name->s[1] != 't' || name->s[2] != 't' || name->s[3] != '.') return 0;
+	const place *pl = &SCQ_PLACES[n->type];
+	if (!place_has_att(pl)) { say('E', "", pl->name, str_len(pl->name), " has no attenuverters"); return 1; }
+	int p = place_port(pl, 0, name->s + 4, name->n - 4);
+	if (p < 0) { say('E', "no inlet called ", name->s + 4, name->n - 4, " to attenuate"); return 1; }
+	if (!val || val->t != T_NUM) { say('E', "", name->s, name->n, " wants a number, like att.fm=-0.5"); return 1; }
+	n->att[p] = parse_num(val->s, val->n);
+	if (n->att[p] != 1.f) n->attset |= (uint16_t)(1u << p);
+	else n->attset &= (uint16_t)~(1u << p);
+	return 1;
+}
+
 static void opt_defaults(node *n, const char *spec)
 {
 	optitem o;
 	for (int k = 0; k < MAX_OPT && opt_at(spec, k, &o); k++)
 		n->opt[k] = o.sw ? 0.f : parse_num(o.vals, o.vl);
+}
+
+static int find_tuning(const char *w, int n);
+
+static int opt_count(const optitem *o)
+{
+	int n = 1;
+	for (int j = 0; j < o->vl; j++) if (o->vals[j] == '|') n++;
+	return n;
 }
 
 /* name=value, a bare switch name, or a bare position word. Returns 0 if it was understood. */
@@ -309,6 +372,11 @@ static int opt_set(node *n, const tok *name, const tok *val)
 			if (!named) continue;
 			if (o.sw) {
 				int pos = val->t == T_WORD ? opt_pos(&o, val->s, val->n) : -1;
+				if (pos < 0 && val->t == T_WORD && str_eq(o.name, o.nl, "scale")) {   /* a tuning: after the built-ins */
+					int tn = find_tuning(val->s, val->n);
+					if (tn >= 0) pos = opt_count(&o) + tn;
+					else { say('E', "no scale called ", val->s, val->n, " (built in, in the scales folder, or a tuning line)"); return 0; }
+				}
 				if (pos < 0) { say('E', "", val->s, val->n, " isn't one of that switch's positions"); return 0; }
 				n->opt[k] = (float)pos;
 			} else {
@@ -343,6 +411,8 @@ static int make_node(int p, const char *name, int nl, float nature)
 	for (int i = 0; i < nl; i++) n->name[i] = name[i];
 	n->line = (int16_t)G.line;
 	n->given = nature;
+	for (int i = 0; i < MAX_IN; i++) n->att[i] = 1.f;
+	n->rdiv = 1;
 	opt_defaults(n, place_opts(pl->name));
 	n->rng = hash(name, nl, 2166136261u + G.nights * 7919u);
 	n->nature = nature;
@@ -458,6 +528,21 @@ static void st_the(tok *t, int nt)
 	for (int i = 0; i < t[1].n; i++) if (t[1].s[i] == '.') { say('E', "a name can't have a dot: ", t[1].s, t[1].n, ""); return; }
 	if (find_node(t[1].s, t[1].n) >= 0) { say('E', "there are already ", t[1].s, t[1].n, " here"); return; }
 	int p = find_place_old(t[3].s, t[3].n);
+	if (p < 0) {                       /* place + number: the SP-1's own, fader1, button3 */
+		int j = t[3].n;
+		while (j > 0 && is_digit(t[3].s[j - 1])) j--;
+		if (j < t[3].n && j > 0) {
+			int q = find_place(t[3].s, j);
+			if (q >= 0 && (SCQ_PLACES[q].flags & PF_SINGLE)) p = q;
+		}
+	}
+	if (p >= 0 && (SCQ_PLACES[p].flags & PF_SINGLE)) {
+		int same = t[1].n == t[3].n;
+		for (int i = 0; same && i < t[1].n; i++) if (t[1].s[i] != t[3].s[i]) same = 0;
+		if (same) { say('W', "", t[3].s, t[3].n, " is always there (it's on the SP-1): no need to name it, just use it"); return; }
+		say('E', "", t[3].s, t[3].n, " is on the SP-1 and always there: use it by its own name (like fader1 -> lfo.rate), not a new one");
+		return;
+	}
 	int other = find_place(t[1].s, t[1].n);
 	/* naming something after another place is allowed: your name wins in this dream
 	 * (so a new place can never break a dream written before it existed) */
@@ -476,6 +561,8 @@ static void st_the(tok *t, int nt)
 	if (id < 0) return;
 	while (k < nt && t[k].t == T_WORD) {                       /* switches and params */
 		int eq = k + 2 < nt && t[k + 1].t == T_EQ;
+		if (att_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0)) { k += eq ? 3 : 1; continue; }
+		if (rate_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0)) { k += eq ? 3 : 1; continue; }
 		if (opt_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0) < 0) return;
 		k += eq ? 3 : 1;
 	}
@@ -575,6 +662,7 @@ static void statement(const char *s, int n)
 	int nt = tokenize(s, n, t);
 	if (nt <= 0) return;
 	if (t[0].t == T_WORD && (str_eq(t[0].s, t[0].n, "the") || str_eq(t[0].s, t[0].n, "The"))) { st_the(t, nt); return; }
+	if (t[0].t == T_WORD && str_eq(t[0].s, t[0].n, "tuning") && nt > 2 && t[1].t == T_WORD && t[2].t == T_COLON) return;   /* read by read_tunings() */
 	if (t[0].t == T_WORD && str_eq(t[0].s, t[0].n, "lucid") && nt > 1 && t[1].t == T_WORD) { st_lucid(t, nt); return; }
 	if (t[0].t == T_WORD && str_eq(t[0].s, t[0].n, "drift") && nt == 2 && t[1].t == T_NUM) {
 		G.drift = parse_num(t[1].s, t[1].n);    /* otherwise "drift" is just a name */
@@ -680,10 +768,78 @@ static int visit(int k, uint8_t *mark, int *pos)
 	return 0;
 }
 
+const float *scq_tuning(int i) { return i >= 0 && i < G.ntun ? G.tun[i].d : 0; }
+
+static int find_tuning(const char *w, int n)
+{
+	for (int i = 0; i < G.ntun; i++) if (str_eq(w, n, G.tun[i].name)) return i;
+	return -1;
+}
+
+/* Tunings belong to the whole dream, wherever they are written (the editor adds the ones your
+ * dream names from the scales folder, at the end):
+ *   tuning young_wtp: 203.91 ... 1200        cents of each degree after the root; the last is the period
+ * A long tuning continues on the next line with the same name. Kept in the pool as
+ * period, n, then n degrees (0 first). */
+static void read_tunings(void)
+{
+	G.ntun = 0;
+	int i = 0, line = 1, open = -1;
+	while (i <= G.len) {
+		int e = line_end(i), c = i;
+		while (c < e && G.text[c] != ';') c++;
+		int s = i;
+		while (s < c && (G.text[s] == ' ' || G.text[s] == '\t')) s++;
+		int is_tuning = c - s > 7 && str_eq(G.text + s, 6, "tuning") && (G.text[s + 6] == ' ' || G.text[s + 6] == '\t');
+		if (!is_tuning) {
+			if (s < c) open = -1;          /* anything else ends a tuning that's being continued */
+		} else {
+			tok t[MAX_TOK];
+			G.line = line;
+			int nt = tokenize(G.text + s, c - s, t);
+			if (nt < 4 || t[1].t != T_WORD || t[2].t != T_COLON) { say('E', "write a tuning as: tuning name: cents ... period", 0, 0, ""); goto next; }
+			int k = find_tuning(t[1].s, t[1].n);
+			if (k >= 0 && k != open) { say('E', "there's already a tuning called ", t[1].s, t[1].n, ""); goto next; }
+			if (k < 0) {
+				if (G.ntun >= MAX_TUNINGS) { say('E', "too many tunings (32)", 0, 0, ""); goto next; }
+				k = G.ntun;
+				float *d = (float *)pool_take(2 * sizeof(float));
+				if (!d) { say('E', "no room left for the tuning ", t[1].s, t[1].n, ""); goto next; }
+				int nl = t[1].n < NAME_LEN - 1 ? t[1].n : NAME_LEN - 1;
+				for (int j = 0; j < nl; j++) G.tun[k].name[j] = t[1].s[j];
+				G.tun[k].name[nl] = 0;
+				d[0] = 0.f; d[1] = 0.f;
+				G.tun[k].d = d;
+				G.ntun++;
+				open = k;
+			}
+			for (int j = 3; j < nt; j++) {
+				if (t[j].t != T_NUM) { say('E', "a tuning is cents: ", t[j].s, t[j].n, " isn't a number"); break; }
+				float *v = (float *)pool_take(sizeof(float));     /* right after the others: this tuning was the last thing taken */
+				if (!v) { say('E', "no room left for the tuning ", t[1].s, t[1].n, ""); break; }
+				*v = parse_num(t[j].s, t[j].n);
+				G.tun[k].d[1] += 1.f;
+			}
+		}
+	next:
+		i = e + 1; line++;
+	}
+	/* raw cents (the last is the period) -> period, n, 0, the rest */
+	for (int k = 0; k < G.ntun; k++) {
+		float *d = G.tun[k].d;
+		int n = (int)d[1];
+		if (n < 1 || d[2 + n - 1] <= 0.f) { d[0] = 1200.f; d[1] = -12.f; continue; }   /* empty or no period: chromatic */
+		d[0] = d[2 + n - 1];
+		for (int j = n - 1; j >= 1; j--) d[2 + j] = d[2 + j - 1];
+		d[2] = 0.f;
+	}
+}
+
 static void compile_scene(int idx, int report)
 {
 	G.nn = 0; G.nc = 0; G.used = 0; G.drift = 0.f; G.nk = 0;
 	G.quiet = !(report & 1);            /* the prelude is reported once */
+	read_tunings();
 	compile_range(0, G.pre_end, 1);
 	G.quiet = !(report & 2);
 	scene *s = &G.sc[idx];
@@ -711,6 +867,7 @@ static void compile_scene(int idx, int report)
 	 * lies (no copy); anything else is summed into scratch each block */
 	for (int k = 0; k < G.nn; k++) {
 		node *n = &G.n[k];
+		pitch_setup(n);
 		for (int p = 0; p < n->nin; p++) {
 			int count = 0, only = -1;
 			for (int c = G.cstart[k]; c < G.cstart[k + 1]; c++)
@@ -743,6 +900,7 @@ static void compile_scene(int idx, int report)
 		float cost = (float)pl->cost;
 		if (pl->run == SCQ_PLACES[find_place("frogs", 5)].run)       /* measured with 3 frogs */
 			cost *= scq_clamp(G.n[k].nature, 1.f, 8.f) / 3.f;
+		if (G.n[k].rdiv > 1) cost = cost / (float)G.n[k].rdiv + 6.f;    /* + the decimate and the hold */
 		cyc += scq_max(cost - (float)SCQ_COST_BLOCK_SAVING, 8.f);
 	}
 	for (int k = 0; k < G.nc; k++)
@@ -798,6 +956,27 @@ int scq_check(const char *text, int len, uint32_t nights, char *msgs, int cap)
 }
 #endif
 
+void scq_set_tune(int index, float octaves)
+{
+	if (index < 0 || index >= G.nn) return;
+	G.n[index].tune = octaves;
+}
+
+void scq_set_param(int index, int k, float value)
+{
+	if (index < 0 || index >= G.nn || k < 0 || k >= MAX_OPT) return;
+	G.n[index].opt[k] = value;
+}
+
+void scq_set_att(int index, int inlet, float amount)
+{
+	if (index < 0 || index >= G.nn || inlet < 0 || inlet >= G.n[index].nin) return;
+	node *n = &G.n[index];
+	n->att[inlet] = amount;
+	if (amount != 1.f) n->attset |= (uint16_t)(1u << inlet);
+	else n->attset &= (uint16_t)~(1u << inlet);
+}
+
 void scq_set_amount(int index, float amount)
 {
 	if (index < 0 || index >= G.nc) return;
@@ -841,6 +1020,7 @@ float scq_probe(int node, int port)
 }
 
 static const float ZEROS[B];
+static void mix(node *n, int k, float scratch[MAX_IN][B]);
 
 static void gather(node *n, int k, const float *in[MAX_IN], float scratch[MAX_IN][B])
 {
@@ -852,7 +1032,27 @@ static void gather(node *n, int k, const float *in[MAX_IN], float scratch[MAX_IN
 		LOOP scratch[p][i] = d;
 		in[p] = scratch[p];
 	}
-	if (!n->mixed) return;
+	if (n->mixed) mix(n, k, scratch);
+	for (uint16_t a = n->attset & n->patched; a; a &= (uint16_t)(a - 1)) {   /* attenuverters */
+		int p = 0;
+		while (!(a & (1u << p))) p++;   /* lowest set bit (no compiler builtins: MSVC builds this too) */
+		const float *src = in[p];
+		float g = n->att[p], *dst = scratch[p];
+		LOOP dst[i] = g * src[i];
+		in[p] = dst;
+	}
+	if (n->pitchin >= 0 && n->tune != 0.f) {                                 /* the tune knob */
+		int p = n->pitchin;
+		const float *src = in[p];
+		float t = n->tune, *dst = scratch[p];
+		LOOP dst[i] = t + src[i];
+		in[p] = dst;
+	}
+}
+
+static void mix(node *n, int k, float scratch[MAX_IN][B])
+{
+	(void)n;
 	for (int ci = G.cstart[k]; ci < G.cstart[k + 1]; ci++) {
 		cord *c = &G.c[ci];
 		if (c->direct) continue;
@@ -879,6 +1079,27 @@ static void gather(node *n, int k, const float *in[MAX_IN], float scratch[MAX_IN
 	}
 }
 
+/* a place at a lower samplerate: every rdiv-th sample of its inlets, run on the shorter block,
+ * then each outlet sample held for rdiv samples (the zero-order hold of a sample-rate reducer) */
+static void run_slow(node *n, const float *in[MAX_IN])
+{
+	static float dec[MAX_IN][B];
+	const int d = n->rdiv, nb = B / d;
+	for (int p = 0; p < n->nin; p++) {
+		if (in[p] == ZEROS) continue;
+		const float *src = in[p];
+		for (int j = 0; j < nb; j++) dec[p][j] = src[j * d];
+		in[p] = dec[p];
+	}
+	W.nb = nb; W.sr = SR / (float)d; W.isr = (float)d * INV_SR;
+	SCQ_PLACES[n->type].run(n, in);
+	W.nb = B; W.sr = SR; W.isr = INV_SR;
+	for (int o = 0; o < n->nout; o++) {
+		float *b = n->out[o];
+		for (int i = B - 1; i >= 0; i--) b[i] = b[i / d];
+	}
+}
+
 static void run_block(void)
 {
 	static float scratch[MAX_IN][B];        /* static: off the audio thread's small stack */
@@ -888,7 +1109,8 @@ static void run_block(void)
 		int k = G.order[o];
 		node *n = &G.n[k];
 		gather(n, k, in, scratch);
-		SCQ_PLACES[n->type].run(n, in);
+		if (n->rdiv > 1) run_slow(n, in);
+		else SCQ_PLACES[n->type].run(n, in);
 	}
 	if ((W.want_next || W.want_back) && G.nsc > 1 && G.pending < 0) {
 		int to = G.cur + (W.want_next ? 1 : -1);
@@ -968,7 +1190,11 @@ const char *scq_describe(void)
 				if (!(n->optset & (1u << q))) continue;
 				sb_c(&s, first ? ' ' : ','); first = 0;
 				sb_sn(&s, o.name, o.nl); sb_c(&s, '=');
-				if (o.sw) {
+				if (o.sw && (int)n->opt[q] >= opt_count(&o)) {          /* a tuning */
+					const float *d = 0; int tn = (int)n->opt[q] - opt_count(&o);
+					d = scq_tuning(tn);
+					if (d) sb_s(&s, G.tun[tn].name);
+				} else if (o.sw) {
 					const char *v = o.vals, *end = o.vals + o.vl;
 					for (int pos = 0; v < end; pos++) {
 						const char *a = v;
@@ -977,6 +1203,23 @@ const char *scq_describe(void)
 						v++;
 					}
 				} else sb_f(&s, n->opt[q]);
+			}
+			for (int p = 0; p < n->nin; p++) {
+				if (!(n->attset & (1u << p))) continue;
+				sb_c(&s, first ? ' ' : ','); first = 0;
+				sb_s(&s, "att.");
+				const char *w = SCQ_PLACES[n->type].ins;
+				for (int idx = 0; *w; idx++) {      /* the inlet's name */
+					while (*w == ' ') w++;
+					const char *a = w;
+					while (*w && *w != ' ') w++;
+					if (idx == p) { sb_sn(&s, a, (int)(w - a)); break; }
+				}
+				sb_c(&s, '='); sb_f(&s, n->att[p]);
+			}
+			if (n->rdiv > 1) {
+				sb_c(&s, first ? ' ' : ','); first = 0;
+				sb_s(&s, n->rdiv == 2 ? "samplerate=half" : (n->rdiv == 4 ? "samplerate=quarter" : "samplerate=eighth"));
 			}
 		}
 		sb_c(&s, '\n');
@@ -1011,7 +1254,12 @@ const char *scq_catalog(void)
 		sb_s(&s, " | ");
 		for (const char *q = pl->outs; *q; q++) sb_c(&s, *q == ' ' ? ',' : *q);
 		sb_s(&s, " | "); sb_s(&s, pl->help); sb_c(&s, '\n');
-		if (*place_opts(pl->name)) { sb_s(&s, "O "); sb_s(&s, pl->name); sb_c(&s, ' '); sb_s(&s, place_opts(pl->name)); sb_c(&s, '\n'); }
+		if (!(pl->flags & PF_SINGLE) || *place_opts(pl->name)) {
+			sb_s(&s, "O "); sb_s(&s, pl->name);
+			if (*place_opts(pl->name)) { sb_c(&s, ' '); sb_s(&s, place_opts(pl->name)); }
+			if (!(pl->flags & PF_SINGLE)) { sb_c(&s, ' '); sb_s(&s, RATE_OPT); }
+			sb_c(&s, '\n');
+		}
 	}
 	return catalog_buf;
 }

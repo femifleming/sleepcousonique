@@ -5,3 +5,8 @@ docs/manual/*.html
 docs/guide/*.html
 docs/guide/tinydream/tinydream
 docs/guide/tinydream/*.wav
+tools/sp1bench
+__pycache__/
+*.pyc
+dist/
+!firmware/dist/

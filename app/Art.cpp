@@ -4,22 +4,100 @@ using namespace juce;
 
 namespace art
 {
-Colour familyColour (int f)
+Theme& theme() { static Theme t; return t; }   // set with setTheme() before anything paints
+
+void setTheme (bool pop, bool dark)
 {
-    switch (f)
+    Theme& t = theme();
+    t.pop = pop; t.dark = dark;
+    auto c = [] (uint32 v) { return Colour (v); };
+    if (! pop && ! dark)            // journal, light: the original
     {
-        case 0: return Colour (0xffd8b24a);   // source: gold glitter
-        case 1: return Colour (0xffb06a4a);   // shape: copper red
-        case 2: return Colour (0xff4f6f7a);   // space: grey water
-        case 3: return Colour (0xff2c4a9a);   // current: deep blue
-        case 4: return Colour (0xff6a6a64);   // hands: the SP-1's grey
-        default: return Colour (0xff222222);  // ears
+        t.window = c (0xffe8e3d6); t.bar = c (0xfff2ede0); t.chromeText = c (0xff1d1b19); t.chromeDim = c (0xff9a9488); t.line = c (0x22000000);
+        t.surface = c (0xffe9e3d4); t.card = c (0xfff3ead2); t.cardSp1 = c (0xffd6d4cc); t.cardHead = c (0xff101010); t.cardHeadText = c (0xfff2f2ee);
+        t.button = c (0xfff4f0e4); t.buttonText = c (0xff1d1b19); t.rail = c (0xffd9d6cc);
+        t.checkA = c (0xffd2a531); t.checkB = c (0xffe0bc5a);
+        t.sound = c (0xff7a4a2a); t.current = c (0xff1f3f8f); t.pulse = c (0xffd2a531);
+        const uint32 f[] = { 0xffd8b24a, 0xffb06a4a, 0xff4f6f7a, 0xff2c4a9a, 0xff6a6a64, 0xff222222 };
+        for (int i = 0; i < 6; ++i) t.fam[i] = c (f[i]);
+        t.ledOff = c (0xff3a3a38); t.faderSlot = c (0xff2a2a28); t.faderCap = c (0xfff4f2ec);
+        t.note = c (0xff8a8578); t.date = c (0xff7a4a2a); t.word = c (0xff6b5f8a); t.place = c (0xff1f3f8f); t.passage = c (0xffa87a12);
+        t.number = c (0xff935a2c); t.map = c (0xffcfc9bb); t.hand = c (0xff3d7a4e); t.gutter = c (0xfff2ede0); t.gutterText = c (0xffb0a890);
+        paper = c (0xfffbf8f0); cream = t.card; canvas = t.surface;
     }
+    else if (! pop)                 // journal, dark: the same journal by lamplight
+    {
+        t.window = c (0xff1c1a17); t.bar = c (0xff24211d); t.chromeText = c (0xffe8e0cc); t.chromeDim = c (0xff8a8270); t.line = c (0x33ffffff);
+        t.surface = c (0xff2a2620); t.card = c (0xff3a342b); t.cardSp1 = c (0xff45423b); t.cardHead = c (0xff0c0b0a); t.cardHeadText = c (0xffe8e0cc);
+        t.button = c (0xff34302a); t.buttonText = c (0xffe8e0cc); t.rail = c (0xff2a2723);
+        t.checkA = c (0xffd2a531); t.checkB = c (0xffb08a2a);
+        t.sound = c (0xffc8875a); t.current = c (0xff7f9be6); t.pulse = c (0xffe0b84a);
+        const uint32 f[] = { 0xffd8b24a, 0xffc87a5a, 0xff6f94a2, 0xff5f7ed0, 0xff8a8a84, 0xff6a6a6a };
+        for (int i = 0; i < 6; ++i) t.fam[i] = c (f[i]);
+        t.ledOff = c (0xff111110); t.faderSlot = c (0xff0e0d0c); t.faderCap = c (0xffc8c2b4);
+        t.note = c (0xff8a8270); t.date = c (0xffd2a531); t.word = c (0xffa99be0); t.place = c (0xff8fb0f0); t.passage = c (0xffe0b84a);
+        t.number = c (0xffd89a6a); t.map = c (0xff4a453c); t.hand = c (0xff7fc08e); t.gutter = c (0xff24211d); t.gutterText = c (0xff6a6250);
+        paper = c (0xff1f1d1a); cream = t.card; canvas = t.surface;
+    }
+    else if (! dark)                // openprocess, light: daylight
+    {
+        t.window = c (0xffd9dae2); t.bar = c (0xffd9dae2); t.chromeText = c (0xff1a1a1a); t.chromeDim = c (0xff7d7e80); t.line = c (0x22000000);
+        t.surface = c (0xffffffff); t.card = c (0xffffffff); t.cardSp1 = c (0xfff0f0f4); t.cardHead = c (0xffb7b8ba); t.cardHeadText = c (0xff1a1a1a);
+        t.button = c (0xffb7b8ba); t.buttonText = c (0xff1a1a1a); t.rail = c (0xffb7b8ba);
+        t.checkA = c (0xfff2c400); t.checkB = c (0xfff7931e);
+        t.sound = c (0xffd22a26); t.current = c (0xff2a7fd0); t.pulse = c (0xfff2c400);
+        const uint32 f[] = { 0xfff7931e, 0xff1f8a3c, 0xff48a8c8, 0xff2a7fd0, 0xff7d7e80, 0xff1a1a1a };
+        for (int i = 0; i < 6; ++i) t.fam[i] = c (f[i]);
+        t.ledOff = c (0xff3a3a40); t.faderSlot = c (0xffb7b8ba); t.faderCap = c (0xff1a1a1a);
+        t.note = c (0xff8a8b96); t.date = c (0xffa88a1e); t.word = c (0xff2a7fd0); t.place = c (0xffe0781e); t.passage = c (0xffd22a26);
+        t.number = c (0xffb07a1e); t.map = c (0xffc8c9d1); t.hand = c (0xff1f8a3c); t.gutter = c (0xfff4f4f7); t.gutterText = c (0xff9a9cb0);
+        paper = c (0xffffffff); cream = t.card; canvas = t.surface;
+    }
+    else                            // openprocess, dark: midnight
+    {
+        t.window = c (0xff16171d); t.bar = c (0xff16171d); t.chromeText = c (0xffe6e6ee); t.chromeDim = c (0xff7c7e92); t.line = c (0x22ffffff);
+        t.surface = c (0xff22232c); t.card = c (0xff2b2c38); t.cardSp1 = c (0xff262733); t.cardHead = c (0xff3a3c4c); t.cardHeadText = c (0xffe6e6ee);
+        t.button = c (0xff3a3c4c); t.buttonText = c (0xffe6e6ee); t.rail = c (0xff3a3c4c);
+        t.checkA = c (0xfff2c400); t.checkB = c (0xfff7931e);
+        t.sound = c (0xffff4a3a); t.current = c (0xff4f9ae8); t.pulse = c (0xfff2c400);
+        const uint32 f[] = { 0xfff7931e, 0xff3fbf62, 0xff48b8d8, 0xff4f9ae8, 0xff7c7e92, 0xff9a9cb0 };
+        for (int i = 0; i < 6; ++i) t.fam[i] = c (f[i]);
+        t.ledOff = c (0xff0e0e12); t.faderSlot = c (0xff3a3c4c); t.faderCap = c (0xffe6e6ee);
+        t.note = c (0xff7c7e92); t.date = c (0xfff2c400); t.word = c (0xff6fb0f0); t.place = c (0xfff7931e); t.passage = c (0xffff6a55);
+        t.number = c (0xfffbc26b); t.map = c (0xff44465a); t.hand = c (0xff5fcf7a); t.gutter = c (0xff1c1d25); t.gutterText = c (0xff5a5c70);
+        paper = c (0xff22232c); cream = t.card; canvas = t.surface;
+    }
+    ink = pop ? (dark ? c (0xffe6e6ee) : c (0xff1a1a1a)) : (dark ? c (0xffe8e0cc) : c (0xff1d1b19));
+    umber = t.sound; blue = t.current; gold = pop ? t.checkA : t.pulse;
+    copper = pop ? t.checkB : (dark ? c (0xffc8875a) : c (0xffb8733b));
+    night = t.window;
 }
+
+Font label (float h)
+{
+    if (theme().pop) return Font (FontOptions ("Verdana", h * 0.92f, Font::bold)).withExtraKerningFactor (0.04f);
+    return mono (h);
+}
+
+void fillChecker (Graphics& g, Rectangle<float> r, float cell)
+{
+    auto& t = theme();
+    g.saveState();
+    g.reduceClipRegion (r.toNearestInt());
+    g.setColour (t.checkB); g.fillRect (r);
+    g.setColour (t.checkA);
+    for (float y = r.getY(); y < r.getBottom(); y += cell)
+        for (float x = r.getX() + (std::fmod ((y - r.getY()) / cell, 2.0f) < 1 ? 0 : cell); x < r.getRight(); x += cell * 2)
+            g.fillRect (x, y, cell, cell);
+    g.restoreState();
+}
+
+Colour familyColour (int f) { return theme().fam[jlimit (0, 5, f)]; }
 
 Colour signalColour (int s)
 {
-    return s == 0 ? umber : (s == 1 ? blue : gold);
+    auto& t = theme();
+    return s == 0 ? t.sound : (s == 1 ? t.current : t.pulse);
 }
 
 struct Rng
@@ -48,6 +126,16 @@ static Path blob (Point<float> c, float rad, Rng& rng, int pts = 9, float wob = 
 
 void paintCanvas (Graphics& g, Rectangle<float> a, int seed)
 {
+    if (theme().pop)                  // the dotted window
+    {
+        g.setColour (theme().surface);
+        g.fillRect (a);
+        g.setColour (theme().dark ? Colour (0xff34364a) : Colour (0xffc4c8d8));
+        for (float y = a.getY() + 5; y < a.getBottom(); y += 10)
+            for (float x = a.getX() + 5; x < a.getRight(); x += 10)
+                g.fillRect (x, y, 1.2f, 1.2f);
+        return;
+    }
     Rng rng { (uint32) (seed * 2654435761u + 7) };
     g.setColour (canvas);
     g.fillRect (a);
@@ -97,10 +185,13 @@ void paintCanvas (Graphics& g, Rectangle<float> a, int seed)
     }
 }
 
+CableStyle& cableStyle() { static CableStyle s; return s; }
+
 static void bez (Point<float> a, Point<float> b, Point<float>& c1, Point<float>& c2)
 {
     float dist = a.getDistanceFrom (b);
-    float sag = jmin (80.0f, 14.0f + 0.12f * dist);
+    const float slack = cableStyle().slack;
+    float sag = jmin (80.0f * jmax (0.25f, slack), (14.0f + 0.12f * dist) * slack);   // elasticity: how far it hangs
     c1 = a + Point<float> (jmax (30.0f, (b.x - a.x) * 0.35f), sag * 0.6f);
     c2 = b + Point<float> (-jmax (30.0f, (b.x - a.x) * 0.35f), sag * 0.6f);
 }
@@ -181,31 +272,87 @@ static void drawPart (Graphics& g, Point<float> c, float angle, int kind)
     }
 }
 
-void drawCable (Graphics& g, Point<float> a, Point<float> b, Colour col, int kind, bool hover, float alpha)
+void drawCablePath (Graphics& g, const Path& p, Colour col, int kind, bool hover, float alpha)
 {
-    Point<float> c1, c2;
-    bez (a, b, c1, c2);
-    Path p; p.startNewSubPath (a); p.cubicTo (c1, c2, b);
+    auto& st = cableStyle();
+    if (! hover) alpha *= st.opacity;
     col = col.withMultipliedAlpha (alpha);
-    g.setColour (Colour (0x26000000).withMultipliedAlpha (alpha));
-    g.strokePath (p, PathStrokeType (4.0f, PathStrokeType::curved, PathStrokeType::rounded), AffineTransform::translation (2.5f, 5.0f));
+    if (theme().pop)                  // flat cords: sound dotted, current with a light core, pulses plain
+    {
+        if (st.glow > 0.01f)
+        {
+            g.setColour (col.withMultipliedAlpha (0.12f * st.glow)); g.strokePath (p, PathStrokeType (14.0f, PathStrokeType::curved, PathStrokeType::rounded));
+            g.setColour (col.withMultipliedAlpha (0.25f * st.glow)); g.strokePath (p, PathStrokeType (7.0f, PathStrokeType::curved, PathStrokeType::rounded));
+        }
+        if (hover) { g.setColour (theme().checkA.withAlpha (0.5f)); g.strokePath (p, PathStrokeType (8.0f, PathStrokeType::curved, PathStrokeType::rounded)); }
+        bool sound = col.getRed() > 180 && col.getGreen() < 120;
+        if (sound)
+        {
+            Path dots; const float dash[] = { 3.0f, 2.6f };
+            PathStrokeType (3.4f, PathStrokeType::curved, PathStrokeType::butt).createDashedStroke (dots, p, dash, 2);
+            g.setColour (col); g.fillPath (dots);
+        }
+        else
+        {
+            g.setColour (col); g.strokePath (p, PathStrokeType (3.0f, PathStrokeType::curved, PathStrokeType::rounded));
+            if (col.getBlue() > col.getRed() + 60)          // current: a light dashed core
+            {
+                Path core; const float dash[] = { 2.0f, 2.0f };
+                PathStrokeType (0.9f).createDashedStroke (core, p, dash, 2);
+                g.setColour (Colours::white.withAlpha (0.8f * alpha)); g.fillPath (core);
+            }
+        }
+        float len = p.getLength();
+        auto q0 = p.getPointAlongPath (len * 0.47f), q1 = p.getPointAlongPath (len * 0.53f);
+        drawPart (g, p.getPointAlongPath (len * 0.5f), std::atan2 (q1.y - q0.y, q1.x - q0.x), kind);
+        return;
+    }
+    if (st.glow > 0.01f)                        // lights down: the cable glows
+    {
+        auto halo = col.brighter (0.4f);
+        g.setColour (halo.withMultipliedAlpha (0.10f * st.glow));
+        g.strokePath (p, PathStrokeType (16.0f, PathStrokeType::curved, PathStrokeType::rounded));
+        g.setColour (halo.withMultipliedAlpha (0.22f * st.glow));
+        g.strokePath (p, PathStrokeType (8.0f, PathStrokeType::curved, PathStrokeType::rounded));
+    }
+    else
+    {
+        g.setColour (Colour (0x26000000).withMultipliedAlpha (alpha));
+        g.strokePath (p, PathStrokeType (4.0f, PathStrokeType::curved, PathStrokeType::rounded), AffineTransform::translation (2.5f, 5.0f));
+    }
     if (hover)
     {
         g.setColour (Colour (0x99fff2b0));
         g.strokePath (p, PathStrokeType (9.0f, PathStrokeType::curved, PathStrokeType::rounded));
     }
-    g.setColour (col.darker (0.7f));
+    g.setColour (st.glow > 0.01f ? col : col.darker (0.7f));
     g.strokePath (p, PathStrokeType (4.2f, PathStrokeType::curved, PathStrokeType::rounded));
-    g.setColour (col);
+    g.setColour (st.glow > 0.01f ? col.brighter (0.5f) : col);
     g.strokePath (p, PathStrokeType (3.0f, PathStrokeType::curved, PathStrokeType::rounded));
-    g.setColour (Colours::white.withAlpha (0.28f * alpha));
+    g.setColour (Colours::white.withAlpha ((0.28f + 0.4f * st.glow) * alpha));
     g.strokePath (p, PathStrokeType (0.9f), AffineTransform::translation (-0.6f, -0.8f));
-    auto q0 = bezAt (a, c1, c2, b, 0.47f), q1 = bezAt (a, c1, c2, b, 0.53f);
-    drawPart (g, bezAt (a, c1, c2, b, 0.5f), std::atan2 (q1.y - q0.y, q1.x - q0.x), kind);
+    float len = p.getLength();
+    auto q0 = p.getPointAlongPath (len * 0.47f), q1 = p.getPointAlongPath (len * 0.53f);
+    drawPart (g, p.getPointAlongPath (len * 0.5f), std::atan2 (q1.y - q0.y, q1.x - q0.x), kind);
+}
+
+void drawCable (Graphics& g, Point<float> a, Point<float> b, Colour col, int kind, bool hover, float alpha)
+{
+    drawCablePath (g, cablePath (a, b), col, kind, hover, alpha);
 }
 
 void drawLoop (Graphics& g, Point<float> c, bool hot, Colour signal)
 {
+    if (theme().pop)                  // a ring, filled with the signal it carries
+    {
+        auto r = Rectangle<float> (11, 11).withCentre (c);
+        g.setColour (hot ? theme().checkA : theme().card);
+        g.fillEllipse (r);
+        g.setColour (signal);
+        g.drawEllipse (r.reduced (1.2f), 2.6f);
+        g.fillEllipse (r.reduced (3.6f));
+        return;
+    }
     // a loop of braided copper, the Nabra's patch point
     auto r = Rectangle<float> (11, 11).withCentre (c);
     g.setColour (Colour (0x30000000)); g.fillEllipse (r.translated (1, 2));

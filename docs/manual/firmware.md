@@ -15,17 +15,26 @@ watchdog, the codec start-up order, the fader and button ladders, the LEDs and t
 device. In place of Wakes' Plaits and Marbles voice it runs the Sleepcousonique engine,
 the same C code the editor runs.
 
-## Installing
+## Installing (flashing the .bin)
 
-1. Take `firmware/dist/sleepcousonique-sp1.bin` (124 KB), or build it yourself (see *Building*, below).
-2. Open the **Solderless** updater (solderless.engineering) in Chrome or Edge and connect the
-   SP-1.
-3. Follow its steps to flash the `.bin` (see *If something goes wrong* for boot mode).
+You flash the firmware once. After that the editor sends your dreams over USB; changing a
+patch never needs a reflash.
 
-> **Not yet run on a real SP-1.** The firmware builds (124 KB of flash, 182 KB of the 256 KB
-> RAM), and the engine is the one tested in the editor, but nobody has flashed this image
-> onto a device yet. Treat the first flash as a
-> test. Keep the Wakes or tape-looper `.bin` nearby so you can go back.
+You need the SP-1, a USB-C data cable and **Chrome or Edge** (the updater uses WebUSB).
+
+1. Take `sleepcousonique-sp1.bin` from the release zip (or `firmware/dist/`, or build it,
+   see *Building*).
+2. **Turn the SP-1 off** and unplug it.
+3. **Boot mode:** hold **T1 + T4** and plug in USB. Let go when T1 lights.
+4. Open **solderless.engineering** in Chrome or Edge, choose the custom firmware (.bin),
+   pick `sleepcousonique-sp1.bin`, connect to the SP-1 when the browser asks, and flash.
+5. The SP-1 restarts into Sleepcousonique and plays the first night. In the editor the scene
+   bar now says **SP-1 connected**, with its slot and scene.
+
+On Windows the SP-1 appears as a USB serial (COM) port using Windows' own driver; on macOS as
+`/dev/cu.usbmodem…`. Nothing to install on either.
+
+This firmware is unofficial: not affiliated with or endorsed by Teenage Engineering.
 
 ## If something goes wrong
 

@@ -13,6 +13,9 @@ public:
     Result describe();
     Result check (const juce::String& text, juce::uint32 nights);   // doesn't disturb the sound
     void setAmount (int cord, float amount);
+    void setTune (int node, float octaves);
+    void setAtt (int node, int inlet, float amount);
+    void setParam (int node, int k, float value);
     void gotoScene (int);
     int scene();
     void control (int which, float value);

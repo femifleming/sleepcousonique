@@ -36,9 +36,21 @@ It is built from four things:
 
 # 1. The editor
 
+## Installing it
+
+| | |
+|---|---|
+| **macOS** (11 or later, Apple silicon or Intel) | `brew tap femifleming/tap` then `brew install --cask femifleming/tap/sleepcousonique`; or download `sleepcousonique-macOS.zip` from the releases page and drag **Sleepcousonique.app** to Applications |
+| **Windows** (10 or 11, 64-bit) | download `sleepcousonique-Windows.zip` from the releases page, unzip it anywhere and run **Sleepcousonique.exe** |
+
+Releases: **github.com/femifleming/sleepcousonique/releases**. Each zip also holds the SP-1
+firmware (`sleepcousonique-sp1.bin`), this manual, `FLASHING.txt` and the example dreams.
+The macOS app is not notarised: the Homebrew cask clears the download quarantine for you;
+from the zip, right-click the app ▸ Open the first time.
+
 ## Opening it
 
-Open **Sleepcousonique.app**. The first time, it opens *first night*, an example dream with
+Open **Sleepcousonique**. The first time, it opens *first night*, an example dream with
 three scenes. `File ▸ Load a history of modular` opens a second example: six scenes, from a
 1964 Moog room to 2016 eurorack, each built from the places of its era. Sound comes out of your computer at once. The **sound** button (top right)
 picks the audio device.
@@ -46,6 +58,18 @@ picks the audio device.
 `File ▸ Open` opens a `.dream` file, and `File ▸ Save` saves one (⌘O, ⌘S). A dream is a plain
 text file. You can write it in any text editor, keep it in a notes app, or paste it from
 an email.
+
+## Looks
+
+`View ▸ Look` picks how the editor looks: **openprocess** (the default; flat cards, dotted
+window, checker for what's on, after the openprocess bundle) or **journal (the original)**
+(splatter canvas, cream boards, Dymo labels). `View ▸ Light or dark` picks **dark** (the
+default), **light**, or **follow the computer**, which changes with macOS's or Windows'
+own appearance setting. All four are remembered.
+
+![openprocess, light](fig/look-openprocess-light.png)
+
+![journal, light: the original look](fig/look-journal.png)
 
 ## Three views
 
@@ -80,8 +104,15 @@ range, a quantizer's scale); the journal line changes with it.
 | add a place | right-click the canvas ▸ sources / shapes / spaces / currents. Each entry says what the place does and, in brackets, what it comes from |
 | patch | drag from an outlet to an inlet (or from an inlet back to an outlet) |
 | choose the cord's part | the **-> hall / ~> fog / => water / >\| door** buttons choose the part for new cords |
+| remove a cord | option-click it (option-click a loop to pull out every cord there) |
+| stack a cord | cmd-drag a cord: a new one leaves from the same outlet (or just drag from the outlet again) |
+| see code in the patch | select lines in the journal: their places and cords light up gold in the tapestry |
+| lights, cables | View ▸ Room light dims the canvas and boards while cords and LEDs glow; View ▸ Cable opacity, Cable slack (tight to very loose), Cable routing (hanging curves, or around the boards like Max) |
+| find my patch | the button at the bottom right, double-click the empty canvas, or cmd-0; right-click ▸ find... jumps to any place |
+| undo, redo | cmd-Z, shift-cmd-Z (or the Edit menu): cords, moves, places, switches, knobs and typing, all in one history |
 | change a cord | right-click it: change its part, its amount, show it in the journal, or remove it |
 | set a cord's amount | double-click it |
+| turn a knob | drag a board's **tune** knob (top corner: base pitch, in octaves) or an inlet's **attenuverter** (the little knob by each inlet of a source) up or down; shift for fine steps, double-click to reset. The sound follows as you drag |
 | change a kept value | drag a value tag (the little white tag by an inlet) up or down; hold shift for fine steps. The sound follows as you drag |
 | move boards | drag them; shift-click to pick several |
 | remove | select a board or cord and press delete |

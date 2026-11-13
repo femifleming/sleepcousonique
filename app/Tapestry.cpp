@@ -1,5 +1,7 @@
 #include "Tapestry.h"
 #include "Art.h"
+#include "Scales.h"
+#include "Router.h"
 
 using namespace juce;
 using namespace scq;
@@ -19,10 +21,17 @@ static int rowIndex (const char* const* rows, int n, const String& t)
 Tapestry::Tapestry (Document& d, Host& h) : doc (d), host (h)
 {
     setWantsKeyboardFocus (true);
+    themeChanged();
+    startTimerHz (15);
+}
+
+void Tapestry::themeChanged()
+{
     canvasImg = Image (Image::RGB, 1400, 1000, true);
     Graphics g (canvasImg);
     art::paintCanvas (g, { 0, 0, 1400, 1000 }, 11);
-    startTimerHz (15);
+    routesDirty = true;
+    repaint();
 }
 
 void Tapestry::resized() {}
@@ -30,6 +39,7 @@ void Tapestry::resized() {}
 void Tapestry::refresh()
 {
     layout();
+    routesDirty = true;
     selectedCord = -1;
     hoverCord = -1;
     std::set<int> keep;
@@ -89,7 +99,26 @@ void Tapestry::layout()
         Board b;
         b.node = n.id; b.key = n.name; b.title = n.place; b.family = p->family; b.help = p->help;
         b.sub = (n.name != n.place ? n.name + "  " : String()) + (p->nature != 0 || n.nature != 0 ? String::fromUTF8 ("\xc2\xb7 ") + fmt (n.nature) : String());
-        for (auto& [k, v] : n.opts) b.sub << "  " << (v == "on" ? k : (v == "off" ? "no " + k : v));
+        for (auto& [k, v] : n.opts)
+            if (k != "tune" && ! k.startsWith ("att.") && ! (v.isNotEmpty() && (CharacterFunctions::isDigit (v[0]) || v[0] == '-' || v[0] == '.')))    // knobs on the board
+                b.sub << "  " << (v == "on" ? k : (v == "off" ? "no " + k : v));
+        b.hasTune = p->tune;
+        b.hasAtt = p->att;
+        if (n.opts.count ("tune")) b.tune = n.opts.at ("tune").getFloatValue();
+        for (auto& in : p->ins)
+            b.att.push_back (n.opts.count ("att." + in) ? n.opts.at ("att." + in).getFloatValue() : 1.0f);
+        for (int k = 0; k < (int) p->opts.size(); ++k)       // numeric params become knobs
+        {
+            auto& o = p->opts[(size_t) k];
+            if (! o.positions.isEmpty() || o.name == "tune" || o.name == "samplerate") continue;
+            Board::Param pr;
+            pr.name = o.name; pr.k = k;
+            pr.def = o.def.getFloatValue();
+            pr.value = n.opts.count (o.name) ? n.opts.at (o.name).getFloatValue() : pr.def;
+            if (o.name == "ratio") { pr.lo = 1; pr.hi = 3; }
+            else { pr.lo = 0; pr.hi = jmax (1.0f, pr.def * 4); }
+            b.params.push_back (pr);
+        }
         for (int i = 0; i < p->ins.size(); ++i)
             b.ins.push_back ({ p->ins[i], n.name + (i > 0 ? "." + p->ins[i] : String()), 0 });
         for (int i = 0; i < p->outs.size(); ++i)
@@ -106,6 +135,22 @@ void Tapestry::layout()
         boards.push_back (b);
     }
 
+    // nothing hides behind anything: a board that overlaps one before it moves down, below it
+    for (size_t i = 1; i < boards.size(); ++i)
+    {
+        for (int guard = 0; guard < 100; ++guard)
+        {
+            bool moved = false;
+            for (size_t j = 0; j < i; ++j)
+                if (boards[i].r.intersects (boards[j].r.expanded (6)))
+                {
+                    boards[i].r.setY (boards[j].r.getBottom() + 14);
+                    moved = true;
+                }
+            if (! moved) break;
+        }
+    }
+
     Board ears;
     ears.node = -2; ears.key = "@ears"; ears.title = "SP-1"; ears.sub = "out, leds, scene"; ears.family = Ears;
     ears.help = "the outputs (left, right, out = both), the eight LEDs and scene changes";
@@ -117,6 +162,53 @@ void Tapestry::layout()
 
 Point<float> Tapestry::inletPos (const Board& b, int i) const { return { b.r.getX(), b.r.getY() + HEAD + ROW * (float) i + 8 }; }
 Point<float> Tapestry::outletPos (const Board& b, int i) const { return { b.r.getRight(), b.r.getY() + HEAD + ROW * (float) i + 8 }; }
+Point<float> Tapestry::tunePos (const Board& b) const { return { b.r.getRight() - 21, b.r.getY() + 25 }; }
+Point<float> Tapestry::paramPos (const Board& b, int j) const { return tunePos (b).translated (-28.0f * (float) (j + (b.hasTune ? 1 : 0)), 0); }
+Point<float> Tapestry::attPos (const Board& b, int i) const { return { b.r.getX() + 76, inletPos (b, i).y }; }
+
+static constexpr float TUNE_RANGE = 12;   // the tune knob: +-12 octaves (well below 1 Hz to past 15 kHz)
+static float attRange (const String& inlet) { return inlet == "pitch" ? 10.0f : 2.0f; }
+
+Tapestry::Knob Tapestry::knobAt (Point<float> d) const
+{
+    for (int i = (int) boards.size(); --i >= 0;)
+    {
+        auto& b = boards[(size_t) i];
+        if (b.node < 0) continue;
+        if (b.hasTune && tunePos (b).getDistanceFrom (d) < 13) return { i, -1 };
+        for (int j = 0; j < (int) b.params.size(); ++j)
+            if (paramPos (b, j).getDistanceFrom (d) < 12) return { i, -2, j };
+        if (b.hasAtt)
+            for (int k = 0; k < (int) b.ins.size(); ++k)
+                if (attPos (b, k).getDistanceFrom (d) < 7.5f) return { i, k };
+    }
+    return {};
+}
+
+// a little knob: a cream cap, a tick for the value, an arc from zero (bipolar) or from the bottom
+void Tapestry::drawKnob (Graphics& g, Point<float> c, float rad, float value, float range, bool bipolar, bool hot) const
+{
+    const float sweep = MathConstants<float>::pi * 0.75f;            // +-135 degrees
+    float v = jlimit (-1.0f, 1.0f, value / range);
+    float a = v * sweep, a0 = bipolar ? 0.0f : -sweep;
+    g.setColour (Colour (0x30000000));
+    g.fillEllipse (Rectangle<float> (rad * 2, rad * 2).withCentre (c).translated (0.8f, 1.5f));
+    const bool pop = art::theme().pop;
+    g.setColour (hot ? art::gold.brighter (0.4f) : (pop ? Colour (0xff141418) : (art::theme().dark ? Colour (0xff6a6254) : Colour (0xfff4efe2))));
+    g.fillEllipse (Rectangle<float> (rad * 2, rad * 2).withCentre (c));
+    g.setColour (pop ? art::theme().cardHead : art::ink.withAlpha (0.7f));
+    g.drawEllipse (Rectangle<float> (rad * 2, rad * 2).withCentre (c), 1.0f);
+    if (std::abs (a - a0) > 0.01f)
+    {
+        Path arc;
+        arc.addCentredArc (c.x, c.y, rad + 2.2f, rad + 2.2f, 0, jmin (a0, a), jmax (a0, a), true);
+        g.setColour (value < 0 && bipolar ? art::umber : art::gold.darker (0.15f));
+        g.strokePath (arc, PathStrokeType (1.8f));
+    }
+    auto tip = c.getPointOnCircumference (rad * 0.85f, a);
+    g.setColour (pop && ! hot ? Colours::white : art::ink);
+    g.drawLine ({ c.getPointOnCircumference (rad * 0.2f, a), tip }, 1.6f);
+}
 
 bool Tapestry::endpoint (int nodeId, int port, bool out, int& board, int& row) const
 {
@@ -186,6 +278,59 @@ int Tapestry::bottleAt (Point<float> d) const
     return -1;
 }
 
+bool Tapestry::cordEnds (int k, Point<float>& a, Point<float>& b) const
+{
+    auto& c = doc.cords[(size_t) k];
+    int sb, sr, db, dr;
+    if (c.src < 0 || ! endpoint (c.src, c.sport, true, sb, sr) || ! endpoint (c.dst, c.dport, false, db, dr)) return false;
+    a = outletPos (boards[(size_t) sb], sr);
+    b = inletPos (boards[(size_t) db], dr);
+    return true;
+}
+
+Path Tapestry::cordPath (int k) const
+{
+    Point<float> a, b;
+    if (! cordEnds (k, a, b)) return {};
+    if (routing && mode != Mode::Move)            // while a board is being dragged, cables hang; they route when you let go
+    {
+        if (routesDirty || routes.size() != doc.cords.size())
+        {
+            std::vector<Rectangle<float>> obstacles;
+            for (auto& bd : boards) obstacles.push_back (bd.r);
+            std::vector<router::Cable> cables;
+            std::vector<int> which;
+            for (int j = 0; j < (int) doc.cords.size(); ++j)
+            {
+                Point<float> p, q;
+                if (cordEnds (j, p, q)) { cables.push_back ({ p, q, doc.cords[(size_t) j].src * 16 + doc.cords[(size_t) j].sport }); which.push_back (j); }
+            }
+            auto paths = router::route (obstacles, cables);
+            routes.assign (doc.cords.size(), Path());
+            for (size_t j = 0; j < which.size(); ++j) routes[(size_t) which[j]] = paths[j];
+            routesDirty = false;
+        }
+        if (k < (int) routes.size() && ! routes[(size_t) k].isEmpty()) return routes[(size_t) k];
+    }
+    return art::cablePath (a, b);
+}
+
+void Tapestry::setRouting (bool on) { routing = on; routesDirty = true; repaint(); }
+
+void Tapestry::setLight (float l)
+{
+    light = jlimit (0.1f, 1.0f, l);
+    art::cableStyle().glow = jlimit (0.0f, 1.0f, (1.0f - light) * 1.4f);
+    repaint();
+}
+
+void Tapestry::setHighlight (int a, int b)
+{
+    if (a == hlFirst && b == hlLast) return;
+    hlFirst = a; hlLast = b;
+    repaint();
+}
+
 int Tapestry::cordAt (Point<float> d) const
 {
     for (int k = (int) doc.cords.size(); --k >= 0;)
@@ -194,7 +339,9 @@ int Tapestry::cordAt (Point<float> d) const
         if (c.src < 0) continue;
         int sb, sr, db, dr;
         if (! endpoint (c.src, c.sport, true, sb, sr) || ! endpoint (c.dst, c.dport, false, db, dr)) continue;
-        if (art::distanceToCable (outletPos (boards[(size_t) sb], sr), inletPos (boards[(size_t) db], dr), d) < 6.0f / zoom + 2) return k;
+        Point<float> onPath;
+        cordPath (k).getNearestPoint (d, onPath);
+        if (d.getDistanceFrom (onPath) < 6.0f / zoom + 2) return k;
     }
     return -1;
 }
@@ -212,53 +359,13 @@ void Tapestry::paint (Graphics& g)
         for (float y = std::floor (vis.getY() / th) * th; y < vis.getBottom(); y += th)
             for (float x = std::floor (vis.getX() / tw) * tw; x < vis.getRight(); x += tw)
                 g.drawImageAt (canvasImg, (int) x, (int) y);
-
-        // boards
-        for (int i = 0; i < (int) boards.size(); ++i)
+        if (light < 0.999f)                    // the lights are down
         {
-            auto& b = boards[(size_t) i];
-            auto r = b.r;
-            bool sp1 = b.node < 0;
-            g.setColour (Colour (0x40000000));
-            g.fillRoundedRectangle (r.translated (3, 6), 5);
-            g.setColour (sp1 ? Colour (0xffd6d4cc) : art::cream);
-            g.fillRoundedRectangle (r, 5);
-            g.setColour (art::familyColour (b.family).withAlpha (sp1 ? 0.5f : 0.85f));
-            g.fillRoundedRectangle (r.withHeight (6), 3);
-            g.setColour (selected.count (i) ? art::gold : Colour (0x55000000));
-            g.drawRoundedRectangle (r, 5, selected.count (i) ? 2.4f : 1.0f);
-            auto label = r.reduced (10, 0).withY (r.getY() + 11).withHeight (17);
-            art::drawDymo (g, label.withWidth (jmin (label.getWidth(), 12.0f + 8.6f * (float) b.title.length())), b.title);
-            g.setColour (art::ink.withAlpha (0.75f));
-            g.setFont (art::hand (12));
-            g.drawText (b.sub, r.reduced (10, 0).withY (r.getY() + 29).withHeight (15), Justification::left);
-            g.setFont (art::mono (10.5f));
-            for (int k = 0; k < (int) b.ins.size(); ++k)
-            {
-                auto p = inletPos (b, k);
-                art::drawLoop (g, p, hoverPort.board == i && ! hoverPort.out && hoverPort.port == k, art::ink);
-                g.setColour (art::ink);
-                g.drawText (b.ins[(size_t) k].label, Rectangle<float> (p.x + 9, p.y - 7, r.getWidth() * 0.55f, 14), Justification::left);
-            }
-            for (int k = 0; k < (int) b.outs.size(); ++k)
-            {
-                auto p = outletPos (b, k);
-                art::drawLoop (g, p, hoverPort.board == i && hoverPort.out && hoverPort.port == k, art::signalColour (b.outs[(size_t) k].signal));
-                g.setColour (art::ink);
-                g.drawText (b.outs[(size_t) k].label, Rectangle<float> (p.x - 9 - r.getWidth() * 0.5f, p.y - 7, r.getWidth() * 0.5f, 14), Justification::right);
-            }
-            if (b.node == -2)   // the lamp's eight LEDs, live
-                for (int k = 0; k < 8; ++k)
-                {
-                    float v = host.lamp (k);
-                    auto c = Rectangle<float> (7, 7).withCentre ({ r.getX() + 66 + (float) (k % 4) * 12, r.getY() + HEAD + ROW * 3 + 2 + (float) (k / 4) * 10 });
-                    g.setColour (Colour (0xff2a2a2a)); g.fillEllipse (c.expanded (1));
-                    g.setColour (Colour (0xffff3020).interpolatedWith (Colours::white, v).withAlpha (0.15f + 0.85f * v));
-                    g.fillEllipse (c);
-                }
+            g.setColour (Colours::black.withAlpha ((1.0f - light) * 0.85f));
+            g.fillRect (vis);
         }
 
-        // cords
+        // cords, under the boards so nothing on a board is hidden
         for (int k = 0; k < (int) doc.cords.size(); ++k)
         {
             auto& c = doc.cords[(size_t) k];
@@ -270,7 +377,7 @@ void Tapestry::paint (Graphics& g)
                 auto ip = inletPos (boards[(size_t) db], dr);
                 g.setColour (art::ink.withAlpha (0.6f));
                 g.drawLine (br.getRight(), br.getCentreY(), ip.x - 5, ip.y, 1.4f);
-                g.setColour (selectedCord == k ? art::gold : Colour (0xffeef3f6));
+                g.setColour (selectedCord == k ? art::gold : art::theme().card);
                 g.fillRoundedRectangle (br, 6);
                 g.setColour (art::blue);
                 g.drawRoundedRectangle (br, 6, 1.2f);
@@ -282,16 +389,138 @@ void Tapestry::paint (Graphics& g)
             if (! endpoint (c.src, c.sport, true, sb, sr)) continue;
             auto& from = boards[(size_t) sb];
             auto col = art::signalColour (from.outs[(size_t) sr].signal);
-            art::drawCable (g, outletPos (from, sr), inletPos (boards[(size_t) db], dr), col, c.kind == scq::Range ? 4 : c.kind,
-                            k == hoverCord || k == selectedCord, 1.0f);
+            auto path = cordPath (k);
+            art::drawCablePath (g, path, col, c.kind == scq::Range ? 4 : c.kind, k == hoverCord || k == selectedCord, 1.0f);
             if ((c.kind != Hall || std::abs (c.amt - 100) > 0.01f) && c.kind != Door)
             {
-                auto m = art::cableMid (outletPos (from, sr), inletPos (boards[(size_t) db], dr));
+                auto m = path.getPointAlongPath (path.getLength() * 0.5f);
                 g.setFont (art::mono (9.5f));
                 g.setColour (art::ink.withAlpha (0.8f));
                 String t = c.kind == scq::Range ? fmt (c.amt) + ".." + fmt (c.amt2) : (c.kind == Water ? fmt (c.amt) + "ms" : fmt (c.amt) + "%");
                 g.drawText (t, Rectangle<float> (m.x - 30, m.y + 7, 60, 12), Justification::centred);
             }
+        }
+
+
+        // boards, the selected ones on top
+        std::vector<int> order;
+        for (int i = 0; i < (int) boards.size(); ++i) if (! selected.count (i)) order.push_back (i);
+        for (int i : selected) if (i < (int) boards.size()) order.push_back (i);
+        for (int i : order)
+        {
+            auto& b = boards[(size_t) i];
+            auto r = b.r;
+            bool sp1 = b.node < 0;
+            auto& th = art::theme();
+            if (th.pop)                       // a flat card with a grey head; the head goes checker when selected
+            {
+                g.setColour (sp1 ? th.cardSp1 : th.card);
+                g.fillRect (r);
+                auto head = r.withHeight (22);
+                if (selected.count (i)) art::fillChecker (g, head);
+                else { g.setColour (th.cardHead); g.fillRect (head); }
+                g.setColour (art::familyColour (b.family));
+                g.fillRect (head.withWidth (5));
+                g.setColour (selected.count (i) ? th.checkB : th.cardHead);
+                g.drawRect (r, selected.count (i) ? 2.0f : 1.2f);
+                g.setColour (selected.count (i) ? Colour (0xff1a1a1a) : th.cardHeadText);
+                g.setFont (art::label (12));
+                g.drawText (b.title.toLowerCase(), head.reduced (11, 0), Justification::centredLeft);
+                g.setColour (th.chromeDim.interpolatedWith (art::ink, 0.3f));
+                g.setFont (art::label (9.5f));
+            }
+            else
+            {
+                g.setColour (Colour (0x40000000));
+                g.fillRoundedRectangle (r.translated (3, 6), 5);
+                g.setColour (sp1 ? th.cardSp1 : art::cream);
+                g.fillRoundedRectangle (r, 5);
+                g.setColour (art::familyColour (b.family).withAlpha (sp1 ? 0.5f : 0.85f));
+                g.fillRoundedRectangle (r.withHeight (6), 3);
+                g.setColour (selected.count (i) ? art::gold : (th.dark ? Colour (0x55ffffff) : Colour (0x55000000)));
+                g.drawRoundedRectangle (r, 5, selected.count (i) ? 2.4f : 1.0f);
+                auto label = r.reduced (10, 0).withY (r.getY() + 11).withHeight (17);
+                art::drawDymo (g, label.withWidth (jmin (label.getWidth(), 12.0f + 8.6f * (float) b.title.length())), b.title);
+                g.setColour (art::ink.withAlpha (0.75f));
+                g.setFont (art::hand (12));
+            }
+            g.drawText (b.sub, r.reduced (10, 0).withY (r.getY() + 29).withHeight (15).withTrimmedRight ((b.hasTune ? 26.0f : 0.0f) + 28.0f * (float) b.params.size()), Justification::left);
+            for (int j = 0; j < (int) b.params.size(); ++j)
+            {
+                auto& pr = b.params[(size_t) j];
+                bool hot = (knob.board == i && knob.param == j) || (hoverKnob.board == i && hoverKnob.param == j);
+                // unipolar from lo: the arc shows how far up its range it is
+                drawKnob (g, paramPos (b, j), 9, (pr.value - pr.lo) / (pr.hi - pr.lo) * 2 - 1, 1, false, hot);
+                g.setColour (art::ink.withAlpha (0.6f));
+                g.setFont (art::mono (8.5f));
+                g.drawText (pr.name, Rectangle<float> (44, 10).withCentre (paramPos (b, j).translated (0, 16)), Justification::centred);
+            }
+            if (b.hasTune)
+            {
+                bool hot = (knob.board == i && knob.inlet == -1) || (hoverKnob.board == i && hoverKnob.inlet == -1);
+                drawKnob (g, tunePos (b), 10, b.tune, TUNE_RANGE, true, hot);
+                g.setColour (art::ink.withAlpha (0.6f));
+                g.setFont (art::mono (8.5f));
+                g.drawText ("tune", Rectangle<float> (40, 10).withCentre (tunePos (b).translated (0, 16)), Justification::centred);
+            }
+            g.setFont (art::theme().pop ? art::label (9.5f) : art::mono (10.5f));
+            for (int k = 0; k < (int) b.ins.size(); ++k)
+            {
+                auto p = inletPos (b, k);
+                art::drawLoop (g, p, hoverPort.board == i && ! hoverPort.out && hoverPort.port == k, art::ink);
+                g.setColour (art::ink);
+                g.drawText (b.ins[(size_t) k].label, Rectangle<float> (p.x + 9, p.y - 7, b.hasAtt ? 58.0f : r.getWidth() * 0.55f, 14), Justification::left);
+                if (b.hasAtt && k < (int) b.att.size())
+                {
+                    bool hot = (knob.board == i && knob.inlet == k) || (hoverKnob.board == i && hoverKnob.inlet == k);
+                    drawKnob (g, attPos (b, k), 5, b.att[(size_t) k], attRange (b.ins[(size_t) k].label), true, hot);
+                }
+            }
+            for (int k = 0; k < (int) b.outs.size(); ++k)
+            {
+                auto p = outletPos (b, k);
+                art::drawLoop (g, p, hoverPort.board == i && hoverPort.out && hoverPort.port == k, art::signalColour (b.outs[(size_t) k].signal));
+                g.setColour (art::ink);
+                g.drawText (b.outs[(size_t) k].label, Rectangle<float> (p.x - 9 - r.getWidth() * 0.5f, p.y - 7, r.getWidth() * 0.5f, 14), Justification::right);
+            }
+            if (light < 0.999f)                // lights down: the boards go dark, what's lit stays lit
+            {
+                g.setColour (Colours::black.withAlpha ((1.0f - light) * 0.72f));
+                g.fillRoundedRectangle (r, 5);
+            }
+            if (b.node >= 0)                   // selected in the journal: outlined in gold
+                if (auto* nd = doc.node (b.node); nd && lit (nd->line))
+                {
+                    g.setColour (art::gold.withAlpha (0.35f));
+                    g.drawRoundedRectangle (r.expanded (4), 8, 6.0f);
+                    g.setColour (art::gold);
+                    g.drawRoundedRectangle (r.expanded (1.5f), 6, 2.6f);
+                }
+            if (b.node == -2)   // the lamp's eight LEDs, live
+                for (int k = 0; k < 8; ++k)
+                {
+                    float v = host.lamp (k);
+                    auto c = Rectangle<float> (7, 7).withCentre ({ r.getX() + 66 + (float) (k % 4) * 12, r.getY() + HEAD + ROW * 3 + 2 + (float) (k / 4) * 10 });
+                    g.setColour (Colour (0xff2a2a2a)); g.fillEllipse (c.expanded (1));
+                    if (light < 0.999f && v > 0.02f)    // glowing in the dark
+                    {
+                        auto glowCol = Colour (0xffff3020).interpolatedWith (Colours::white, v);
+                        g.setColour (glowCol.withAlpha (0.18f * v * (1.0f - light) * 1.5f)); g.fillEllipse (c.expanded (9));
+                        g.setColour (glowCol.withAlpha (0.35f * v * (1.0f - light) * 1.5f)); g.fillEllipse (c.expanded (4));
+                    }
+                    g.setColour (Colour (0xffff3020).interpolatedWith (Colours::white, v).withAlpha (0.15f + 0.85f * v));
+                    g.fillEllipse (c);
+                }
+        }
+
+        // the one you're pointing at or have picked, and those selected in the journal, on top of the boards
+        for (int k = 0; k < (int) doc.cords.size(); ++k)
+        {
+            auto& c = doc.cords[(size_t) k];
+            if (c.src < 0 || ! (k == hoverCord || k == selectedCord || lit (c.line))) continue;
+            int sb, sr;
+            if (! endpoint (c.src, c.sport, true, sb, sr)) continue;
+            art::drawCablePath (g, cordPath (k), art::signalColour (boards[(size_t) sb].outs[(size_t) sr].signal), c.kind == scq::Range ? 4 : c.kind, true, 1.0f);
         }
 
         // the cord in your hand
@@ -310,6 +539,24 @@ void Tapestry::paint (Graphics& g)
         }
     }
 
+    // find my patch: always there, bottom right
+    {
+        auto fb = findButton().toFloat();
+        auto& th = art::theme();
+        if (th.pop) { g.setColour (th.button); g.fillRect (fb); }
+        else
+        {
+            g.setColour (Colour (0x30000000));
+            g.fillRoundedRectangle (fb.translated (2, 3), 6);
+            g.setColour (art::cream);
+            g.fillRoundedRectangle (fb, 6);
+            g.setColour (art::ink.withAlpha (0.6f));
+            g.drawRoundedRectangle (fb, 6, 1.0f);
+        }
+        g.setColour (th.pop ? th.buttonText : art::ink);
+        g.setFont (art::label (11.5f));
+        g.drawText (String::fromUTF8 ("find my patch  \xe2\x8c\x98" "0"), fb, Justification::centred);
+    }
     if (doc.nodes.empty() || boards.size() <= 2)
     {
         g.setColour (art::ink.withAlpha (0.7f));
@@ -335,6 +582,20 @@ void Tapestry::mouseMove (const MouseEvent& e)
 {
     auto d = toDesign (e.position);
     lastMouse = d;
+    auto hk = knobAt (d);
+    if (hk.board != hoverKnob.board || hk.inlet != hoverKnob.inlet || hk.param != hoverKnob.param)
+    {
+        hoverKnob = hk;
+        if (hk.board >= 0 && onStatus)
+        {
+            auto& b = boards[(size_t) hk.board];
+            if (hk.param >= 0) onStatus (b.key + " " + b.params[(size_t) hk.param].name + " " + fmt (b.params[(size_t) hk.param].value) + ": drag to set");
+            else onStatus (hk.inlet < 0 ? b.key + " tune " + fmt (b.tune) + " octaves: drag to set the base pitch"
+                                   : b.ins[(size_t) hk.inlet].text + " attenuverter " + fmt (b.att[(size_t) hk.inlet]) + ": scales what's patched in");
+        }
+        repaint();
+    }
+    if (hk.board >= 0) { setMouseCursor (MouseCursor::UpDownResizeCursor); return; }
     auto hp = portAt (d);
     int hc = hp.board < 0 ? cordAt (d) : -1;
     int hb = boardAt (d);
@@ -348,7 +609,7 @@ void Tapestry::mouseMove (const MouseEvent& e)
                 auto& b = boards[(size_t) hp.board];
                 onStatus ((hp.out ? b.outs : b.ins)[(size_t) hp.port].text + (hp.out ? "   drag to an inlet" : "   drag to an outlet"));
             }
-            else if (hc >= 0) onStatus (doc.cordText (doc.cords[(size_t) hc]) + "      (right-click to change)");
+            else if (hc >= 0) onStatus (doc.cordText (doc.cords[(size_t) hc]) + "      option-click: remove   cmd-drag: stack another   right-click: change");
             else if (hb >= 0) onStatus (boards[(size_t) hb].title + ": " + boards[(size_t) hb].help);
             else onStatus ({});
         }
@@ -360,6 +621,7 @@ void Tapestry::mouseMove (const MouseEvent& e)
 void Tapestry::mouseDown (const MouseEvent& e)
 {
     grabKeyboardFocus();
+    if (findButton().contains (e.getPosition()) && ! e.mods.isPopupMenu()) { fitAll(); mode = Mode::None; return; }
     auto d = toDesign (e.position);
     anchor = e.position;
     dragPos = d;
@@ -370,6 +632,48 @@ void Tapestry::mouseDown (const MouseEvent& e)
         else if (ci >= 0) cordMenu (ci);
         else if (bi >= 0) boardMenu (bi);
         else canvasMenu (d);
+        return;
+    }
+    if (e.mods.isAltDown())          // option-click: pull cables out (a cable, or every cable at a port)
+    {
+        std::set<int> drop;
+        auto hp = portAt (d);
+        if (hp.board >= 0)
+        {
+            for (int k = 0; k < (int) doc.cords.size(); ++k)
+            {
+                auto& c = doc.cords[(size_t) k];
+                int b, row;
+                if (hp.out ? (c.src >= 0 && endpoint (c.src, c.sport, true, b, row)) : endpoint (c.dst, c.dport, false, b, row))
+                    if (b == hp.board && row == hp.port) drop.insert (k);
+            }
+        }
+        else if (int ci = cordAt (d); ci >= 0) drop.insert (ci);
+        else if (int bo = bottleAt (d); bo >= 0) drop.insert (bo);
+        if (! drop.empty())
+        {
+            doc.removeCords (drop);
+            selectedCord = -1;
+            if (onStatus) onStatus (drop.size() == 1 ? "cable removed   (cmd-Z puts it back)" : String ((int) drop.size()) + " cables removed   (cmd-Z puts them back)");
+            edited (true);
+        }
+        return;
+    }
+    if (e.mods.isCommandDown())      // cmd-drag a cable: stack another one on its outlet
+    {
+        int ci = cordAt (d);
+        if (ci >= 0 && doc.cords[(size_t) ci].src >= 0)
+        {
+            int b, row;
+            auto& c = doc.cords[(size_t) ci];
+            if (endpoint (c.src, c.sport, true, b, row)) { mode = Mode::Cable; cableFrom = { b, true, row }; dragPos = d; return; }
+        }
+    }
+    if (auto kn = knobAt (d); kn.board >= 0)
+    {
+        auto& b = boards[(size_t) kn.board];
+        mode = Mode::Knob; knob = kn;
+        knobStart = kn.param >= 0 ? b.params[(size_t) kn.param].value : (kn.inlet < 0 ? b.tune : b.att[(size_t) kn.inlet]);
         return;
     }
     auto hp = portAt (d);
@@ -423,6 +727,40 @@ void Tapestry::mouseDrag (const MouseEvent& e)
             hoverPort = portAt (d, 14);
             repaint();
             break;
+        case Mode::Knob:
+        {
+            auto& b = boards[(size_t) knob.board];
+            float dy = anchor.y - e.position.y;
+            bool fine = e.mods.isShiftDown();
+            if (knob.param >= 0)      // a param: 200 px across its range, shift for fine
+            {
+                auto& pr = b.params[(size_t) knob.param];
+                float step = (pr.hi - pr.lo) / 200.0f / (fine ? 10.0f : 1.0f);
+                pr.value = jlimit (pr.lo, pr.hi, knobStart + std::round (dy) * step);
+                pr.value = std::round (pr.value * 1000.0f) / 1000.0f;
+                host.setParam (b.node, pr.k, pr.value);
+                if (onStatus) onStatus (b.key + " " + pr.name + " " + fmt (pr.value) + "   shift: fine, double-click: " + fmt (pr.def));
+            }
+            else if (knob.inlet < 0)  // tune: semitones, or cents with shift
+            {
+                float v = fine ? knobStart + std::round (dy) / 1200.0f : knobStart + std::round (dy / 3.0f) / 12.0f;
+                b.tune = jlimit (-TUNE_RANGE, TUNE_RANGE, v);
+                host.setTune (b.node, b.tune);
+                if (onStatus) onStatus (b.key + " tune " + fmt (b.tune) + " octaves (" + String (b.tune * 12.0f, 1) + " semitones)   shift: fine, double-click: 0");
+            }
+            else
+            {
+                float range = attRange (b.ins[(size_t) knob.inlet].label);
+                float step = range / 200.0f / (fine ? 10.0f : 1.0f);
+                float v = jlimit (-range, range, knobStart + std::round (dy) * step);
+                if (std::abs (v) < step * 0.5f) v = 0;
+                b.att[(size_t) knob.inlet] = v;
+                host.setAtt (b.node, knob.inlet, v);
+                if (onStatus) onStatus (b.ins[(size_t) knob.inlet].text + " attenuverter " + fmt (v) + "   shift: fine, double-click: 1");
+            }
+            repaint();
+            break;
+        }
         case Mode::Value:
         {
             float step = e.mods.isShiftDown() ? 0.1f : 1.0f;
@@ -458,8 +796,18 @@ void Tapestry::mouseUp (const MouseEvent& e)
     }
     else if (mode == Mode::Move && e.getDistanceFromDragStart() > 2)
     {
+        routesDirty = true;
         doc.writePositions();
         edited (false);
+    }
+    else if (mode == Mode::Knob && knob.board >= 0)
+    {
+        auto& b = boards[(size_t) knob.board];
+        if (knob.param >= 0) doc.setOption (b.node, b.params[(size_t) knob.param].name, fmt (b.params[(size_t) knob.param].value));
+        else if (knob.inlet < 0) doc.setOption (b.node, "tune", fmt (b.tune));
+        else doc.setOption (b.node, "att." + b.ins[(size_t) knob.inlet].label, fmt (b.att[(size_t) knob.inlet]));
+        knob = {};
+        edited (false);    // already playing; the text just catches up
     }
     else if (mode == Mode::Value && valueCord >= 0)
     {
@@ -476,11 +824,22 @@ void Tapestry::mouseUp (const MouseEvent& e)
 void Tapestry::mouseDoubleClick (const MouseEvent& e)
 {
     auto d = toDesign (e.position);
+    if (auto kn = knobAt (d); kn.board >= 0)     // back to where it rests: tune 0, attenuverter 1
+    {
+        auto& b = boards[(size_t) kn.board];
+        if (kn.param >= 0) { auto& pr = b.params[(size_t) kn.param]; pr.value = pr.def; host.setParam (b.node, pr.k, pr.def); doc.setOption (b.node, pr.name, fmt (pr.def)); }
+        else if (kn.inlet < 0) { b.tune = 0; host.setTune (b.node, 0); doc.setOption (b.node, "tune", "0"); }
+        else { b.att[(size_t) kn.inlet] = 1; host.setAtt (b.node, kn.inlet, 1); doc.setOption (b.node, "att." + b.ins[(size_t) kn.inlet].label, "1"); }
+        edited (false);
+        repaint();
+        return;
+    }
     int ci = cordAt (d);
     if (ci < 0) ci = bottleAt (d);
     if (ci >= 0) { askAmount (ci); return; }
     int bi = boardAt (d);
-    if (bi >= 0 && boards[(size_t) bi].node >= 0)
+    if (bi < 0) { fitAll(); return; }                 // double-click the empty canvas: find my patch
+    if (boards[(size_t) bi].node >= 0)
         if (auto* n = doc.node (boards[(size_t) bi].node)) if (onShowLine) onShowLine (n->line);
 }
 
@@ -506,13 +865,25 @@ void Tapestry::mouseWheelMove (const MouseEvent& e, const MouseWheelDetails& w)
 
 void Tapestry::mouseMagnify (const MouseEvent& e, float s) { zoomAbout (zoom * s, e.position); }
 
+juce::Rectangle<int> Tapestry::findButton() const { return getLocalBounds().removeFromBottom (40).removeFromRight (170).reduced (8); }
+
+void Tapestry::centreOn (int bi)
+{
+    if (bi < 0 || bi >= (int) boards.size()) return;
+    if (zoom < 0.7f) zoom = 0.9f;
+    pan = boards[(size_t) bi].r.getCentre() - getLocalBounds().toFloat().getCentre() / zoom;
+    selected.clear(); selected.insert (bi); selectedCord = -1;
+    if (onStatus) onStatus ("here is " + boards[(size_t) bi].key);
+    repaint();
+}
+
 void Tapestry::fitAll()
 {
     if (boards.empty()) return;
     Rectangle<float> all = boards.front().r;
     for (auto& b : boards) all = all.getUnion (b.r);
     all = all.expanded (60);
-    zoom = jlimit (0.3f, 1.4f, jmin ((float) getWidth() / all.getWidth(), (float) getHeight() / all.getHeight()));
+    zoom = jlimit (0.3f, 1.0f, jmin ((float) getWidth() / all.getWidth(), (float) (getHeight() - 30) / all.getHeight()));
     pan = all.getPosition() - Point<float> (((float) getWidth() / zoom - all.getWidth()) * 0.5f, 0);
     repaint();
 }
@@ -680,6 +1051,18 @@ void Tapestry::boardMenu (int bi)
                 choices.push_back ({ o.name, pos });
                 sub.addItem (100 + (int) choices.size() - 1, pos, true, pos == now);
             }
+            if (o.name == "scale")       // and every .scl in the scales folder
+            {
+                sub.addSectionHeader ("from the scales folder");
+                for (auto& sc : scales::names())
+                {
+                    choices.push_back ({ o.name, sc });
+                    sub.addItem (100 + (int) choices.size() - 1, sc, true, sc == now);
+                }
+                sub.addSeparator();
+                choices.push_back ({ "@folder", "open" });
+                sub.addItem (100 + (int) choices.size() - 1, "open the scales folder...");
+            }
             m.addSubMenu (o.name + "   " + now, sub);
         }
         m.addSeparator();
@@ -694,6 +1077,7 @@ void Tapestry::boardMenu (int bi)
         if (r >= 100 && r - 100 < (int) choices.size())
         {
             auto [key, value] = choices[(size_t) (r - 100)];
+            if (key == "@folder") { scales::folder().startAsProcess(); return; }
             if (value.isNotEmpty()) { doc.setOption (id, key, value); edited (true); return; }
             auto* w = new AlertWindow (key, "a number", MessageBoxIconType::NoIcon);
             auto* nn = doc.node (id);
@@ -730,10 +1114,16 @@ void Tapestry::canvasMenu (Point<float> d)
     for (int f = 0; f < 4; ++f) m.addSubMenu (names[f], fams[f]);
     m.addSeparator();
     m.addItem (1000, "paste", SystemClipboard::getTextFromClipboard().isNotEmpty());
-    m.addItem (1001, "fit everything in view");
+    m.addItem (1001, "find my patch (fit everything in view)");
+    PopupMenu find;
+    for (int i = 0; i < (int) boards.size(); ++i)
+        if (boards[(size_t) i].node >= 0)
+            find.addItem (2000 + i, boards[(size_t) i].key + (boards[(size_t) i].key != boards[(size_t) i].title ? "   (" + boards[(size_t) i].title + ")" : String()));
+    m.addSubMenu ("find...", find);
     lastMouse = d;
     m.showMenuAsync ({}, [this, ids, d] (int r)
     {
+        if (r >= 2000) { centreOn (r - 2000); return; }
         if (r >= 1 && r <= (int) ids.size())
         {
             auto name = doc.addPlace (ids[(size_t) r - 1]);

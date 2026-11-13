@@ -24,7 +24,9 @@ out = [guide, "\n# The places\n",
        "Every place has a fixed *nature* (the number after its name), and some have switches "
        "and params, set when you name it (the first position is the default). Otherwise you "
        "change a place only by running something into its inlets. The first inlet and "
-       "the first outlet need no name: `voice -> gate` means `voice.out -> gate.in`.\n"]
+       "the first outlet need no name: `voice -> gate` means `voice.out -> gate.in`. "
+       "Every source, and every place with a pitch inlet, also has an attenuverter on each inlet "
+       "(`att.fm=-0.5`); places with a pitch inlet have a tune knob (`tune=-3`, octaves).\n"]
 for fam in ["source", "shape", "space", "current", "hands", "ears"]:
     out.append(f"\n## {fam_title[fam]}\n")
     out.append("| place | nature | in | out | switches | what it is |\n|---|---|---|---|---|---|")

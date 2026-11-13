@@ -1,3 +1,4 @@
+#include "Scales.h"
 #include <juce_gui_extra/juce_gui_extra.h>
 #include "MainComponent.h"
 #include "Art.h"
@@ -26,7 +27,7 @@ public:
             // through the live link, exactly as the window's "send to SP-1" does
             serial::Link link;
             for (int i = 0; i < 100 && ! link.connected(); ++i) juce::Thread::sleep (100);
-            juce::String err = link.connected() ? link.send (f.loadFileAsString(), -1) : juce::String ("no SP-1 found");
+            juce::String err = link.connected() ? link.send (scales::withTunings (f.loadFileAsString()), -1) : juce::String ("no SP-1 found");
             std::printf ("%s\n", err.isEmpty() ? ("sent to " + link.port()).toRawUTF8() : err.toRawUTF8());
             std::fflush (stdout);
             setApplicationReturnValue (err.isEmpty() ? 0 : 1);
@@ -42,6 +43,16 @@ public:
             int v = args.indexOf ("--view");
             if (v >= 0) window->main->showView (args[v + 1].getIntValue());
             if (args.size() > shot + 2 && ! args[shot + 2].startsWith ("--")) window->main->openFile (juce::File::getCurrentWorkingDirectory().getChildFile (args[shot + 2].unquoted()));
+            if (int lk = args.indexOf ("--look"); lk >= 0)   // --look light,router,hlFirst,hlLast
+            {
+                auto t = juce::StringArray::fromTokens (args[lk + 1], ",", "");
+                juce::Timer::callAfterDelay (600, [this, t] { window->main->lookForShot (t[0].getFloatValue(), t[1] == "1", t[2].getIntValue(), t[3].getIntValue()); });
+            }
+            if (int th = args.indexOf ("--theme"); th >= 0)   // --theme openprocess|journal,dark|light
+            {
+                auto t = juce::StringArray::fromTokens (args[th + 1], ",", "");
+                juce::Timer::callAfterDelay (700, [this, t] { window->main->themeForShot (t[0] != "journal", t[1] != "light"); });
+            }
             int wait = args.contains ("--wait") ? args[args.indexOf ("--wait") + 1].getIntValue() : 2800;
             juce::Timer::callAfterDelay (wait - 800, [this] { window->main->resized(); window->main->repaint(); });
             juce::Timer::callAfterDelay (wait, [this, out]

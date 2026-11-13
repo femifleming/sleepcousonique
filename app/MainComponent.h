@@ -8,11 +8,16 @@
 #include "Serial.h"
 
 class MainComponent : public juce::Component,
+                      public juce::DarkModeSettingListener,
                       public juce::DragAndDropContainer,
                       public juce::MenuBarModel,
                       private juce::Timer
 {
 public:
+    void lookForShot (float light, bool router, int hlFirst, int hlLast)   // screenshots only: nothing is saved
+    { tapestry.setLight (light); tapestry.setRouting (router); tapestry.setHighlight (hlFirst, hlLast); hlShot = hlLast >= hlFirst; }
+    bool hlShot = false;
+    void themeForShot (bool pop, bool dark);   // screenshots only: nothing is saved
     MainComponent();
     ~MainComponent() override;
 
@@ -30,6 +35,15 @@ public:
     std::function<void (const juce::String&)> onTitle;
 
 private:
+    // one history for everything: each entry is the whole dream text (positions included)
+    std::vector<juce::String> undoStack, redoStack;
+    juce::String committed;
+    void remember();                 // the text changed: keep what it was
+    void resetHistory();             // a new or opened dream
+    void undoRedo (bool redo);
+    void applyLook();
+    void darkModeSettingChanged() override { applyLook(); }   // the computer switched light / dark                // room light, cable opacity / slack / routing from the settings
+
     void timerCallback() override;
     void compile (bool force = false);
     void afterLoad (const Host::Result&);
@@ -56,7 +70,8 @@ private:
     juce::TextButton sendBtn { "send to SP-1" }, soundBtn { "sound" };
     juce::TextButton kindBtn[4], viewBtn[3], addSceneBtn { "+ scene" };
     juce::OwnedArray<juce::TextButton> sceneBtns;
-    juce::Rectangle<int> meters, statusArea, sceneArea;
+    juce::Rectangle<int> meters, statusArea, sceneArea, linkArea;   // linkArea: is the SP-1 there
+    juce::uint32 handsSeen = 0, handsAt = 0;                         // the last hands report, and when
 
     int view = 1;            // 0 journal, 1 both, 2 tapestry
     juce::String statusText, lastCode, lastMessages;

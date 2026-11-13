@@ -98,6 +98,90 @@ second position (`cycle1` is `cycle1=on`), and a position word alone picks it wh
 switch has it (`audio`, `pelog`). The first position is the default. On the tapestry,
 right-click a place to set its switches. The full list is in the switches column below.
 
+## Difference tones
+
+`difftone` is two pure sines, f1 and f2 = f1 x ratio, made for the tones your own ears add:
+f2-f1 (the quadratic difference tone) and 2f1-f2 (the cubic), after Alex Chechile's
+*Practical Applications of Difference Tones in Electronic Music Composition and Synthesis*
+(2020). The module adds nothing nonlinear: the difference tones happen in the ear.
+
+    the ear is difftone ratio=1.2      ; f1 960 Hz, f2 1152 Hz: hear 192 Hz and 768 Hz
+    fader1 -> ear.ratio                ; the ratio inlet adds to the knob
+
+Its **ratio** knob (1 to 3) and **tune** knob (the master pitch) sit on the board. Ratios near
+1.2 give the strongest cubic tone, which fades as the ratio widens; the quadratic tone holds
+from about 1.1 to 1.5. Keep f1 around 1-2 kHz (the default, nature 16, is 960 Hz), play it at
+a healthy level, and send `out` (both tones) to the same ear.
+
+## Scales from the scales folder
+
+The quantizer knows 38 scales by heart, and any Scala (`.scl`) file in the scales folder,
+`Documents/Sleepcousonique/scales` (right-click a quantizer ▸ scale ▸ *open the scales folder*).
+Drop a `.scl` file in and use it by its file name, in lower case:
+
+    the q is quantizer scale=young_wtp
+    the r is quantizer scale=raga_yaman
+
+It comes with La Monte Young (`young_wtp`, The Well-Tuned Piano; `young_224_288`, the Dream
+House harmonics), the 22 shrutis (`shruti22`), sixteen ragas in just intonation (`raga_yaman`,
+`raga_bhairav`, `raga_bhairavi`, `raga_todi`, `raga_marwa`, `raga_malkauns`, ...), Wendy Carlos
+(`carlos_harmonic`, `carlos_superjust`), Stockhausen's Studie II (`stockhausen_studie2`, 25 steps
+of 5:1), Busoni's third and sixth tones, John Pierce's eight-tone scale and Terry Riley's Harp of
+New Albion. Scales you delete stay deleted.
+
+The SP-1 has no files, so the editor writes the scales your dream names into the dream itself,
+at the end, whenever it plays or sends it:
+
+    tuning young_wtp: 176.6450 203.9100 ... 1200.0000
+
+cents of each degree after the root, the last being the period (usually 1200). You can write a
+tuning line yourself too; a long one goes on over several lines with the same name.
+
+## Saving the SP-1's processor
+
+The SP-1 has to finish every block of sound in time. The load meter shows the editor's
+estimate; with an SP-1 plugged in it also shows what the SP-1 measures, average and peak. Keep
+the peaks under 100%: past that the SP-1 drops blocks (heard as dropouts) and says so.
+
+**samplerate=** runs any place at a lower rate: `full` (48 kHz), `half`, `quarter` or `eighth`
+(6 kHz). Half the rate is about half the work. Pitches stay where they are; the sound gets
+darker and grittier (the outlets are held between samples, like a sample-rate reducer), and
+delays and reverbs get longer. Currents (LFOs, envelopes, followers, quantizers, sequencers)
+lose almost nothing at `eighth`.
+
+    the wobble is lfo eighth
+    the room is reverb samplerate=half
+
+(There is no bit-depth setting: the SP-1 works in floating point, where fewer bits cost the
+same. For the sound of fewer bits, use `bitcrush`.)
+
+**Bare places** do one job with one outlet: `saw`, `tri`, `pulse`, `white`, `follow`
+(envelope follower), `onepole` (the gentlest lowpass); `sine` with nothing in its `fm` and `vca`
+are already bare. **Lite places** are cut-down versions of heavy ones: `reverblite`,
+`choruslite`, `delaylite`, `fmlite`, `supersawlite`, `froglet` (one frog).
+
+## Tune and attenuverters (the knobs on the module)
+
+Every place with a `pitch` inlet (the oscillators, frogs, bell, string, kick, comb...) has a
+**tune** knob: its base pitch, in octaves, added to whatever reaches `pitch`. It reaches twelve
+octaves either way, from well under a hertz (a slow LFO) to past 15 kHz:
+
+    the a is sine tune=-12          ; one swing every minute or so
+    the b is frogs 3 tune=4         ; frogs four octaves up
+
+Every source, and every place with a `pitch` inlet, also has an **attenuverter** on each inlet,
+`att.INLET`. It scales what's patched into that inlet, never the inlet's own default: 1 is as is
+(and isn't written), 0 shuts the cord out, negative turns it upside down. `att.pitch` goes to
++-10, so one fader can sweep ten octaves; the others go to +-2.
+
+    the c is vco tune=2.5 att.pitch=10 att.fm=-0.5
+    fader1 -> c.pitch               ; fader1 now sweeps ten octaves up from c's tune
+
+On the tapestry the tune knob sits in the board's top corner and the attenuverters next to the
+inlets. Drag them up and down (shift for fine; tune moves in semitones, or cents with shift);
+the sound follows as you drag and the journal line changes when you let go. Double-click a knob
+to put it back (tune 0, attenuverter 1).
+
 ## Lucid groups (morphs)
 
     lucid fader2: peaks.fold 0..90, env.rise 20..5, gate.level 0..60

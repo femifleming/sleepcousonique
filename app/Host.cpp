@@ -1,5 +1,6 @@
 #include "Host.h"
 #include "scq.h"
+#include "Scales.h"
 
 Host::Host()
 {
@@ -60,7 +61,7 @@ static Host::Result readBack (int errors)
 
 Host::Result Host::load (const juce::String& text, juce::uint32 nights)
 {
-    auto utf8 = text.toStdString();
+    auto utf8 = scales::withTunings (text).toStdString();     // the scales folder's tunings it names
     const juce::ScopedLock sl (lock);
     int e = scq_load (utf8.data(), (int) utf8.size(), nights);
     return readBack (e);
@@ -74,7 +75,7 @@ Host::Result Host::describe()
 
 Host::Result Host::check (const juce::String& text, juce::uint32 nights)
 {
-    auto utf8 = text.toStdString();
+    auto utf8 = scales::withTunings (text).toStdString();
     std::vector<char> msgs (4096);
     const juce::ScopedLock sl (lock);
     int e = scq_check (utf8.data(), (int) utf8.size(), nights, msgs.data(), (int) msgs.size());
@@ -84,6 +85,11 @@ Host::Result Host::check (const juce::String& text, juce::uint32 nights)
 }
 
 void Host::setAmount (int cord, float amount) { const juce::ScopedLock sl (lock); scq_set_amount (cord, amount); }
+
+void Host::setTune (int node, float o) { const juce::ScopedLock sl (lock); scq_set_tune (node, o); }
+void Host::setAtt (int node, int in, float a) { const juce::ScopedLock sl (lock); scq_set_att (node, in, a); }
+
+void Host::setParam (int node, int k, float v) { const juce::ScopedLock sl (lock); scq_set_param (node, k, v); }
 
 void Host::gotoScene (int s) { const juce::ScopedLock sl (lock); scq_goto_scene (s); }
 int Host::scene() { return scq_scene(); }

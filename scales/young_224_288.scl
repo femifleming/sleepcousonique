@@ -1,0 +1,27 @@
+! young_224_288.scl
+!
+La Monte Young, Dream House: the harmonics 224-288 (lowest-term primes, with 261 and 279), over 224
+ 17
+!
+! Read from the title of the Dream House sine-wave work 'The Base 9:7:4 Symmetry in Prime Time
+! when Centered above and below The Lowest Term Primes in The Range 288 to 224 with The
+! Addition of 279 and 261...': every pitch sits inside one 9:7 (288/224), so the rest of the
+! octave is empty. A cluster, not a scale: snap to it and everything lands in that band.
+!
+ 227/224
+ 229/224
+ 233/224
+ 239/224
+ 241/224
+ 251/224
+ 257/224
+ 261/224
+ 263/224
+ 269/224
+ 271/224
+ 277/224
+ 279/224
+ 281/224
+ 283/224
+ 288/224
+ 2/1

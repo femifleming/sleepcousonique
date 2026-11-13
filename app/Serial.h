@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_core/juce_core.h>
+#include <cstdint>
 
 // Sends a dream to an SP-1 running the Sleepcousonique firmware, over its USB serial port.
 //
@@ -28,7 +29,14 @@ public:
         float lamp[8] {};
         juce::uint32 count = 0;       // goes up with every report
     };
+    struct Measured                   // the SP-1's own report ("SCQ engine avg=.. max=..") every 5 s
+    {
+        int avg = -1, peak = -1;      // percent of its processor
+        bool over = false;            // it dropped blocks: the dream is too heavy
+        juce::uint32 when = 0;        // ms counter of the report
+    };
     bool connected() const { return isConnected.load(); }
+    Measured measured() const;
     juce::String port() const;
     Hands hands() const;
 
@@ -41,11 +49,12 @@ private:
     void handle (const juce::String& line);
     void drop();
 
-    int fd = -1;
+    intptr_t fd = -1;               // the port: a file descriptor, or a Windows HANDLE
     std::atomic<bool> isConnected { false };
     juce::String portName;
     mutable juce::CriticalSection lock;
     Hands latest;
+    Measured meas;
     juce::String partial;
 
     // a send handed to the link thread

@@ -7,7 +7,17 @@
  */
 #include "scq_int.h"
 
-world W;
+world W = { .nb = SCQ_BLOCK, .sr = (float)SCQ_RATE, .isr = 1.f / (float)SCQ_RATE };
+
+/* Place code sees the block and the rate of the place being run: a place at samplerate=half
+ * runs half as many samples at half the rate (the engine decimates its inlets and holds its
+ * outlets back up to full rate). */
+#undef B
+#undef SR
+#undef INV_SR
+#define B      (W.nb)
+#define SR     (W.sr)
+#define INV_SR (W.isr)
 
 #define PULSE_SAMPLES 96   /* 2 ms */
 
@@ -37,6 +47,12 @@ static inline int natural(float nature, int lo, int hi)
 static void run_sine(node *n, const float *const in[MAX_IN])
 {
 	float base = 60.f * n->nature * scq_exp2(in[0][0]) * (n->opt[0] != 0.f ? 0.01f : 1.f), ph = n->s[0];   /* pitch per block; range=audio|lfo */
+	if (!(n->patched & 2u)) {                    /* no fm: the bare sine */
+		const float dt = base * INV_SR;
+		LOOP { n->out[0][i] = scq_sin2pi(ph); ph += dt; ph -= scq_floor(ph); }
+		n->s[0] = ph;
+		return;
+	}
 	LOOP {
 		float f = base * (1.f + in[1][i]);
 		ph += f * INV_SR;
@@ -623,9 +639,8 @@ static void run_seq(node *n, const float *const in[MAX_IN])
 /* quantizer — pitch quantizer over just, tempered, equal and microtonal scales.
  * The scale is the nature (1-38), or the scale= switch. Pitch in octaves; root transposes. */
 #include "scq_scales.inc"
-static float qz_snap(int sc, float y)
+static float qz_snap(const float *d, float y)
 {
-	const float *d = QZ_DATA + QZ_AT[sc];
 	float per = d[0] * (1.f / 1200.f);
 	int cnt = (int)d[1];
 	float k = scq_floor(y / per), r = (y - k * per) * 1200.f;     /* cents into the period */
@@ -646,11 +661,13 @@ static float qz_snap(int sc, float y)
 static void run_quantizer(node *n, const float *const in[MAX_IN])
 {
 	int sc = n->opt[0] != 0.f ? (int)n->opt[0] - 1 : natural(n->nature, 1, QZ_COUNT) - 1;
+	const float *d = sc < QZ_COUNT ? QZ_DATA + QZ_AT[sc] : scq_tuning(sc - QZ_COUNT);   /* past the built-ins: the dream's tunings */
+	if (!d) d = QZ_DATA + QZ_AT[5];                                                    /* (chromatic) */
 	float last = n->s[0], pt = n->s[1], lastin = n->s[2], q = n->s[3];
 	float root = in[1][0];
 	LOOP {
 		float x = in[0][i];
-		if (x != lastin || i == 0) { lastin = x; q = root + qz_snap(sc, x - root); }   /* only when it moves */
+		if (x != lastin || i == 0) { lastin = x; q = root + qz_snap(d, x - root); }   /* only when it moves */
 		if (q != last) { last = q; pt = PULSE_SAMPLES; }
 		n->out[0][i] = q;
 		n->out[1][i] = pt > 0.f ? 1.f : 0.f;
@@ -800,6 +817,7 @@ static void run_scene(node *n, const float *const in[MAX_IN])
 #include "scq_more_spaces.inc"
 #include "scq_more_currents.inc"
 #include "scq_more_classic.inc"
+#include "scq_more_simple.inc"
 
 #define P(name, fam, flags, cost, nat, ins, defs, outs, run, init, mem, help) \
 	{ name, fam, flags, cost, nat, ins, defs, outs, run, init, mem, help }
@@ -902,11 +920,14 @@ static int same(const char *a, int n, const char *b)
 }
 
 /* switches and params: "name=a|b|c" (a is the default) and "name=number" */
+static int port_in(const char *s, const char *port, int len);
+
+#define PITCH_OPTS "tune=0"   /* every place with a pitch inlet: its base pitch knob, in octaves */
 static const struct { const char *place, *opts; } OPTS[] = {
-	{ "sine",       "range=audio|lfo" },
-	{ "vco",        "range=audio|lfo" },
-	{ "sinesaw",    "range=audio|lfo" },
-	{ "square",     "range=audio|lfo" },
+	{ "sine",       "range=audio|lfo " PITCH_OPTS },
+	{ "vco",        "range=audio|lfo " PITCH_OPTS },
+	{ "sinesaw",    "range=audio|lfo " PITCH_OPTS },
+	{ "square",     "range=audio|lfo " PITCH_OPTS },
 	{ "lfo",        "range=lfo|audio" },
 	{ "vca",        "response=lin|exp" },
 	{ "quadvca",    "response=lin|exp" },
@@ -921,6 +942,7 @@ static const struct { const char *place, *opts; } OPTS[] = {
 	{ "decay",      "curve=exp|lin" },
 	{ "stepseq",    "dir=forward|backward|pingpong|random" },
 	{ "trigger",    "length=2" },
+	{ "difftone",   "ratio=1.2 " PITCH_OPTS },
 	{ "quantizer",  "scale=nature|justmajor|justminor|justpentatonic|otonal|utonal|chromatic|major|minor|dorian|phrygian|lydian|mixolydian|locrian|harmonicminor|melodicminor|majorpentatonic|minorpentatonic|blues|wholetone|diminished|quartertone|tet19|tet22|tet31|tet53|bohlenpierce|alpha|beta|gamma|slendro|pelog|rast|bayati|partch|justchromatic|pythagorean|meantone|werckmeister" },
 };
 
@@ -931,7 +953,17 @@ const char *place_opts(const char *name)
 		while (*a && *a == *b) a++, b++;
 		if (!*a && !*b) return OPTS[i].opts;
 	}
+	for (int i = 0; i < SCQ_NPLACES; i++) {
+		const char *a = SCQ_PLACES[i].name, *b = name;
+		while (*a && *a == *b) a++, b++;
+		if (!*a && !*b) return port_in(SCQ_PLACES[i].ins, "pitch", 5) >= 0 ? PITCH_OPTS : "";
+	}
 	return "";
+}
+
+int place_has_att(const place *p)
+{
+	return p->family == FAM_SOURCE || port_in(p->ins, "pitch", 5) >= 0;
 }
 
 const char *place_renamed(const char *old, int len)
@@ -940,8 +972,6 @@ const char *place_renamed(const char *old, int len)
 		if (same(old, len, WAS[i].was) && !same(old, len, WAS[i].now)) return WAS[i].now;
 	return 0;
 }
-
-static int port_in(const char *s, const char *port, int len);
 
 /* port lookup: index of `port` in the place's ins (out=0) or outs (out=1), -1 if absent.
  * Old port names (before the rename) still work. */

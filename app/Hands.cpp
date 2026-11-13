@@ -67,31 +67,42 @@ void Hands::resized()
 
 void Hands::paint (Graphics& g)
 {
-    g.fillAll (Colour (0xffd9d6cc));
-    g.setColour (Colour (0x22000000));
+    auto& th = art::theme();
+    g.fillAll (th.pop ? th.window : th.rail);
+    g.setColour (th.line);
     g.drawHorizontalLine (0, 0, (float) getWidth());
     // LEDs
     for (int i = 0; i < 8; ++i)
     {
         float v = live ? hwLamp[i] : host.lamp (i);
-        g.setColour (Colour (0xff3a3a38)); g.fillEllipse (leds[(size_t) i].expanded (1.5f));
+        g.setColour (th.ledOff); g.fillEllipse (leds[(size_t) i].expanded (1.5f));
         g.setColour (Colour (0xffffffff).withAlpha (0.12f + 0.88f * v));
         g.fillEllipse (leds[(size_t) i]);
     }
-    g.setFont (art::mono (10.5f));
+    g.setFont (th.pop ? art::label (10) : art::mono (10.5f));
     for (int i = 0; i < (int) items.size(); ++i)
     {
         auto& it = items[(size_t) i];
         if (it.fader)
         {
-            auto slot = it.r.withSizeKeepingCentre (4, it.r.getHeight());
-            g.setColour (Colour (0xff2a2a28)); g.fillRoundedRectangle (slot, 2);
             float y = it.r.getBottom() - it.value * it.r.getHeight();
-            auto cap = Rectangle<float> (it.r.getWidth(), 14).withCentre ({ it.r.getCentreX(), y });
-            g.setColour (Colour (0x40000000)); g.fillRoundedRectangle (cap.translated (0, 2), 3);
-            g.setColour (Colour (0xfff4f2ec)); g.fillRoundedRectangle (cap, 3);
-            g.setColour (Colour (0xff8a8880)); g.drawHorizontalLine ((int) cap.getCentreY(), cap.getX() + 3, cap.getRight() - 3);
-            g.setColour (art::ink);
+            if (th.pop)                   // a rail: checker below the value, grey above, a black bar on it
+            {
+                auto rail = it.r.withSizeKeepingCentre (12, it.r.getHeight());
+                g.setColour (th.rail); g.fillRect (rail);
+                art::fillChecker (g, rail.withTop (y), 6);
+                g.setColour (th.faderCap); g.fillRect (Rectangle<float> (it.r.getWidth(), 4).withCentre ({ it.r.getCentreX(), y }));
+            }
+            else
+            {
+                auto slot = it.r.withSizeKeepingCentre (4, it.r.getHeight());
+                g.setColour (th.faderSlot); g.fillRoundedRectangle (slot, 2);
+                auto cap = Rectangle<float> (it.r.getWidth(), 14).withCentre ({ it.r.getCentreX(), y });
+                g.setColour (Colour (0x40000000)); g.fillRoundedRectangle (cap.translated (0, 2), 3);
+                g.setColour (th.faderCap); g.fillRoundedRectangle (cap, 3);
+                g.setColour (Colour (0xff8a8880)); g.drawHorizontalLine ((int) cap.getCentreY(), cap.getX() + 3, cap.getRight() - 3);
+            }
+            g.setColour (th.pop ? th.chromeText : art::ink);
             g.drawText (it.name, it.r.withY (it.r.getBottom() + 1).withHeight (12).expanded (20, 0), Justification::centred);
             art::drawLoop (g, it.loop.getCentre(), false, art::blue);
         }
@@ -100,10 +111,19 @@ void Hands::paint (Graphics& g)
             static const int hwBit[] = { 0, 1, 2, 3, 6, 7, 4, 5 };   // buttons, rocker up/down, play, dots
             bool down = it.mouse || keyHeld[i - 4] || (live && ((hwButtons >> hwBit[i - 4]) & 1u));
             auto r = it.r;
-            g.setColour (Colour (0x40000000)); g.fillRoundedRectangle (r.translated (0, 2), 5);
-            g.setColour (down ? Colour (0xffb8b4a8) : Colour (0xfff4f2ec)); g.fillRoundedRectangle (r, 5);
-            g.setColour (Colour (0x55000000)); g.drawRoundedRectangle (r, 5, 1);
-            g.setColour (art::ink);
+            if (th.pop)               // flat; pressed is checker
+            {
+                if (down) art::fillChecker (g, r, 7);
+                else { g.setColour (th.button); g.fillRect (r); }
+                g.setColour (down ? Colour (0xff1a1a1a) : th.buttonText);
+            }
+            else
+            {
+                g.setColour (Colour (0x40000000)); g.fillRoundedRectangle (r.translated (0, 2), 5);
+                g.setColour (down ? th.button.darker (0.25f) : th.button); g.fillRoundedRectangle (r, 5);
+                g.setColour (th.dark ? Colour (0x55ffffff) : Colour (0x55000000)); g.drawRoundedRectangle (r, 5, 1);
+                g.setColour (art::ink);
+            }
             String label = it.name == "rocker.up" ? String ("up  ^") : it.name == "rocker.down" ? String ("down  v") : it.name == "dots" ? String::fromUTF8 ("dots  \xe2\x80\xa2\xe2\x80\xa2") : it.name == "play" ? String ("PLAY") : it.name;
             g.drawText (label, r, Justification::centred);
         }
@@ -111,33 +131,33 @@ void Hands::paint (Graphics& g)
     // the map: every control, and where this scene sends it
     mapRows.clear();
     auto area = mapArea;
-    g.setColour (art::umber);
-    g.setFont (art::hand (13));
+    g.setColour (th.pop ? th.checkB : art::umber);
+    g.setFont (th.pop ? art::label (11) : art::hand (13));
     auto head = area.removeFromTop (18);
     g.drawText ("what your hands do in this scene", head, Justification::left);
     if (live)
     {
-        g.setColour (Colour (0xff3d7a4e));
+        g.setColour (th.hand);
         g.fillEllipse (Rectangle<float> (8, 8).withCentre ({ head.getRight() - 140, head.getCentreY() }));
         g.setFont (art::mono (11));
         g.drawText ("SP-1 live", head.withTrimmedLeft (head.getWidth() - 130), Justification::left);
-        g.setFont (art::hand (13));
-        g.setColour (art::umber);
+        g.setFont (th.pop ? art::label (11) : art::hand (13));
+        g.setColour (th.pop ? th.checkB : art::umber);
     }
     static const char* controls[] = { "fader1", "fader2", "fader3", "fader4", "button1", "button2", "button3", "button4",
                                       "rocker", "rocker.up", "rocker.down", "play", "dots" };
     const float rowH = jmax (11.0f, jmin (15.0f, (area.getHeight() - 2) / 7.0f));
     auto colW = area.getWidth() / 2;
     int n = 0;
-    g.setFont (art::mono (jmin (11.0f, rowH - 2)));
+    g.setFont (th.pop ? art::label (jmin (10.5f, rowH - 2)) : art::mono (jmin (11.0f, rowH - 2)));
     for (auto* c : controls)
     {
         auto to = mappingFor ? mappingFor (c) : StringArray();
         auto row = Rectangle<float> (area.getX() + (float) (n / 7) * colW, area.getY() + (float) (n % 7) * rowH, colW - 8, rowH);
         ++n;
-        g.setColour (to.isEmpty() ? Colour (0xff9a9488) : art::ink);
+        g.setColour (to.isEmpty() ? th.chromeDim : (th.pop ? th.chromeText : art::ink));
         g.drawText (String (c).paddedRight (' ', 10), row.withWidth (78), Justification::left);
-        g.setColour (to.isEmpty() ? Colour (0xffb5afa2) : art::blue);
+        g.setColour (to.isEmpty() ? th.chromeDim.withAlpha (0.7f) : (th.pop ? th.word : art::blue));
         g.drawText (to.isEmpty() ? String ("-") : to.joinIntoString (", "), row.withTrimmedLeft (78), Justification::left, true);
         mapRows.push_back ({ c, row });
     }

@@ -26,6 +26,8 @@ struct PlaceInfo
     int cost = 0;
     float nature = 1;
     juce::StringArray ins, outs;
+    bool att = false;    // an attenuverter knob on every inlet (sources, and places with a pitch inlet)
+    bool tune = false;   // a base pitch knob (places with a pitch inlet)
 };
 
 struct NodeInfo
@@ -92,6 +94,7 @@ public:
     void addCord (int src, int sport, int dst, int dport, Kind);
     void addControl (const juce::String& control, int dst, int dport);
     void removeCord (int cordIndex);
+    void removeCords (const std::set<int>& cordIndices);   // several at once (one edit)
     void removeNode (int id) { removeNodes ({ id }); }
     void removeNodes (const std::set<int>& ids);
     int cordsOnLine (int line) const;
@@ -107,7 +110,7 @@ public:
 private:
     juce::StringArray lines() const;
     void setLines (const juce::StringArray&);
-    void expandLineExcept (juce::StringArray& ls, int line1, int dropCord, std::function<void (CordInfo&)> change = {}, int changeCord = -1) const;
+    void expandLineExcept (juce::StringArray& ls, int line1, int dropCord, std::function<void (CordInfo&)> change = {}, int changeCord = -1, const std::set<int>* drops = nullptr) const;
     juce::String uniqueName (const juce::String& place) const;
 };
 
