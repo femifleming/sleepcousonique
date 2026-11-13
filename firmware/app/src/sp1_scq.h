@@ -24,8 +24,10 @@ void sp1_scq_render(float *left, float *right, uint32_t frames);
 /* Main loop, every control tick, after sp1_controls_scan(). `fnc` is "••". */
 void sp1_scq_tick(uint32_t elapsed_ms, bool fnc);
 
-/* The lamp, 0-255 per LED: track row (above T1-T4) and play row. */
+/* The lamp, 0-255 per LED: track row (above T1-T4) and play row. While plugged in, a play
+ * row the dream isn't using shows the charge bar, exactly as STANDBY draws it: breathing
+ * while charging, solid when full. */
 void sp1_scq_track_leds(uint8_t out[4]);
-void sp1_scq_play_leds(void);
+void sp1_scq_play_leds(uint32_t elapsed_ms);
 
 #endif

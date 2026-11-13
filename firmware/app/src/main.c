@@ -1856,7 +1856,13 @@ int main(void)
 			 * charger still charges, and STANDBY always does (sp1_power.h). Re-checked
 			 * every tick, so plugging and unplugging while ON both follow. */
 			{
+#if defined(CONFIG_SP1_SCQ)
+				/* Sleepcousonique keeps charging from a computer: you are plugged in
+				 * to send dreams, and should come away with a fuller battery. */
+				const bool host = false;
+#else
 				const bool host = sp1_usbd_host();
+#endif
 				if (host != charge_held) {
 					charge_held = host;
 					sp1_charger_enable(!host);
@@ -2444,7 +2450,7 @@ int main(void)
 				 * display at the "••" end, which would be wrong. */
 			} else {
 #if defined(CONFIG_SP1_SCQ)
-				sp1_scq_play_leds();
+				sp1_scq_play_leds(dt);
 #else
 				sp1_playrow_tick(dt);
 #endif

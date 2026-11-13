@@ -21,6 +21,8 @@
 #include "sp1_controls.h"
 #include "sp1_led.h"
 #include "sp1_power.h"
+#include "sp1_batt.h"
+#include "sp1_ui_timing.h"
 #include "scq.h"
 #include "scq_default.h"     /* the first night, generated from examples/first-night.dream */
 
@@ -303,8 +305,30 @@ void sp1_scq_track_leds(uint8_t out[4])
 	}
 }
 
-void sp1_scq_play_leds(void)
+void sp1_scq_play_leds(uint32_t elapsed_ms)
 {
+	static uint32_t idle_ms, breath_ms;
+	bool lit = false;
+	for (int i = 0; i < 4; i++) {
+		if (scq_lamp(4 + i) > 0.02f) {
+			lit = true;
+		}
+	}
+	idle_ms = lit ? 0u : (idle_ms < 60000u ? idle_ms + elapsed_ms : idle_ms);
+
+	/* plugged in and the dream leaves the play row dark: the charge bar, as in STANDBY */
+	if (sp1_usb_present() && idle_ms > 1000u) {
+		uint32_t b = SP1_STANDBY_BAR_LEVEL;
+		if (sp1_charging()) {
+			breath_ms = (breath_ms + elapsed_ms) % SP1_STANDBY_BREATH_MS;
+			const uint32_t half = SP1_STANDBY_BREATH_MS / 2u;
+			const uint32_t tri = breath_ms < half ? breath_ms : SP1_STANDBY_BREATH_MS - breath_ms;
+			const uint32_t depth_max = (SP1_STANDBY_BREATH_DEPTH * SP1_STANDBY_BAR_LEVEL) / 255u;
+			b = SP1_STANDBY_BAR_LEVEL - (depth_max - (depth_max * tri) / half);
+		}
+		sp1_led_bar(SP1_ROW_PLAY, sp1_batt_level(), (uint8_t)b);
+		return;
+	}
 	for (int i = 0; i < 4; i++) {
 		sp1_led_set(SP1_ROW_PLAY, i, (uint8_t)(scq_lamp(4 + i) * 255.f));
 	}

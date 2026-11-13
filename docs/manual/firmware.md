@@ -48,12 +48,38 @@ On battery, a crash or unexpected restart turns the SP-1 off instead of looping.
 one, or step to another slot with **••** + VOL. Reflashing the firmware may clear the slots,
 so keep your `.dream` files on the computer.
 
+## Power and battery
+
+| to | do this |
+|---|---|
+| turn on | hold **••** for 1.5 s (the track row fills, then it starts) |
+| turn off | hold **••** for 3 s, touching nothing else |
+| check the battery | tap **••**: the play row shows the charge as a bar for 1.5 s |
+| see it charging (off) | plug in USB: the play row shows the charge bar, breathing while it charges, solid when full |
+| see it charging (on) | plugged in, the play row shows the same charge bar whenever your dream isn't lighting those four LEDs; tapping **••** shows it any time |
+
+The SP-1 charges whenever it's plugged in, from a charger or a computer, on or off. (Wakes
+stops charging from a computer while on, to spare battery-powered hosts. Sleepcousonique
+keeps charging, because you're usually plugged in to send dreams.) On battery, the SP-1 only
+starts when you hold **••**. A crash turns it off rather than looping.
+
+## Bluetooth
+
+Sleepcousonique doesn't send audio over Bluetooth yet. Sound comes out of the speaker and
+the headphone jack. The SP-1's Bluetooth is a separate Infineon (Cypress) chip that needs its
+own radio program, built with Infineon's SDK, which isn't public, and no released SP-1
+firmware sends audio to Bluetooth headphones or speakers so far. Tape Looper's author says
+an SP-1 Bluetooth SDK is in development. When it's out, Bluetooth output can be added.
+
+Sleepcousonique never touches the Bluetooth chip. Whatever is on it now stays there, and
+flashing back to another firmware brings its Bluetooth back exactly as it was.
+
 ## Playing it
 
 | SP-1 | Sleepcousonique |
 |---|---|
-| hold **••** 1.5 s | turn on (as Wakes) |
-| hold **••** 3 s, touching nothing else | turn off |
+| hold **••** 1.5 s / 3 s | on / off (see *Power and battery*) |
+| tap **••** | show the battery |
 | faders F1–F4 | `lean1`–`lean4` |
 | track buttons T1–T4 | `door1`–`door4` |
 | FFWD / RWD (the rocker) | `lift` +1 / −1, `lift.up` / `lift.down` pulses |
