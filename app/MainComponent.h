@@ -6,6 +6,7 @@
 #include "Tapestry.h"
 #include "Hands.h"
 #include "Serial.h"
+#include "Pop.h"
 
 class MainComponent : public juce::Component,
                       public juce::DarkModeSettingListener,
@@ -30,6 +31,7 @@ public:
     void menuItemSelected (int, int) override;
 
     void openFile (const juce::File&);
+    void openLast();                 // the dream you had open last time, if it's still there
     void showView (int v) { setView (v); }
     bool askToKeepChanges (std::function<void()> then);
     std::function<void (const juce::String&)> onTitle;
@@ -42,6 +44,10 @@ private:
     void resetHistory();             // a new or opened dream
     void undoRedo (bool redo);
     void applyLook();
+    void textEdited (bool recompile);   // the tapestry or the settings column changed the text
+    void mouseDown (const juce::MouseEvent&) override;
+    void resizedPop();
+    void paintPop (juce::Graphics&);
     void darkModeSettingChanged() override { applyLook(); }   // the computer switched light / dark                // room light, cable opacity / slack / routing from the settings
 
     void timerCallback() override;
@@ -67,7 +73,10 @@ private:
     juce::StretchableLayoutManager split;
     std::unique_ptr<juce::StretchableLayoutResizerBar> bar;
 
-    juce::TextButton sendBtn { "send to SP-1" }, soundBtn { "sound" };
+    juce::TextButton sendBtn { "send to SP-1" }, soundBtn { "sound" }, undoBtn { "undo" }, redoBtn { "redo" };
+    PlaceBrowser browser;
+    Inspector inspector { doc, host };
+    juce::Rectangle<int> pillArea, marginArea, stripArea, contentArea, helpArea;
     juce::TextButton kindBtn[4], viewBtn[3], addSceneBtn { "+ scene" };
     juce::OwnedArray<juce::TextButton> sceneBtns;
     juce::Rectangle<int> meters, statusArea, sceneArea, linkArea;   // linkArea: is the SP-1 there

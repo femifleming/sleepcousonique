@@ -8,6 +8,10 @@ its faders, track buttons, rocker and LEDs do whatever your dream says.
 
 ![sleepcousonique](docs/screenshot.png)
 
+| openprocess, dark | openprocess, light | journal, dark |
+|---|---|---|
+| ![](docs/themes/openprocess-dark.png) | ![](docs/themes/openprocess-light.png) | ![](docs/themes/journal-dark.png) |
+
 Write a patch as a dated journal entry, or build it on the tapestry of boards and cords;
 every visual edit is a text edit, and every text edit redraws the tapestry. Hear it at once
 on the computer, then send it over USB to an SP-1 running the Sleepcousonique firmware.
@@ -32,7 +36,7 @@ fader1 -> hall.feedback
   `.scl` file in your scales folder (La Monte Young, ragas, Carlos, Stockhausen, Riley...).
 - **knobs on the modules**: tune and attenuverters, live while you drag; undo / redo for everything.
 - **cables**: hanging or routed around the boards like Max, opacity, slack, room light with glow.
-- **looks**: openprocess (dark by default) or the original journal, light or dark, or follow the computer.
+- **looks**: the original journal (default) or openprocess, each light or dark, or following the computer.
 
 Inspired by the dream journal at femishonuga.com, Peter Blasser's **Nabra** (knobless; cords
 with parts in them), **Buchla** and **Serge**, and the **Nord Modular** editor.

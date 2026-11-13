@@ -61,15 +61,22 @@ an email.
 
 ## Looks
 
-`View ▸ Look` picks how the editor looks: **openprocess** (the default; flat cards, dotted
-window, checker for what's on, after the openprocess bundle) or **journal (the original)**
-(splatter canvas, cream boards, Dymo labels). `View ▸ Light or dark` picks **dark** (the
-default), **light**, or **follow the computer**, which changes with macOS's or Windows'
-own appearance setting. All four are remembered.
+`View ▸ Look` picks how the editor looks: **journal** (the original and the default: splatter
+canvas, cream boards, Dymo labels) or **openprocess** (after the openprocess bundle: the place
+browser grids along the top, a settings column for the selected place, checker rails and
+rings for the SP-1's hands, the bracket meters and the wordmark). `View ▸ Light or dark`
+picks **light** (the default), **dark**, or **follow the computer**, which changes with macOS's
+or Windows' own appearance setting. All of it is remembered.
+
+![openprocess, dark](fig/look-openprocess-dark.png)
 
 ![openprocess, light](fig/look-openprocess-light.png)
 
-![journal, light: the original look](fig/look-journal.png)
+In the openprocess look, click a square in the browser grids to put that place on the
+tapestry (hover to read what it is). Select a place and its settings appear in the column on
+the right: drag a bar (it plays as you drag), double-click to put it back, click a switch to
+step it. The undo and redo buttons sit beside the passages; the **?** squares open the
+references and the flashing guide.
 
 ## Three views
 

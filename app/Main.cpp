@@ -65,9 +65,30 @@ public:
             });
             return;
         }
-        auto f = juce::File::getCurrentWorkingDirectory().getChildFile (commandLine.unquoted().trim());
-        if (commandLine.isNotEmpty() && f.existsAsFile()) window->main->openFile (f);
+        // a dream to open: one the system handed us before the window was up, the command line's,
+        // or the last one you had open
+        auto f = firstDream (commandLine);
+        if (pending.existsAsFile()) f = pending;
+        pending = juce::File();
+        if (f.existsAsFile()) window->main->openFile (f);
+        else window->main->openLast();
     }
+
+    // "path", "a path with spaces" or several of them, quoted or not
+    static juce::File firstDream (const juce::String& commandLine)
+    {
+        auto words = juce::StringArray::fromTokens (commandLine, true);
+        for (auto w : words)
+        {
+            w = w.unquoted().trim();
+            if (w.isEmpty() || w.startsWith ("-")) continue;
+            auto f = juce::File::isAbsolutePath (w) ? juce::File (w) : juce::File::getCurrentWorkingDirectory().getChildFile (w);
+            if (f.existsAsFile()) return f;
+        }
+        auto whole = juce::File::getCurrentWorkingDirectory().getChildFile (commandLine.unquoted().trim());
+        return commandLine.isNotEmpty() && whole.existsAsFile() ? whole : juce::File();
+    }
+    juce::File pending;      // a file opened from the Finder before the window existed
 
     void shutdown() override
     {
@@ -83,10 +104,14 @@ public:
         else quit();
     }
 
+    // the Finder (double-click, Open With, drop on the Dock icon) and a second launch land here,
+    // sometimes before initialise() has made the window: keep it until there is one
     void anotherInstanceStarted (const juce::String& commandLine) override
     {
-        auto f = juce::File (commandLine.unquoted().trim());
-        if (window && f.existsAsFile()) window->main->openFile (f);
+        auto f = firstDream (commandLine);
+        if (! f.existsAsFile()) return;
+        if (window) window->main->askToKeepChanges ([this, f] { window->main->openFile (f); });
+        else pending = f;
     }
 
     struct Window : juce::DocumentWindow

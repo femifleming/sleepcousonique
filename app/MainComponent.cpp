@@ -41,6 +41,15 @@ struct Look : LookAndFeel_V4
     {
         auto& t = art::theme();
         auto r = b.getLocalBounds().toFloat().reduced (1.5f);
+        if (t.pop && (bool) b.getProperties()["round"])   // the passages: black rounds, ringed in yellow when chosen
+        {
+            auto c = r.reduced (1.0f).withSizeKeepingCentre (jmin (r.getWidth(), r.getHeight()), jmin (r.getWidth(), r.getHeight()));
+            g.setColour (Colour (0xff1a1a1a)); g.fillEllipse (c);
+            if (b.getToggleState()) { g.setColour (t.checkA); g.drawEllipse (c.reduced (1.5f), 3.0f); }
+            else if (t.dark) { g.setColour (Colour (0xff6a6c80)); g.drawEllipse (c.reduced (0.8f), 1.5f); }
+            if (over) { g.setColour (Colours::white.withAlpha (0.12f)); g.fillEllipse (c); }
+            return;
+        }
         if (t.pop)                    // flat; on is checker
         {
             if (b.getToggleState()) art::fillChecker (g, r, 7);
@@ -68,7 +77,7 @@ struct Look : LookAndFeel_V4
 
 MainComponent::MainComponent()
 {
-    art::setTheme (true, true);              // openprocess, dark, until the settings say otherwise
+    art::setTheme (false, false);            // the journal, light (the original), until the settings say otherwise
     laf = std::make_unique<Look>();
     setLookAndFeel (laf.get());
     PropertiesFile::Options o;
@@ -127,14 +136,24 @@ MainComponent::MainComponent()
     journal.onTyped = [this] { pendingTyping = true; typedAt = Time::getMillisecondCounter(); doc.dirty = true; updateTitle(); };
     journal.onPickMessage = [this] (int line) { journal.showLine (line); };
     journal.onUndo = [this] (bool redo) { undoRedo (redo); };
-    tapestry.onTextEdited = [this] (bool recompile)
+    tapestry.onTextEdited = [this] (bool recompile) { textEdited (recompile); };
+    inspector.onEdited = [this] (bool recompile) { textEdited (recompile); };
+    inspector.onStatus = [this] (const String& t) { status (t); };
+    browser.onHover = [this] (const String& t) { status (t); };
+    browser.onAdd = [this] (const String& place)
     {
-        remember();
-        journal.setText (doc.text);
-        if (recompile) compile (true);
-        else { lastCode = codeOf (doc.text); doc.readPositions(); tapestry.refresh(); }
-        updateTitle();
+        auto name = doc.addPlace (place);
+        doc.setPosition (doc.scene, name, tapestry.viewCentre() + Point<float> ((float) (Random::getSystemRandom().nextInt (60) - 30), (float) (Random::getSystemRandom().nextInt (60) - 30)));
+        doc.writePositions();
+        textEdited (true);
+        status ("added " + name + "  (cmd-Z takes it back)");
     };
+    undoBtn.onClick = [this] { undoRedo (false); };
+    redoBtn.onClick = [this] { undoRedo (true); };
+    addChildComponent (browser);
+    addChildComponent (inspector);
+    addChildComponent (undoBtn);
+    addChildComponent (redoBtn);
     tapestry.onStatus = [this] (const String& s) { status (s); };
     tapestry.onShowLine = [this] (int line) { if (view == 2) setView (1); journal.showLine (line); };
     hands.typing = [this] { return journal.editorHasFocus(); };
@@ -217,6 +236,7 @@ void MainComponent::compile (bool force)
 
 void MainComponent::afterLoad (const Host::Result& r)
 {
+    struct Later { Inspector& i; ~Later() { i.refresh(); } } later { inspector };
     lastMessages = r.messages;
     doc.readDescription (r.describe.toRawUTF8(), r.messages.toRawUTF8());
     journal.setMessages (doc.messages, {});
@@ -262,6 +282,8 @@ void MainComponent::timerCallback()
     }
     repaint (meters);
     repaint (linkArea);
+    if (art::theme().pop) { repaint (marginArea); repaint (pillArea); }
+    if (art::theme().pop) inspector.show (tapestry.selectedNode());
     {   // lines selected in the journal light up in the tapestry
         auto sel = journal.selectedLines();
         if (hlShot) {}
@@ -279,6 +301,24 @@ void MainComponent::setView (int v)
 
 void MainComponent::resized()
 {
+    bool pop = art::theme().pop;
+    browser.setVisible (pop); inspector.setVisible (pop); undoBtn.setVisible (pop); redoBtn.setVisible (pop);
+    {
+        const char* full[] = { "->  hall", "~>  fog", "=>  water", ">|  door" };
+        const char* arrow[] = { "->", "~>", "=>", ">|" };
+        const char* name[] = { "hall: a plain wire", "fog: a resistor, half as loud, softened", "water: a capacitor, slow to fill, slow to drain", "door: a diode, only the positive half" };
+        for (int i = 0; i < 4; ++i)
+        {
+            auto& k = kindBtn[i];
+            k.getProperties().set ("round", pop);
+            k.setButtonText (pop ? arrow[i] : full[i]);
+            k.setTooltip (name[i]);
+            if (pop) { k.setColour (TextButton::textColourOffId, Colours::white); k.setColour (TextButton::textColourOnId, Colours::white); }
+            else { k.removeColour (TextButton::textColourOffId); k.removeColour (TextButton::textColourOnId); }
+        }
+    }
+    if (pop) { resizedPop(); return; }
+    pillArea = marginArea = stripArea = contentArea = helpArea = {};
     auto r = getLocalBounds();
     auto top = r.removeFromTop (46).reduced (10, 8);
     sendBtn.setBounds (top.removeFromLeft (128));
@@ -311,9 +351,210 @@ void MainComponent::resized()
     else tapestry.setBounds (r);
 }
 
+// The openprocess look (after the poppsphere bundle): the browser grids along the top, the
+// status pill and round passage buttons under them, a margin with the brace, the bracket
+// meters and the wordmark, the settings column on the right, the hands as rails and rings,
+// and the crescent and bars along the bottom.
+void MainComponent::resizedPop()
+{
+    auto r = getLocalBounds();
+    auto top = r.removeFromTop (120).reduced (0, 8);
+    auto btns = top.removeFromRight (262).reduced (8, 0);
+    {   // send / journal / tapestry, both / sound, and the scene add
+        auto row1 = btns.removeFromTop (34); btns.removeFromTop (6);
+        auto row2 = btns.removeFromTop (34); btns.removeFromTop (6);
+        sendBtn.setBounds (row1.removeFromLeft (70)); row1.removeFromLeft (6);
+        viewBtn[0].setBounds (row1.removeFromLeft (row1.getWidth() / 2 - 3)); row1.removeFromLeft (6);
+        viewBtn[2].setBounds (row1);
+        viewBtn[1].setBounds (row2.removeFromLeft (70)); row2.removeFromLeft (6);
+        soundBtn.setBounds (row2);
+        addSceneBtn.setBounds (btns.removeFromTop (30));
+    }
+    top.removeFromLeft (104);
+    browser.setBounds (top.reduced (0, 2).withTrimmedBottom (12));
+
+    auto row = r.removeFromTop (44).reduced (0, 4);
+    row.removeFromLeft (104);
+    pillArea = row.removeFromLeft (jmin (460, row.getWidth() / 3));
+    row.removeFromLeft (12);
+    for (auto& k : kindBtn) { k.setBounds (row.removeFromLeft (36)); row.removeFromLeft (4); }
+    row.removeFromLeft (12);
+    undoBtn.setBounds (row.removeFromLeft (62)); row.removeFromLeft (4);
+    redoBtn.setBounds (row.removeFromLeft (62)); row.removeFromLeft (14);
+    linkArea = row.removeFromLeft (jmin (330, row.getWidth() - 270));
+    sceneArea = row.withTrimmedLeft (12);
+    auto sa = sceneArea;
+    for (auto* b : sceneBtns) { b->setBounds (sa.removeFromLeft (jmin (150, 30 + 8 * b->getButtonText().length()))); sa.removeFromLeft (4); }
+
+    stripArea = r.removeFromBottom (54);
+    meters = stripArea;
+    statusArea = {};
+    auto handsArea = r.removeFromBottom (150);
+    marginArea = r.withTrimmedBottom (-handsArea.getHeight()).removeFromLeft (104);
+    helpArea = marginArea.withTop (marginArea.getBottom() - 70).withHeight (24).withTrimmedLeft (12).withWidth (80);
+    handsArea.removeFromLeft (104);
+    hands.setBounds (handsArea);
+    r.removeFromLeft (104);
+    inspector.setBounds (r.removeFromRight (250).withTrimmedTop (10).reduced (0, 4));
+    r.removeFromRight (16);                           // the right rail
+    contentArea = r;
+    auto c = r.withTrimmedTop (12);                   // under the top rail
+    journal.setVisible (view != 2);
+    tapestry.setVisible (view != 0);
+    bar->setVisible (view == 1);
+    if (view == 1)
+    {
+        Component* comps[] = { &journal, bar.get(), &tapestry };
+        split.layOutComponents (comps, 3, c.getX(), c.getY(), c.getWidth(), c.getHeight(), false, true);
+    }
+    else if (view == 0) journal.setBounds (c);
+    else tapestry.setBounds (c);
+}
+
+void MainComponent::paintPop (Graphics& g)
+{
+    auto& th = art::theme();
+    g.fillAll (th.window);
+    const auto ink = th.chromeText;
+
+    // rails round the work area
+    g.setColour (th.rail);
+    g.fillRect (contentArea.withHeight (10).withTrimmedLeft (90));
+    g.fillRect (Rectangle<int> (contentArea.getRight(), contentArea.getY(), 12, contentArea.getHeight() + 10));
+    g.fillRect (Rectangle<int> (contentArea.getX() - 12, contentArea.getY() + 60, 10, 50));
+
+    // the status pill: navy stripes, cyan ends
+    {
+        auto p = pillArea.toFloat();
+        g.setColour (Colour (0xff1d2f6f)); g.fillRoundedRectangle (p, p.getHeight() * 0.5f);
+        g.setColour (Colour (0xff2a4aa8));
+        for (float x = p.getX() + 6; x < p.getRight() - 6; x += 4) g.fillRect (x, p.getY() + 2, 2.0f, p.getHeight() - 4);
+        g.setColour (Colour (0xff1fb1e6));
+        g.fillRect (p.withWidth (7)); g.fillRect (p.withLeft (p.getRight() - 7));
+        g.setColour (Colours::white);
+        g.setFont (art::label (11));
+        auto t = statusText.isNotEmpty() ? statusText : (doc.file.existsAsFile() ? doc.file.getFileName() + " is loaded..." : String ("the first night is loaded..."));
+        g.drawText (t, pillArea.reduced (16, 0), Justification::centredLeft, true);
+    }
+
+    // the SP-1 bar, gold
+    {
+        bool open = link.connected();
+        auto h = open ? link.hands() : serial::Link::Hands {};
+        auto now = Time::getMillisecondCounter();
+        if (h.count != handsSeen) { handsSeen = h.count; handsAt = now; }
+        bool live = open && handsAt != 0 && now - handsAt < 1500;
+        auto b = linkArea.toFloat();
+        g.setColour (Colour (0xffa88a1e)); g.fillRect (b);
+        auto sq = Rectangle<float> (20, 20).withCentre ({ b.getX() + 18, b.getCentreY() });
+        g.setColour (Colours::white); g.drawRect (sq, 2.2f);
+        if (live) { float pulse = 0.6f + 0.4f * std::sin ((float) now * 0.006f); g.setColour (Colour (0xfff2c400).withAlpha (pulse)); }
+        g.fillRect (sq.reduced (5));
+        g.setColour (Colours::white);
+        g.setFont (art::label (12.5f));
+        String a = "sp-1 ", c = ! open ? "not connected" : (live ? "connected" : "waiting...");
+        g.drawText (a + "/ " + c, b.withTrimmedLeft (36), Justification::centredLeft);
+        if (live)
+        {
+            g.setFont (art::label (10));
+            g.drawText ("slot " + String (h.slot) + " · scene " + String (h.scene), b.reduced (10, 0), Justification::centredRight);
+        }
+    }
+
+    // the margin: the pixel brace, the bracket meters, the wordmark, help
+    {
+        auto m = marginArea.toFloat();
+        float x = m.getX() + 30, y = m.getY() + 30;
+        g.setColour (ink);
+        const float B = 8;
+        auto px = [&] (float a, float b, float w, float h) { g.fillRect (Rectangle<float> (x + a, y + b, w, h)); };
+        px (0, 0, 18, B); px (18, B, B, 26); px (26, 34, B, B); px (34, 42, B, B);
+        px (26, 50, B, B); px (18, 58, B, 26); px (0, 84, 18, B);
+        // ( and the left / right meters
+        float my = y + 130, mh = jmax (60.0f, m.getHeight() - 360);
+        Path paren; paren.startNewSubPath (x + 18, my); paren.quadraticTo (x - 22, my + mh * 0.5f, x + 18, my + mh);
+        g.setColour (Colour (0xff7b6fb8)); g.strokePath (paren, PathStrokeType (9.0f));
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            auto bar = Rectangle<float> (x + 26 + (float) ch * 22, my + 6, 16, mh - 12);
+            g.setColour (th.dark ? Colour (0xff3a3c4c) : Colour (0xffa33a5a)); g.fillRect (bar);
+            g.setColour (Colour (0xff7b6fb8)); g.fillRect (bar.withTop (bar.getBottom() - bar.getHeight() * jlimit (0.0f, 1.0f, host.level)));
+            g.setColour (ink); g.setFont (art::label (9));
+            g.drawText (ch ? "r" : "l", Rectangle<float> (bar.getX(), bar.getBottom() + 2, bar.getWidth(), 12), Justification::centred);
+        }
+        // the wordmark, in two lines
+        g.setFont (Font (FontOptions ("Times New Roman", 25.0f, Font::plain)));
+        auto wm = Rectangle<float> (m.getX() + 8, (float) helpArea.getY() - 64, m.getWidth() - 8, 26);
+        g.setColour (ink); g.drawText ("sleepcou", wm, Justification::left);
+        g.setColour (th.dark ? th.checkA : Colour (0xffc8102e)); g.drawText ("sonique", wm.translated (0, 26), Justification::left);
+        // ? ? ?
+        const Colour qc[3] = { th.checkA, th.chromeDim, th.chromeDim };
+        for (int k = 0; k < 3; ++k)
+        {
+            auto q = Rectangle<float> ((float) helpArea.getX() + (float) k * 24, (float) helpArea.getY(), 20, 20);
+            if (k == 0) art::fillChecker (g, q, 5); else { g.setColour (qc[k]); g.fillRect (q); }
+            g.setColour (k == 0 ? Colour (0xff1a1a1a) : Colours::white);
+            g.setFont (art::label (12));
+            g.drawText ("?", q, Justification::centred);
+        }
+        g.setColour (th.checkA); g.setFont (art::label (12));
+        g.drawText ("help", helpArea.translated (0, 24), Justification::left);
+    }
+
+    // along the bottom: the crescent (load), out, what the SP-1 measures, memory, the file
+    {
+        auto s = stripArea.toFloat().reduced (0, 4);
+        auto c = Rectangle<float> (s.getHeight() + 6, s.getHeight() + 6).withCentre ({ s.getX() + 60, s.getCentreY() });
+        Path moon; moon.addEllipse (c);
+        Path bite; bite.addEllipse (c.translated (c.getWidth() * 0.22f, 0).reduced (c.getWidth() * 0.06f));
+        moon.setUsingNonZeroWinding (false); moon.addPath (bite);
+        g.setGradientFill (ColourGradient (Colours::white, c.getX(), c.getCentreY(), th.checkB, c.getRight(), c.getCentreY(), false));
+        g.fillPath (moon);
+        float load = doc.load;
+        auto meas = link.connected() ? link.measured() : serial::Link::Measured {};
+        bool fresh = meas.avg >= 0 && Time::getMillisecondCounter() - meas.when < 12000;
+        g.setColour (load > 0.85f || (fresh && meas.peak > 100) ? Colour (0xffff5a4a) : ink);
+        g.setFont (art::label (14));
+        g.drawText ("load " + String (roundToInt (load * 100)) + "%", s.withLeft (c.getRight() + 10).withWidth (120), Justification::centredLeft);
+        auto bars = s.withTrimmedLeft (230).withTrimmedRight (20);
+        float w = jmin (300.0f, (bars.getWidth() - 60) / 3);
+        auto b1 = Rectangle<float> (bars.getX(), s.getCentreY() - 10, w, 13);
+        g.setColour (th.checkA); g.fillRect (b1.withWidth (w * jlimit (0.0f, 1.0f, host.level)));
+        g.setColour (th.rail); g.fillRect (b1.withLeft (b1.getX() + w * jlimit (0.0f, 1.0f, host.level)));
+        g.setColour (ink); g.setFont (art::label (10.5f));
+        g.drawText ("out", b1.translated (0, 15), Justification::left);
+        auto b2 = b1.translated (w + 30, 0);
+        g.setColour (th.dark ? th.surface : Colours::white); g.fillRect (b2);
+        if (fresh)
+        {
+            g.setColour (th.checkB.withAlpha (0.7f)); g.fillRect (b2.withWidth (w * jlimit (0.0f, 1.0f, meas.avg / 100.0f)));
+            g.setColour (Colour (0xffe58fbf)); g.fillRect (Rectangle<float> (w * 0.12f, 5).withPosition (b2.getX() + w * jlimit (0.0f, 1.0f, meas.peak / 100.0f), b2.getY() + 4));
+        }
+        g.setColour (ink);
+        g.drawText (fresh ? "sp-1 " + String (meas.avg) + "% · peaks " + String (meas.peak) + "%" + (meas.over ? "  too heavy" : "") : String ("sp-1 load: plug it in"),
+                    b2.translated (0, 15).withWidth (w + 40), Justification::left);
+        auto b3 = b2.translated (w + 30, 0);
+        g.drawText ("memory " + String (roundToInt (100.0f * (float) doc.poolUsed / (float) doc.poolTotal)) + "%", b3.withHeight (28), Justification::left);
+        g.setColour (th.chromeDim);
+        g.drawText (doc.file.existsAsFile() ? doc.file.getFileName() : String ("first night"), s.withTrimmedRight (10), Justification::centredRight);
+        g.setColour (th.dark ? Colour (0xff44465a) : Colour (0xffc4c8d8));
+        for (int k = 0; k < 3; ++k) g.drawLine ((float) getWidth() - 30 + (float) k * 8, (float) getHeight(), (float) getWidth(), (float) getHeight() - 30 + (float) k * 8, 1.0f);
+    }
+}
+
+void MainComponent::mouseDown (const MouseEvent& e)
+{
+    if (! art::theme().pop || ! helpArea.expanded (0, 26).contains (e.getPosition())) return;
+    int k = (e.x - helpArea.getX()) / 24;
+    if (k == 0) menuItemSelected (22, 0);             // how to write a dream
+    else if (k == 1) menuItemSelected (21, 0);        // the places
+    else URL ("https://github.com/femifleming/sleepcousonique/blob/main/FLASHING.md").launchInDefaultBrowser();
+}
+
 void MainComponent::paint (Graphics& g)
 {
     auto& th = art::theme();
+    if (th.pop) { paintPop (g); return; }
     g.fillAll (th.window);
     g.setColour (th.bar);
     g.fillRect (sceneArea);
@@ -406,6 +647,7 @@ void MainComponent::status (const String& s)
 {
     statusText = s;
     repaint (statusArea);
+    repaint (pillArea);
 }
 
 void MainComponent::updateTitle()
@@ -451,12 +693,19 @@ void MainComponent::openFile (const File& f)
     nights = (uint32) settings->getIntValue (key, 0);
     settings->setValue (key, (int) nights + 1);    // one more night with this dream
     settings->setValue ("last", f.getFullPathName());
+    settings->saveIfNeeded();
     journal.setText (doc.text);
     compile (true);
     doc.dirty = false;
     resetHistory();
     updateTitle();
     tapestry.fitAll();
+}
+
+void MainComponent::openLast()
+{
+    auto last = File (props.getUserSettings()->getValue ("last"));
+    if (last.existsAsFile()) openFile (last);
 }
 
 void MainComponent::openDialog()
@@ -553,6 +802,8 @@ void MainComponent::addScene()
 void MainComponent::themeForShot (bool pop, bool dark)
 {
     art::setTheme (pop, dark);
+    hands.resized();
+    resized();
     static_cast<Look*> (laf.get())->refresh();
     journal.applyTheme();
     tapestry.themeChanged();
@@ -566,8 +817,8 @@ void MainComponent::applyLook()
     // the look: openprocess (default) or the original journal; light, dark (default) or the computer's
     static bool listening = false;
     if (! listening) { Desktop::getInstance().addDarkModeSettingListener (this); listening = true; }
-    bool pop = st->getValue ("look", "openprocess") == "openprocess";
-    auto appearance = st->getValue ("appearance", "dark");
+    bool pop = st->getValue ("look", "journal") == "openprocess";
+    auto appearance = st->getValue ("appearance", "light");
     bool dark = appearance == "system" ? Desktop::getInstance().isDarkModeActive() : appearance == "dark";
     art::setTheme (pop, dark);
     static_cast<Look*> (laf.get())->refresh();
@@ -582,6 +833,19 @@ void MainComponent::applyLook()
     tapestry.setLight ((float) st->getIntValue ("roomLight", 100) / 100.0f);
     tapestry.setRouting (st->getBoolValue ("cableRouter", false));
     tapestry.repaint();
+    hands.resized();
+    resized();                       // the two looks lay the window out differently
+    st->saveIfNeeded();              // remembered at once, not just when the app quits
+}
+
+void MainComponent::textEdited (bool recompile)
+{
+    remember();
+    journal.setText (doc.text);
+    if (recompile) compile (true);
+    else { lastCode = codeOf (doc.text); doc.readPositions(); tapestry.refresh(); }
+    inspector.refresh();
+    updateTitle();
 }
 
 void MainComponent::remember()
@@ -672,8 +936,8 @@ PopupMenu MainComponent::getMenuForIndex (int idx, const String&)
         route.addItem (70, "hanging curves", true, ! st->getBoolValue ("cableRouter", false));
         route.addItem (71, "around the boards (like Max)", true, st->getBoolValue ("cableRouter", false));
         PopupMenu look, mode;
-        bool pop = st->getValue ("look", "openprocess") == "openprocess";
-        auto ap = st->getValue ("appearance", "dark");
+        bool pop = st->getValue ("look", "journal") == "openprocess";
+        auto ap = st->getValue ("appearance", "light");
         look.addItem (80, "openprocess", true, pop);
         look.addItem (81, "journal (the original)", true, ! pop);
         mode.addItem (85, "dark", true, ap == "dark");

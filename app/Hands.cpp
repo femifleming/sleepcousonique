@@ -30,6 +30,7 @@ void Hands::sceneStep (int dir)
 
 void Hands::resized()
 {
+    if (art::theme().pop) { resizedPop(); return; }
     auto r = getLocalBounds().toFloat().reduced (14, 10);
     auto body = r.removeFromLeft (jmin (r.getWidth() * 0.62f, 640.0f));
     auto faders = body.removeFromLeft (body.getWidth() * 0.55f);
@@ -65,6 +66,34 @@ void Hands::resized()
     mapArea = r;
 }
 
+// the openprocess look: four checker rails across the top, the buttons as rings beneath
+void Hands::resizedPop()
+{
+    auto r = getLocalBounds().toFloat().reduced (14, 8);
+    auto body = r.removeFromLeft (jmin (r.getWidth() * 0.66f, 760.0f));
+    auto railRow = body.removeFromTop (50);
+    float rw = railRow.getWidth() / 4;
+    for (int i = 0; i < 4; ++i)
+    {
+        auto cell = railRow.withX (railRow.getX() + rw * (float) i).withWidth (rw).reduced (6, 0);
+        items[(size_t) i].r = cell.withTrimmedTop (18).withHeight (22).withTrimmedRight (22);
+        items[(size_t) i].loop = Rectangle<float> (14, 14).withCentre ({ cell.getRight() - 8, cell.getY() + 29 });
+        leds[(size_t) i] = Rectangle<float> (8, 8).withCentre ({ cell.getRight() - 8, cell.getY() + 8 });
+    }
+    body.removeFromTop (8);
+    float cw = body.getWidth() / 8;
+    for (int k = 0; k < 8; ++k)                          // button1-4, up, down, play, dots
+    {
+        auto cell = body.withX (body.getX() + cw * (float) k).withWidth (cw);
+        float d = jmin (cell.getWidth() - 14, cell.getHeight() - 30, 46.0f);
+        items[(size_t) (4 + k)].r = Rectangle<float> (d, d).withCentre ({ cell.getCentreX(), cell.getY() + 12 + d * 0.5f });
+        items[(size_t) (4 + k)].loop = {};
+    }
+    for (int i = 0; i < 4; ++i) leds[(size_t) (4 + i)] = Rectangle<float> (8, 8).withCentre ({ r.getX() + 6 + (float) i * 12, r.getBottom() - 4 });
+    r.removeFromLeft (24);
+    mapArea = r;
+}
+
 void Hands::paint (Graphics& g)
 {
     auto& th = art::theme();
@@ -86,12 +115,20 @@ void Hands::paint (Graphics& g)
         if (it.fader)
         {
             float y = it.r.getBottom() - it.value * it.r.getHeight();
-            if (th.pop)                   // a rail: checker below the value, grey above, a black bar on it
+            if (th.pop)                   // a rail: checker up to the value, grey after, a black thumb
             {
-                auto rail = it.r.withSizeKeepingCentre (12, it.r.getHeight());
-                g.setColour (th.rail); g.fillRect (rail);
-                art::fillChecker (g, rail.withTop (y), 6);
-                g.setColour (th.faderCap); g.fillRect (Rectangle<float> (it.r.getWidth(), 4).withCentre ({ it.r.getCentreX(), y }));
+                float x = it.r.getX() + it.value * it.r.getWidth();
+                art::fillChecker (g, it.r.withRight (x), 7);
+                g.setColour (th.rail); g.fillRect (it.r.withLeft (x));
+                g.setColour (Colour (0xff1a1a1a)); g.fillRect (Rectangle<float> (5, it.r.getHeight() + 6).withCentre ({ x, it.r.getCentreY() }));
+                g.setColour (th.chromeDim); g.fillRect (Rectangle<float> (3, it.r.getHeight() + 6).withCentre ({ x + 4, it.r.getCentreY() }));
+                g.setColour (th.chromeText);
+                g.setFont (art::label (11));
+                g.drawText (it.name, it.r.withY (it.r.getY() - 17).withHeight (14), Justification::left);
+                g.setColour (th.checkB);
+                g.drawText (String (it.value, 2).replaceCharacter ('.', ','), it.r.withY (it.r.getY() - 17).withHeight (14), Justification::right);
+                art::drawLoop (g, it.loop.getCentre(), false, art::blue);
+                continue;
             }
             else
             {
@@ -111,11 +148,23 @@ void Hands::paint (Graphics& g)
             static const int hwBit[] = { 0, 1, 2, 3, 6, 7, 4, 5 };   // buttons, rocker up/down, play, dots
             bool down = it.mouse || keyHeld[i - 4] || (live && ((hwButtons >> hwBit[i - 4]) & 1u));
             auto r = it.r;
-            if (th.pop)               // flat; pressed is checker
+            if (th.pop)               // a band ring with a tab above; pressed glows red
             {
-                if (down) art::fillChecker (g, r, 7);
-                else { g.setColour (th.button); g.fillRect (r); }
-                g.setColour (down ? Colour (0xff1a1a1a) : th.buttonText);
+                static const uint32 tabs[] = { 0xfff2c400, 0xff1f8a3c, 0xffe58fbf, 0xff48a8c8, 0xffd8646a, 0xffd8646a, 0xfff2c400, 0xff7b6fb8 };
+                auto c = r.getCentre();
+                float rad = r.getWidth() * 0.5f;
+                g.setColour (Colour (tabs[(i - 4) & 7]).withAlpha (down ? 1.0f : 0.75f));
+                g.fillRect (Rectangle<float> (rad * 1.7f, 7).withCentre ({ c.x, r.getY() - 8 }));
+                g.setColour (down ? Colour (0xffd22a26) : (th.dark ? Colour (0xff2c2d3a) : Colour (0xff7b2d4a)));
+                g.fillEllipse (r);
+                g.setColour (down ? Colours::white : (th.dark ? Colour (0xff4a4c60) : Colour (0xffa33a5a)));
+                g.drawEllipse (r.reduced (rad * 0.36f), rad * 0.16f);
+                g.fillEllipse (Rectangle<float> (rad * 0.42f, rad * 0.42f).withCentre (c));
+                g.setColour (th.chromeText);
+                g.setFont (art::label (10));
+                String nm = it.name == "rocker.up" ? String ("up") : it.name == "rocker.down" ? String ("down") : it.name;
+                g.drawText (nm, Rectangle<float> (r.getWidth() + 30, 14).withCentre ({ c.x, r.getBottom() + 10 }), Justification::centred);
+                continue;
             }
             else
             {
@@ -207,7 +256,8 @@ void Hands::mouseDrag (const MouseEvent& e)
     if (dragging < 0) return;
     auto& it = items[(size_t) dragging];
     if (! it.fader) return;
-    it.value = jlimit (0.0f, 1.0f, (it.r.getBottom() - e.position.y) / it.r.getHeight());
+    it.value = art::theme().pop ? jlimit (0.0f, 1.0f, (e.position.x - it.r.getX()) / it.r.getWidth())    // a rail: left to right
+                                : jlimit (0.0f, 1.0f, (it.r.getBottom() - e.position.y) / it.r.getHeight());
     set (it.ctl, it.value);
     if (onStatus) onStatus (it.name + "   " + String (it.value, 2));
     repaint();

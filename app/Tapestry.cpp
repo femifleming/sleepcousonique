@@ -25,6 +25,13 @@ Tapestry::Tapestry (Document& d, Host& h) : doc (d), host (h)
     startTimerHz (15);
 }
 
+int Tapestry::selectedNode() const
+{
+    if (selected.size() != 1) return -1;
+    int b = *selected.begin();
+    return b < (int) boards.size() ? boards[(size_t) b].node : -1;
+}
+
 void Tapestry::themeChanged()
 {
     canvasImg = Image (Image::RGB, 1400, 1000, true);

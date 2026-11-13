@@ -55,6 +55,7 @@ target_sources(Sleepcousonique PRIVATE
     app/Serial.cpp
     app/Scales.cpp
     app/Router.cpp
+    app/Pop.cpp
     app/MainComponent.cpp)
 
 target_compile_definitions(Sleepcousonique PRIVATE

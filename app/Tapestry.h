@@ -22,7 +22,9 @@ public:
     juce::String copySelection() const;
     void removeSelection();
     void fitAll();
-    void themeChanged();                     // the look changed: repaint the canvas
+    void themeChanged();
+    int selectedNode() const;                // the one selected place, or -1
+    juce::Point<float> viewCentre() const { return toDesign (getLocalBounds().getCentre().toFloat()); }                     // the look changed: repaint the canvas
     void setRouting (bool on);              // cables around the boards, like Max
     void setLight (float roomLight);        // 1 = daylight .. 0.1 = dark, cables and LEDs glow
     void setHighlight (int firstLine, int lastLine);   // lines selected in the journal (1-based), or an empty range
