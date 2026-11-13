@@ -483,8 +483,8 @@ static void run_moss(node *n, const float *const in[MAX_IN])
 		for (int g = 0; g < MOSS_G; g++) {
 			float *q = gr + g * 4;
 			if (q[3] == 0.f) continue;
-			uint32_t p = (uint32_t)q[0] % MOSS_LEN;
-			float e = scq_sin2pi(q[2] * 0.5f);
+			uint32_t p = (uint32_t)q[0];                   /* kept inside the buffer below */
+			float e = 4.f * q[2] * (1.f - q[2]);           /* a soft hump, no sine */
 			sum += FROM16(buf[p]) * e * e;
 			q[0] += q[1];
 			if (q[0] >= (float)MOSS_LEN) q[0] -= (float)MOSS_LEN;
@@ -847,7 +847,7 @@ P("wind",      FAM_SOURCE, PF_DRIFT, 87, 1, "gust", "0.3", "out", run_wind, 0, 0
   "a cold draft: soft noise through a wandering band"),
 P("frog",      FAM_SOURCE, 0, 140, 3, "wake pitch", "0 0", "out pulse", run_frog, init_frog, mem_frog,
   "nature frogs (1-8) croaking on their own; a pulse into wake makes them all croak"),
-P("elevator",  FAM_SOURCE, PF_DRIFT, 240, 1, "rate pitch", "0.1 0", "out", run_elevator, 0, 0,
+P("elevator",  FAM_SOURCE, PF_DRIFT, 287, 1, "rate pitch", "0.1 0", "out", run_elevator, 0, 0,
   "the lift into the night sky: rises forever (rate in octaves per second, negative falls)"),
 P("bell",      FAM_SOURCE, PF_DRIFT, 220, 1, "strike pitch decay", "0 0 0.5", "out", run_bell, 0, 0,
   "the cargo train's deep bell: four modes, struck by edges or by sound"),
@@ -874,7 +874,7 @@ P("hallway",   FAM_SPACE, PF_DRIFT, 180, 6, "in length feedback", "0 1 0.3", "ou
   "the long grey hallway: a delay, nature x 50 ms long"),
 P("warehouse", FAM_SPACE, PF_DRIFT, 353, 2, "in size", "0 0.7", "out l r", run_warehouse, 0, mem_warehouse,
   "a big room with wooden floors: reverb"),
-P("moss",      FAM_SPACE, 0, 287, 1, "in bloom", "0 0.3", "out", run_moss, init_moss, mem_moss,
+P("moss",      FAM_SPACE, 0, 360, 1, "in bloom", "0 0.3", "out", run_moss, init_moss, mem_moss,
   "golden moss in a night pond: grains of what you plant, or of itself"),
 P("stairs",    FAM_CURRENT, 0, 100, 1, "in start rise fall", "0 0 0.3 0.5", "out end", run_stairs, init_stairs, 0,
   "the spiral staircase (universal slope): rises and falls when started, follows otherwise; end into start cycles"),
