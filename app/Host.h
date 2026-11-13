@@ -1,0 +1,40 @@
+#pragma once
+#include <juce_audio_utils/juce_audio_utils.h>
+
+// Runs the C engine on the computer's sound card, exactly as the SP-1 will run it.
+class Host : private juce::AudioIODeviceCallback
+{
+public:
+    Host();
+    ~Host() override;
+
+    struct Result { juce::String describe, messages; int errors = 0; };
+    Result load (const juce::String& text, juce::uint32 nights);   // keeps the scene that's playing
+    Result describe();
+    Result check (const juce::String& text, juce::uint32 nights);   // doesn't disturb the sound
+    void setAmount (int cord, float amount);
+    void gotoScene (int);
+    int scene();
+    void control (int which, float value);
+    float lamp (int led);
+    float probe (int node, int port);
+
+    juce::String loadStem (int slot, const juce::File&);            // empty string = ok
+    juce::String stemName (int slot) const { return stemNames[(size_t) slot]; }
+
+    juce::AudioDeviceManager devices;
+    float level = 0;   // output meter
+
+private:
+    void audioDeviceIOCallbackWithContext (const float* const*, int, float* const* out, int numOut, int frames,
+                                           const juce::AudioIODeviceCallbackContext&) override;
+    void audioDeviceAboutToStart (juce::AudioIODevice*) override;
+    void audioDeviceStopped() override {}
+
+    juce::CriticalSection lock;
+    double rate = 48000;
+    juce::LagrangeInterpolator interp[2];
+    std::vector<float> fifo[2];
+    std::array<std::vector<juce::int16>, 4> stems;
+    std::array<juce::String, 4> stemNames;
+};

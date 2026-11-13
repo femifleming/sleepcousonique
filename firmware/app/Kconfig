@@ -1,0 +1,304 @@
+# wakes-sp1 application Kconfig.
+
+menu "wakes-sp1"
+
+# ---- the USB device's identity (M5a, src/sp1_usbd.c) ----
+# Through M4e the console came up through Zephyr's sample helper, which hard-codes Zephyr's
+# shared test vendor ID. These are ours. ⚠️ Change the PID whenever the set of USB functions
+# changes (M5a added MIDI): hosts cache descriptors by VID/PID.
+config SP1_USB_VID
+	hex "USB vendor ID"
+	default 0x2fe3
+	help
+	  0x2fe3 is Zephyr's test vendor ID, kept only until pid.codes (VID 0x1209,
+	  free product IDs for open-source projects) grants Wakes a PID of its own.
+
+config SP1_USB_PID
+	hex "USB product ID"
+	default 0x5213
+	help
+	  0x5211 through M4e (console only); 0x5212 from M5a (console + MIDI);
+	  0x5213 from M5c (console + MIDI + audio out). Interim: pid.codes
+	  1209:4440 is requested (pidcodes/pidcodes.github.com#1301).
+
+config SP1_USB_MANUFACTURER
+	string "USB manufacturer string"
+	default "Worldwave"
+
+config SP1_USB_PRODUCT
+	string "USB product string (the name hosts show for the device and its MIDI port)"
+	default "Wakes"
+	help
+	  "wakes-sp1" through v0.6.x; "Wakes" from M5c (Adara). DAWs remember MIDI routings by
+	  port name, so a change means re-selecting the port once on each host.
+
+config SP1_USB_MAX_POWER
+	int "bMaxPower, in units of 2 mA"
+	default 50
+	range 0 250
+	help
+	  iOS rejects accessories claiming more than 100 mA over the camera adapter, and
+	  the SP-1 runs from its own battery.
+
+config SP1_AUDIO_BLOCK_FRAMES
+	int "Audio block, in frames at 48 kHz"
+	default 96
+	range 48 240
+	help
+	  How much audio is rendered at a time: 96 = 2 ms (the default since #32; with 1 queued,
+	  8 ms of latency), 240 = 5 ms (25 ms with 2 queued; v0.5.0). Must be a multiple of 48 (1 ms): whole
+	  Plaits blocks, and whole 1 kHz groups for Marbles' X/Y. Latency is
+	  (CONFIG_I2S_NRFX_TX_BLOCK_COUNT + 3) blocks -- see prj.conf.
+
+config SP1_PLAITS_BLOCK
+	int "Plaits block, in samples (12 or 24)"
+	default 24
+	range 12 24
+	depends on SP1_PLAITS
+	help
+	  How many samples Plaits renders per call (upstream: 12). 24 (#32) halves Plaits'
+	  per-call work and our per-Plaits-block glue; modulation, TRIG and MIDI placement move
+	  to a 0.5 ms grid and Marbles runs at 2 kHz instead of 4. Every time constant of ours
+	  that counted blocks (the TRIG pulse, Plaits' trigger delay, Additive's spectrum
+	  update, Chords' crossfade, MIDI's clock and smoothing, Marbles' rate) is expressed in
+	  time, so it is the same at either size. Only 12 and 24 are valid.
+
+config SP1_TRIGGER_DELAY_SAMPLES
+	int "Plaits' TRIG delay, in samples (whole Plaits blocks)"
+	default 24
+	range 0 96
+	depends on SP1_PLAITS
+	help
+	  Upstream Plaits delays its TRIG input by 1 ms (48 samples) so a eurorack pitch CV
+	  that lags its gate is still caught. In Wakes every TRIG arrives with its pitch, but
+	  Plaits averages its V/Oct input over two blocks, so with no delay a Marbles X -> V/Oct
+	  strike catches the pitch half-way (host: Modal's attack -1 dB from the settled one,
+	  against -18 dB at 0.5 ms; MIDI notes and the quantizer latch are unaffected even at 0).
+	  24 = 0.5 ms keeps every attack as it was (#32). Must be whole Plaits blocks.
+
+config SP1_PROFILE_ICACHE
+	bool "Diagnostics: flash-cache misses per audio section"
+	default n
+	depends on SP1_PLAITS
+	help
+	  Adds a BLK log line with the flash cache's misses per millisecond of audio, by
+	  section (#32): whether 2 ms blocks cost more because of per-call work or because the
+	  instruction cache refills each time the code switches between Marbles, MIDI and the
+	  engine. Reads the NVMC counter a few times per Plaits block (~0.05 % CPU). Off in
+	  release builds.
+
+config SP1_STORAGE
+	bool "eMMC storage: a FAT32 volume and its own thread (M6, #43)"
+	default SP1_PLAITS
+	select FILE_SYSTEM
+	select FAT_FILESYSTEM_ELM
+	select DISK_ACCESS
+	help
+	  The eMMC driver (src/sp1_emmc.c), FatFs on top of it, and a low-priority thread
+	  that does all the work (src/sp1_store.h): below audio, main and USB, so it costs
+	  the audio block nothing. Never formats -- that is SP1_FRESH alone. On in every
+	  Plaits image (wakes-sp1, wakes-sp1-fresh); off in the fallback, the recovery image
+	  that never touches the eMMC.
+
+config SP1_STORAGE_TEST
+	bool "Diagnostics: eMMC report and file test on every entry to ON (#43)"
+	depends on SP1_STORAGE
+	select INIT_STACKS            # the storage thread's stack headroom, in the report
+	help
+	  The card's identity, EXT_CSD and partition table (lines starting "EMMC"), then a
+	  file test on the volume (lines starting "STORE"): a counter of ON entries that
+	  survives power cycles and reflashes, 512 KB written in bursts, read back, compared
+	  and deleted, free space and the WAKES directory. Off in release builds.
+
+config SP1_EMMC_VERIFY
+	bool "Diagnostics: read every eMMC write back and log any mismatch (#43)"
+	depends on SP1_STORAGE
+	help
+	  Every written block is read straight back; a block that reads back wrong is logged
+	  ("EMMC VERIFY FAIL": where in its burst, the card's token and busy, whether a slow
+	  re-read agrees) and rewritten on its own. Halves write speed. Off in release builds.
+	  (Built for the 2026-10-07 data hunt: every write verified; the fault was in burst
+	  READS, src/sp1_emmc.c.)
+
+config SP1_FRESH
+	bool "wakes-sp1-fresh: FORMAT the eMMC on the first entry to ON (#43)"
+	depends on SP1_STORAGE
+	select FILE_SYSTEM_MKFS
+	select FS_FATFS_EXTRA_NATIVE_API    # f_setlabel: the volume is labelled "SP-1"
+	help
+	  ⚠️ Erases the whole eMMC: one FAT32 partition from 4 MB, the build's ID written to
+	  WAKES/FRESH.ID, never again while that file matches (src/sp1_store.h). A normal
+	  build contains no formatter at all, and tools/ci/check_image.py fails one that does.
+
+config SP1_DRIVE
+	bool "Drive mode: the eMMC as a USB drive in STANDBY (#43)"
+	depends on SP1_STORAGE
+	default y
+	select USBD_MSC_CLASS
+	help
+	  A USB mass-storage interface, always in the descriptor (so going STANDBY <-> ON
+	  never re-enumerates and MIDI / audio are never disturbed). In STANDBY with a host
+	  attached the card is the host's; turning ON takes it back -- the host then sees "no
+	  medium" -- after any command already in progress finishes (src/sp1_store.h). The
+	  interface goes LAST, after CDC, MIDI and audio, so their numbers do not move, and
+	  bcdDevice changes (SP1_USB_BCD_DEVICE) because the function set did.
+
+config SP1_USB_BCD_DEVICE
+	hex "USB bcdDevice"
+	default 0x0500 if SP1_DRIVE
+	default 0x0403
+	help
+	  The device release number. 0x0403 is what Zephyr 4.3 put there by default
+	  (USB_BCD_DRN) and every release through v0.7.2 shipped with it. One PID for good:
+	  when the set of USB functions changes, this changes instead (M5c), so a host that
+	  cached the old layout treats the device as new. 0x0500 = + the drive (M6).
+
+# The drive's transfers: 16 blocks per disk call, so a host's large reads and writes become
+# CMD18 / CMD25 bursts (sp1_emmc.h). 8 KB of RAM, only in drive builds.
+config USBD_MSC_SCSI_BUFFER_SIZE
+	default 8192 if SP1_DRIVE
+
+config USBD_MSC_STACK_SIZE
+	default 2048 if SP1_DRIVE
+
+# ⚠️ Zephyr formats a volume it cannot mount unless told not to. The card arrives holding
+# whatever an earlier firmware left there, so a failed mount must NEVER format: only
+# SP1_FRESH formats, and only on purpose. These defaults come before Kconfig.zephyr's, so
+# they win; check_image.py also fails an image built with MOUNT_MKFS on.
+config FS_FATFS_MOUNT_MKFS
+	default n
+
+# Long file names (Adara, M6): presets are "<name>.prst", which 8.3 cannot hold, and samples
+# will want readable names. ~0.5 KB of RAM for the name buffer (BSS mode), a few KB of flash;
+# nothing in the audio path.
+config FS_FATFS_LFN
+	default y if SP1_STORAGE
+
+config FS_FATFS_CUSTOM_MOUNT_POINT_COUNT
+	default 1 if SP1_STORAGE
+
+config FS_FATFS_CUSTOM_MOUNT_POINTS
+	default "EMMC" if SP1_STORAGE
+
+config SP1_LOGBUF_KB
+	int "Stored log, in KB of RAM"
+	default 16 if SP1_STORAGE
+	default 96
+	range 4 160
+	help
+	  Everything printk writes is also kept in RAM, newest last, and played back when a
+	  terminal next opens the console -- so a session with the USB port in another host's
+	  hands (the OP-XY) is not lost (src/sp1_logbuf.h). Since #52 the session also goes to
+	  WAKES/LOGS/ on the drive every 5 s, so this only has to cover the gap between flushes
+	  and the boot before the first ON: 16 KB, ~2 minutes of a session (96 KB before, and
+	  still in an image without storage -- the fallback -- where RAM is all there is).
+
+config SP1_USB_THREADS_BELOW_AUDIO
+	bool "Run Zephyr's USB threads below the audio thread (#32)"
+	default y
+	depends on UDC_NRF_OUT_FAST
+	help
+	  Moves the udc_nrfx and usbd threads from K_PRIO_COOP(8), above audio, to main's
+	  priority, so enumeration, the console and control requests cannot push an audio
+	  block over (src/sp1_usbd.c). Only with the MIDI fast path: MIDI must not wait on
+	  these threads, or its timestamps would be up to a block late.
+
+config SP1_MIDI
+	bool "USB-MIDI in: notes into Plaits, CCs onto both modules (M5a)"
+	default y
+	depends on SP1_PLAITS
+	help
+	  A USB-MIDI 1.0 port (feldd's class, third_party/feldd) next to the console.
+	  Notes play Plaits, CCs offset parameters on both modules, all configured by
+	  the MIDI script (config/midi.cnfg built in, WAKES/CNFG/midi.cnfg on the drive at
+	  every ON). Costs nothing until a host sends something.
+	  n: no MIDI function on the USB device at all.
+
+config SP1_USB_AUDIO
+	bool "USB audio out: the SP-1's output to the host, USB Audio Class 1.0 (M5c)"
+	default y
+	depends on SP1_PLAITS && UDC_NRF_ISO_IN_FAST
+	help
+	  The output the codecs get, after VOL, sent to the host as a 48 kHz 16-bit
+	  stereo input (src/sp1_uac.c). Output only: nothing is received from the host.
+	  Packets go out from the USB interrupt through the ISO IN fast path
+	  (zephyr-patches/udc_nrf-fast-paths.patch), which is required. Costs nothing
+	  until a host opens the stream.
+
+config SP1_SCQ
+	bool "Sleepcousonique: the dream-journal patch engine"
+	default y
+	select FLASH
+	select FLASH_MAP
+	help
+	  Runs .dream patches sent from the Sleepcousonique editor over USB serial,
+	  in place of Wakes' Plaits/Marbles voice. Turn SP1_PLAITS off with it.
+
+config SP1_PLAITS
+	bool "Plaits voice as the audio source (M3)"
+	default y
+	select CPP
+	help
+	  y: PLAY triggers the Plaits voice (2-op FM), faders are FREQUENCY /
+	  TIMBRE / MORPH / HARMONICS, VOL+/- set the output level.
+	  n: the M2 440 Hz test tone instead, with its PLAY / VOL controls, and
+	  none of the Plaits code is compiled or linked.
+
+	  This is the FALLBACK SWITCH. If the voice faults or overruns on hardware,
+	  set CONFIG_SP1_PLAITS=n in prj.conf and rebuild: everything else in the
+	  build (headphone mute, LEDs, power) stays exactly as it was.
+
+config SP1_STRING_VOICES
+	int "String engine: number of strings (Plaits kNumStrings)"
+	range 1 3
+	default 2
+	depends on SP1_PLAITS
+	help
+	  How many strings Plaits' String engine rings at once. Upstream is 3.
+	  Each TRIG plucks the next string round-robin, so this is how many
+	  notes can overlap before the oldest one is re-plucked.
+
+	  2 (default, M3e): every string costs the same, so 2 saves a third of
+	  the engine -- 598.6 -> 427.3 instructions/sample in tools/plaits-bench,
+	  about 90 % -> 65 % of the audio budget on the SP-1. At 3, String
+	  measured 90 % average and 98.5 % peak: it played, with no headroom.
+
+	  Applied at build time to a generated copy of string_engine.h; the
+	  vendored file is not modified (see "Plaits overrides" in
+	  firmware/CMakeLists.txt). Set it to 3 in prj.conf to A/B the original.
+
+config SP1_PARTICLES
+	int "Particle engine: number of particles (Plaits kNumParticles)"
+	range 1 6
+	default 2
+	depends on SP1_PLAITS
+	help
+	  How many resonant "particles" Plaits' Particle engine runs. Upstream
+	  is 6. Plaits divides the density by this count, so the rate of events
+	  is the same; fewer means fewer pings ringing at different pitches at
+	  once.
+
+	  2 (default, M3h): at 3 (M3f) the SP-1 peaked at 83-100 %, all of it
+	  below MORPH centre where the diffuser runs (Adara). Each particle is
+	  ~43 instructions/sample. At 6 (upstream) it measured 86 % average /
+	  97 % peak. The diffuser is skipped above MORPH centre in any case.
+
+config SP1_MODAL_MODES
+	int "Modal engine: number of resonator modes (Plaits kMaxNumModes)"
+	range 4 24
+	default 12
+	depends on SP1_PLAITS
+	help
+	  Partials of Plaits' modal resonator. Upstream is 24. Must be a
+	  multiple of 4 (the resonator renders modes in batches of 4; the build
+	  checks). Fewer modes drop the highest partials: the body of a bell
+	  stays, its shimmer goes.
+
+	  12 (default, M3g): 8 measured 49 % average / 54 % peak on the SP-1
+	  and sounded band-limited (Adara); each batch of 4 modes costs ~100
+	  instructions/sample, ~16 %, so 12 is expected near 65 % / 70 %.
+	  8 is the fallback. 16 would be ~80 % average -- over the target.
+
+endmenu
+
+source "Kconfig.zephyr"

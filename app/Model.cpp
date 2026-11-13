@@ -1,0 +1,395 @@
+#include "Model.h"
+#include "scq.h"
+
+namespace scq
+{
+juce::String fmt (float v)
+{
+    if (std::abs (v - std::round (v)) < 0.0005f) return juce::String ((int) std::round (v));
+    auto s = juce::String (v, 3);
+    while (s.endsWithChar ('0')) s = s.dropLastCharacters (1);
+    if (s.endsWithChar ('.')) s = s.dropLastCharacters (1);
+    return s;
+}
+
+static Family familyFrom (const juce::String& f)
+{
+    if (f == "shape") return Shape;
+    if (f == "space") return Space;
+    if (f == "current") return Current;
+    if (f == "hands") return Hands;
+    if (f == "ears") return Ears;
+    return Source;
+}
+
+const std::vector<PlaceInfo>& catalog()
+{
+    static std::vector<PlaceInfo> places = []
+    {
+        std::vector<PlaceInfo> v;
+        auto lines = juce::StringArray::fromLines (juce::String::fromUTF8 (scq_catalog()));
+        for (auto& l : lines)
+        {
+            if (! l.startsWith ("P ")) continue;
+            auto parts = juce::StringArray::fromTokens (l, "|", "");
+            if (parts.size() < 3) continue;
+            auto head = juce::StringArray::fromTokens (parts[0].trim(), " ", "");
+            PlaceInfo p;
+            p.name = head[1];
+            p.family = familyFrom (head[2]);
+            p.cost = head[3].getIntValue();
+            p.nature = head[4].getFloatValue();
+            if (head.size() > 5) p.ins = juce::StringArray::fromTokens (head[5], ",", "");
+            p.outs = juce::StringArray::fromTokens (parts[1].trim(), ",", "");
+            p.help = parts[2].trim();
+            for (int i = 3; i < parts.size(); ++i) p.help << "|" << parts[i];
+            v.push_back (p);
+        }
+        return v;
+    }();
+    return places;
+}
+
+const PlaceInfo* findPlace (const juce::String& name)
+{
+    for (auto& p : catalog()) if (p.name == name) return &p;
+    return nullptr;
+}
+
+Signal outletSignal (const PlaceInfo& p, int port)
+{
+    auto o = p.outs[port];
+    if (o == "pulse" || o == "end" || o == "up" || o == "down") return Pulse;
+    if (p.name == "door" || p.name == "wake" || p.name == "lucid") return Pulse;
+    if (p.family == Current || p.family == Hands) return Flow;
+    if (p.name == "lamp") return Flow;
+    return Sound;
+}
+
+// ------------------------------------------------------------------------------------------
+
+void Document::readDescription (const char* describe, const char* msgs)
+{
+    nodes.clear(); cords.clear(); scenes.clear(); messages.clear();
+    errors = 0;
+    for (auto& l : juce::StringArray::fromLines (juce::String::fromUTF8 (describe)))
+    {
+        auto t = juce::StringArray::fromTokens (l, " ", "");
+        if (t.isEmpty()) continue;
+        if (t[0] == "S" && t.size() >= 4)
+        {
+            SceneInfo s;
+            s.current = t[3] == "1";
+            s.title = l.fromFirstOccurrenceOf (" ", false, false).fromFirstOccurrenceOf (" ", false, false)
+                       .fromFirstOccurrenceOf (" ", false, false).fromFirstOccurrenceOf (" ", false, false).trim();
+            if (s.current) scene = (int) scenes.size();
+            scenes.push_back (s);
+        }
+        else if (t[0] == "N" && t.size() >= 6)
+            nodes.push_back ({ t[1].getIntValue(), t[2], t[4], t[3].getFloatValue(), t[5].getIntValue() });
+        else if (t[0] == "C" && t.size() >= 9)
+            cords.push_back ({ t[1].getIntValue(), t[2].getIntValue(), t[3].getIntValue(), t[4].getIntValue(),
+                               t[5].getIntValue(), t[6].getFloatValue(), t[7].getFloatValue(), t[8].getIntValue() });
+        else if (t[0] == "M" && t.size() >= 4)
+        {
+            poolUsed = t[1].getIntValue();
+            poolTotal = juce::jmax (1, t[2].getIntValue());
+            load = t[3].getFloatValue();
+        }
+    }
+    for (auto& l : juce::StringArray::fromLines (juce::String::fromUTF8 (msgs)))
+    {
+        if (l.length() < 4) continue;
+        Message m;
+        m.error = l[0] == 'E';
+        m.line = l.substring (2).getIntValue();
+        m.text = l.substring (2).fromFirstOccurrenceOf (" ", false, false);
+        if (m.error) ++errors;
+        messages.push_back (m);
+    }
+}
+
+const NodeInfo* Document::node (int id) const
+{
+    for (auto& n : nodes) if (n.id == id) return &n;
+    return nullptr;
+}
+
+const NodeInfo* Document::nodeNamed (const juce::String& name) const
+{
+    for (auto& n : nodes) if (n.name == name) return &n;
+    return nullptr;
+}
+
+const PlaceInfo* Document::placeOf (int id) const
+{
+    auto* n = node (id);
+    return n ? findPlace (n->place) : nullptr;
+}
+
+// ------------------------------------------------------------------------------------------ text
+
+juce::StringArray Document::lines() const
+{
+    juce::StringArray ls;
+    ls.addLines (text);
+    if (text.endsWithChar ('\n')) ls.add ({});
+    return ls;
+}
+
+void Document::setLines (const juce::StringArray& ls)
+{
+    text = ls.joinIntoString ("\n");
+    dirty = true;
+}
+
+static bool isDashes (const juce::String& s)
+{
+    auto t = s.trim();
+    return t.length() >= 3 && t.containsOnly ("-");
+}
+
+static bool isBlank (const juce::String& s)
+{
+    auto t = s.trim();
+    return t.isEmpty() || t.startsWithChar (';');
+}
+
+std::vector<Document::Span> Document::sceneSpans() const
+{
+    auto ls = lines();
+    std::vector<Span> v;
+    for (int i = 0; i + 1 < ls.size(); ++i)
+        if (! isBlank (ls[i]) && isDashes (ls[i + 1]))
+        {
+            if (! v.empty()) v.back().last = i - 1;
+            v.push_back ({ i, i + 2, ls.size() - 1 });
+            ++i;
+        }
+    if (v.empty()) v.push_back ({ -1, 0, ls.size() - 1 });
+    return v;
+}
+
+int Document::sceneOfLine (int line0) const
+{
+    auto sp = sceneSpans();
+    for (int k = (int) sp.size(); --k >= 0;)
+        if (line0 >= sp[(size_t) k].header && sp[(size_t) k].header >= 0) return k;
+    return sp.front().header < 0 ? 0 : -1;
+}
+
+void Document::addLines (const juce::StringArray& add)
+{
+    auto ls = lines();
+    auto sp = sceneSpans();
+    auto s = sp[(size_t) juce::jlimit (0, (int) sp.size() - 1, scene)];
+    int at = s.first;
+    for (int i = s.first; i <= s.last && i < ls.size(); ++i)
+        if (ls[i].trim().isNotEmpty() && ! ls[i].startsWith (";@")) at = i + 1;
+    for (int k = 0; k < add.size(); ++k) ls.insert (at + k, add[k]);
+    setLines (ls);
+}
+
+void Document::addLine (const juce::String& line) { addLines (juce::StringArray (line)); }
+
+juce::String Document::uniqueName (const juce::String& place) const
+{
+    auto ok = [this] (const juce::String& n)
+    {
+        if (nodeNamed (n)) return false;
+        if (findPlace (n)) return false;
+        return true;
+    };
+    if (ok (place) || (! nodeNamed (place))) return place;
+    for (char c = 'b'; c <= 'z'; ++c)
+        if (ok (place + juce::String::charToString (c))) return place + juce::String::charToString (c);
+    return place + "x";
+}
+
+juce::String Document::addPlace (const juce::String& place)
+{
+    auto name = uniqueName (place);
+    addLine ("the " + name + " is " + place);
+    return name;
+}
+
+static juce::String portName (const juce::StringArray& ports, int i)
+{
+    return i > 0 && i < ports.size() ? "." + ports[i] : juce::String();
+}
+
+juce::String Document::cordText (const CordInfo& c) const
+{
+    auto* dn = node (c.dst);
+    auto* dp = placeOf (c.dst);
+    if (! dn || ! dp) return {};
+    auto dst = dn->name + portName (dp->ins, c.dport);
+    if (c.src < 0) return "bottle " + fmt (c.amt) + " -> " + dst;
+    auto* sn = node (c.src);
+    auto* sp = placeOf (c.src);
+    if (! sn || ! sp) return {};
+    auto src = sn->name + portName (sp->outs, c.sport);
+    if (c.kind == Range) return "lucid " + src + ": " + dst + " " + fmt (c.amt) + ".." + fmt (c.amt2);
+    juce::String arrow;
+    switch (c.kind)
+    {
+        case Hall:  arrow = std::abs (c.amt - 100) < 0.01f ? "->" : "-" + fmt (c.amt) + ">"; break;
+        case Fog:   arrow = std::abs (c.amt - 50) < 0.01f ? "~>" : "~" + fmt (c.amt) + ">"; break;
+        case Water: arrow = std::abs (c.amt - 60) < 0.01f ? "=>" : "=" + fmt (c.amt) + ">"; break;
+        case Door:  arrow = ">|"; break;
+        default:    arrow = "->"; break;
+    }
+    return src + " " + arrow + " " + dst;
+}
+
+void Document::expandLineExcept (juce::StringArray& ls, int line1, int dropCord, std::function<void (CordInfo&)> change, int changeCord) const
+{
+    int i0 = line1 - 1;
+    if (i0 < 0 || i0 >= ls.size()) return;
+    auto original = ls[i0];
+    auto indent = original.substring (0, original.length() - original.trimStart().length());
+    auto comment = original.fromFirstOccurrenceOf (";", true, false);
+    juce::StringArray out;
+    for (int k = 0; k < (int) cords.size(); ++k)
+    {
+        if (cords[(size_t) k].line != line1 || k == dropCord) continue;
+        auto c = cords[(size_t) k];
+        if (k == changeCord && change) change (c);
+        out.add (indent + cordText (c));
+    }
+    if (comment.isNotEmpty())
+    {
+        if (out.isEmpty()) out.add (indent + comment);
+        else out.set (0, out[0] + "   " + comment);
+    }
+    ls.remove (i0);
+    for (int k = 0; k < out.size(); ++k) ls.insert (i0 + k, out[k]);
+}
+
+void Document::addCord (int src, int sport, int dst, int dport, Kind kind)
+{
+    CordInfo c { src, sport, dst, dport, (int) kind, kind == Fog ? 50.f : (kind == Water ? 60.f : 100.f), 0, 0 };
+    auto t = cordText (c);
+    if (t.isNotEmpty()) addLine (t);
+}
+
+void Document::addControl (const juce::String& control, int dst, int dport)
+{
+    auto* dn = node (dst);
+    auto* dp = placeOf (dst);
+    if (! dn || ! dp) return;
+    addLine (control + " -> " + dn->name + portName (dp->ins, dport));
+}
+
+void Document::removeCord (int ci)
+{
+    if (ci < 0 || ci >= (int) cords.size()) return;
+    auto ls = lines();
+    expandLineExcept (ls, cords[(size_t) ci].line, ci);
+    setLines (ls);
+}
+
+void Document::setCordAmount (int ci, float a, float a2)
+{
+    if (ci < 0 || ci >= (int) cords.size()) return;
+    auto ls = lines();
+    expandLineExcept (ls, cords[(size_t) ci].line, -1, [a, a2] (CordInfo& c) { c.amt = a; if (c.kind == Range) c.amt2 = a2; }, ci);
+    setLines (ls);
+}
+
+void Document::setCordKind (int ci, Kind k)
+{
+    if (ci < 0 || ci >= (int) cords.size()) return;
+    auto ls = lines();
+    expandLineExcept (ls, cords[(size_t) ci].line, -1, [k] (CordInfo& c)
+    {
+        c.kind = k;
+        c.amt = k == Fog ? 50.f : (k == Water ? 60.f : 100.f);
+    }, ci);
+    setLines (ls);
+}
+
+int Document::cordsOnLine (int line) const
+{
+    int n = 0;
+    for (auto& c : cords) if (c.line == line) ++n;
+    return n;
+}
+
+void Document::removeNodes (const std::set<int>& ids)
+{
+    auto ls = lines();
+    std::set<int> touched, decls;
+    for (auto& c : cords) if (ids.count (c.src) || ids.count (c.dst)) touched.insert (c.line);
+    for (int id : ids)
+        if (auto* n = node (id))
+            if (n->line > 0 && n->line <= ls.size() && ls[n->line - 1].trimStart().startsWithIgnoreCase ("the "))
+                decls.insert (n->line);
+    std::set<int> all = touched;
+    all.insert (decls.begin(), decls.end());
+    for (auto it = all.rbegin(); it != all.rend(); ++it)
+    {
+        int line1 = *it, i0 = line1 - 1;
+        if (decls.count (line1) && ! touched.count (line1)) { ls.remove (i0); continue; }
+        auto original = ls[i0];
+        auto indent = original.substring (0, original.length() - original.trimStart().length());
+        juce::StringArray out;
+        for (auto& c : cords)
+            if (c.line == line1 && ! ids.count (c.src) && ! ids.count (c.dst)) out.add (indent + cordText (c));
+        ls.remove (i0);
+        for (int k = 0; k < out.size(); ++k) ls.insert (i0 + k, out[k]);
+    }
+    setLines (ls);
+}
+
+juce::String Document::copyNodes (const std::vector<int>& ids) const
+{
+    auto ls = lines();
+    std::set<int> set (ids.begin(), ids.end());
+    juce::StringArray out;
+    for (int id : ids)
+    {
+        auto* n = node (id);
+        if (n && n->line > 0 && n->line <= ls.size() && ls[n->line - 1].trimStart().startsWithIgnoreCase ("the "))
+            out.add (ls[n->line - 1].trim());
+    }
+    for (auto& c : cords)
+        if (set.count (c.dst) && (c.src < 0 || set.count (c.src))) out.add (cordText (c));
+    return out.joinIntoString ("\n");
+}
+
+// ------------------------------------------------------------------------------------------ positions
+
+void Document::readPositions()
+{
+    positions.clear();
+    for (auto& l : lines())
+        if (l.startsWith (";@"))
+        {
+            auto t = juce::StringArray::fromTokens (l.substring (2).trim(), " ", "");
+            if (t.size() >= 4) positions[t[0] + ":" + t[1]] = { t[2].getFloatValue(), t[3].getFloatValue() };
+        }
+}
+
+void Document::setPosition (int sceneIdx, const juce::String& name, juce::Point<float> p)
+{
+    positions[key (sceneIdx, name)] = p;
+}
+
+void Document::writePositions()
+{
+    auto ls = lines();
+    for (int i = ls.size(); --i >= 0;)
+        if (ls[i].startsWith (";@")) ls.remove (i);
+    while (ls.size() > 0 && ls[ls.size() - 1].trim().isEmpty()) ls.remove (ls.size() - 1);
+    if (! positions.empty())
+    {
+        ls.add ({});
+        for (auto& [k, p] : positions)
+            ls.add (";@ " + k.upToFirstOccurrenceOf (":", false, false) + " " + k.fromFirstOccurrenceOf (":", false, false)
+                    + " " + juce::String ((int) p.x) + " " + juce::String ((int) p.y));
+    }
+    ls.add ({});
+    setLines (ls);
+}
+}

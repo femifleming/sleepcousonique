@@ -1,0 +1,81 @@
+; every place, one scene per family — used by the tests
+
+sources
+-------
+aira3 -20> ears
+the twin is twin 4
+lean1 -> twin.index
+twin ~> ears
+rain2 ~> ears
+thunder3 -> ears
+flood -> ears
+wind -> ears
+the frogs are frog 5
+door1 -> frogs.wake
+frogs -> ears
+elevator -> ears
+the bell is bell 1
+door1 -> bell.strike
+bell -> ears
+stem1 -> ears
+
+shapes
+------
+the a is aira 2
+the b is aira 5
+a -> mountains -> basement -> window -> horns -> lighter -> copper -> blanket -> ears
+lean1 -> mountains.fold
+lean2 -> basement.cut
+lean3 -> horns.band4
+door1 -> lighter.flick
+b -> crystal.in1
+a -> crystal.in2
+lean4 -> crystal.turn
+crystal.out1 -> left
+crystal.out2 -> right
+
+spaces
+------
+the drops are rain 1
+drops -> tunnel -> hallway -> warehouse
+drops.pulse -> moss
+warehouse.l -> left
+warehouse.r -> right
+moss ~> ears
+lean1 -> hallway.length
+
+currents
+--------
+the voice is aira 4
+the s is stairs
+s.end -> s.start
+s -> jakes.follow
+jakes -> connors.clock
+the e is escalator
+connors -> e.in
+s.end -> e.clock
+the t is train 4: 0 4 7 11
+s.end -> t.next
+the q is pufferfish 3
+e -> q
+q -> cat.in
+door1 -> cat.learn
+the m is magician
+voice -> m
+door2 -> m.shush
+t ~> voice.pitch
+cat -10> voice.pitch
+bottle 20 -> voice.fm
+m -> ears
+m.trance -> lamp.track
+
+hands
+-----
+the v is aira 3
+lean1 lean2 lean3 lean4 -10> v.pitch
+door1 door2 door3 door4 -10> v.pitch
+lift.up -> journey.next
+lift ~> v.pitch
+wake lucid -> v.fm
+lucid lean2: v.fm 0..50
+v -> ears lamp

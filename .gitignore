@@ -1,0 +1,4 @@
+build/
+tools/scqtool
+docs/manual/*.html
+.DS_Store

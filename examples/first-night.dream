@@ -1,0 +1,60 @@
+; first night — a tour of Sleepcousonique
+; faders lean1-lean4, track buttons door1-door4, the rocker is lift, PLAY is wake
+drift 3
+
+2026-11-13
+----------
+; a fountain, a fold, a lamp on a photocell
+the voice is twin 3
+the peaks are mountains
+the window is window
+the stairs are stairs
+the dice are connors 2
+
+stairs.end -> stairs.start          ; the staircase climbs forever
+stairs.end >| window.light          ; each landing pings the window: bongo
+dice => peaks.fold                  ; random folding, through water
+lean1 -> voice.index
+lean2 -> stairs.rise stairs.fall
+voice -> peaks -> window -> ears lamp
+lift.up -> journey.next
+lift.down -> journey.back
+
+2026-10-08
+----------
+; the train over clear water between dark umber mountains
+the route is train 8: 0 7 12 15 12 7 3 -5
+the clock is stairs
+the bell is bell 2
+the voice is aira 2
+the hall is hallway 9
+the window is window
+
+clock.end -> clock.start route.next
+clock.end >| bell.strike window.light
+route ~70> voice.pitch
+voice -> window -> hall
+bell ~> hall
+hall -> ears
+hall => hall.length
+lean1 -> hall.feedback
+lean2 -> clock.fall
+wind ~30> ears
+lift.up -> journey.next
+lift.down -> journey.back
+
+2026-02-07
+----------
+; a golden square of moss in a night pond; the magician shushes you into a trance
+the moss is moss 2
+the magician is magician 2
+the pond is warehouse 3
+
+magician.trance -> moss.bloom
+lean1 -> moss.bloom
+moss -> pond
+pond.l -> left
+pond.r -> right
+frog4 ~40> pond
+lift.up -> journey.next
+lift.down -> journey.back
