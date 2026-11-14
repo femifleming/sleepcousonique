@@ -967,8 +967,77 @@ static void compile_scene(int idx, int report)
 
 /* ------------------------------------------------------------- the public face */
 
+#ifdef SCQ_HOST
+/* Carrying the sound over an edit (the desktop editor reloads the dream on every change).
+ * Without it every place starts again from silence: delays and reverbs lose their tails,
+ * oscillators restart, frogs wait up to 2.5 s for their first chirp. Each place that is still
+ * there after the edit (the same name, place, nature and samplerate) keeps its state, its
+ * memory and its last block. */
+typedef struct {
+	char     name[NAME_LEN];
+	uint8_t  type, rdiv;
+	float    given;
+	uint32_t memlen, memoff, rng;
+	float    s[MAX_STATE];
+	float    out[MAX_OUT][B];
+} carry_node;
+static carry_node carry[MAX_NODES];
+static uint32_t   carry_mem[POOL_BYTES / 4];
+static int        ncarry, carry_scene = -1;
+
+static void carry_save(void)
+{
+	uint32_t used = 0;
+	ncarry = 0;
+	carry_scene = G.cur;
+	for (int k = 0; k < G.nn; k++) {
+		const node *n = &G.n[k];
+		carry_node *c = &carry[ncarry++];
+		for (int i = 0; i < NAME_LEN; i++) c->name[i] = n->name[i];
+		c->type = n->type; c->rdiv = n->rdiv; c->given = n->given; c->rng = n->rng;
+		for (int i = 0; i < MAX_STATE; i++) c->s[i] = n->s[i];
+		for (int o = 0; o < MAX_OUT; o++) for (int i = 0; i < B; i++) c->out[o][i] = n->out[o][i];
+		c->memlen = 0;
+		uint32_t words = (n->memlen + 3u) / 4u;
+		if (n->mem && n->memlen && used + words <= POOL_BYTES / 4) {
+			const uint32_t *m = (const uint32_t *)n->mem;
+			for (uint32_t i = 0; i < words; i++) carry_mem[used + i] = m[i];
+			c->memoff = used; c->memlen = n->memlen;
+			used += words;
+		}
+	}
+}
+
+static void carry_restore(void)
+{
+	if (G.cur != carry_scene) return;                 /* another scene: it starts fresh */
+	for (int k = 0; k < G.nn; k++) {
+		node *n = &G.n[k];
+		for (int j = 0; j < ncarry; j++) {
+			const carry_node *c = &carry[j];
+			if (c->type != n->type || c->rdiv != n->rdiv || c->given != n->given) continue;
+			int same = 1;
+			for (int i = 0; i < NAME_LEN && same; i++) { if (c->name[i] != n->name[i]) same = 0; if (!c->name[i]) break; }
+			if (!same) continue;
+			for (int i = 0; i < MAX_STATE; i++) n->s[i] = c->s[i];
+			for (int o = 0; o < MAX_OUT; o++) for (int i = 0; i < B; i++) n->out[o][i] = c->out[o][i];
+			n->rng = c->rng;
+			if (c->memlen && c->memlen == n->memlen && n->mem) {
+				uint32_t *m = (uint32_t *)n->mem;
+				for (uint32_t i = 0; i < (c->memlen + 3u) / 4u; i++) m[i] = carry_mem[c->memoff + i];
+			}
+			break;
+		}
+	}
+}
+#endif
+
 int scq_load(const char *text, int len, uint32_t nights)
 {
+#ifdef SCQ_HOST
+	const int carrying = Gp == &G0 && G.nn > 0;      /* the engine that plays, not the checker */
+	if (carrying) carry_save();
+#endif
 	if (len > SCQ_MAX_TEXT - 1) len = SCQ_MAX_TEXT - 1;
 	for (int i = 0; i < len; i++) G.text[i] = text[i];
 	G.text[len] = 0;
@@ -981,6 +1050,9 @@ int scq_load(const char *text, int len, uint32_t nights)
 	int errors = G.errors;
 	if (G.cur >= G.nsc) G.cur = 0;
 	compile_scene(G.cur, 0);
+#ifdef SCQ_HOST
+	if (carrying) carry_restore();
+#endif
 	G.errors = errors;
 	G.pending = -1;
 	G.gain = 1.f; G.fading = 0; G.waiting = 0;
