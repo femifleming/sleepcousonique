@@ -940,8 +940,25 @@ static void compile_scene(int idx, int report)
 		float cost = (float)pl->cost;
 		if (pl->run == SCQ_PLACES[find_place("frogs", 5)].run)       /* measured with 3 frogs */
 			cost *= scq_clamp(G.n[k].nature, 1.f, 8.f) / 3.f;
-		if (G.n[k].rdiv > 1) cost = cost / (float)G.n[k].rdiv + 6.f;    /* + the decimate and the hold */
+		if (G.n[k].rdiv > 1) {          /* the decimate and the hold, measured */
+			int patched = 0;
+			for (uint16_t b = G.n[k].patched; b; b &= (uint16_t)(b - 1)) patched++;
+			cost = cost / (float)G.n[k].rdiv + (float)SCQ_COST_SLOW_FIXED + (float)SCQ_COST_SLOW_OUTLET * (float)G.n[k].nout
+			     + (float)SCQ_COST_SLOW_INLET * (float)patched;
+		}
 		cyc += scq_max(cost - (float)SCQ_COST_BLOCK_SAVING, 8.f);
+	}
+	/* every different kind of place is more code for the chip's small instruction cache to hold:
+	 * measured on whole patches, it costs about this much each, beyond what the places cost alone */
+	{
+		int kinds = 0;
+		for (int k = 0; k < G.nn; k++) {
+			if (SCQ_PLACES[G.n[k].type].flags & PF_SINGLE) continue;
+			int seen = 0;
+			for (int j = 0; j < k; j++) if (G.n[j].type == G.n[k].type) seen = 1;
+			if (!seen) kinds++;
+		}
+		cyc += (float)SCQ_COST_PER_KIND * (float)kinds;
 	}
 	for (int k = 0; k < G.nc; k++)
 		if (!G.c[k].direct) cyc += (float)SCQ_COST_CORD;           /* a plain wire costs nothing */

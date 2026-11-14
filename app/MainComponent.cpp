@@ -399,7 +399,7 @@ void MainComponent::resizedPop()
     auto sa = sceneArea;
     for (auto* b : sceneBtns) { b->setBounds (sa.removeFromLeft (jmin (150, 30 + 8 * b->getButtonText().length()))); sa.removeFromLeft (4); }
 
-    stripArea = r.removeFromBottom (54);
+    stripArea = r.removeFromBottom (60);
     meters = stripArea;
     statusArea = {};
     auto handsArea = r.removeFromBottom (150);
@@ -517,42 +517,56 @@ void MainComponent::paintPop (Graphics& g)
         g.drawText ("help", helpArea.translated (0, 24), Justification::left);
     }
 
-    // along the bottom: the crescent (load), out, what the SP-1 measures, memory, the file
+    // along the bottom, plain to read: LOAD (the editor's estimate for the SP-1), SP-1 CPU (what
+    // the SP-1 measures, when it's plugged in), MEMORY; each a big number, a bar with its 100 %
+    // mark, and ok / tight / too heavy in green, orange, red
     {
-        auto s = stripArea.toFloat().reduced (0, 4);
-        auto c = Rectangle<float> (s.getHeight() + 6, s.getHeight() + 6).withCentre ({ s.getX() + 60, s.getCentreY() });
+        auto s = stripArea.toFloat().reduced (0, 5);
+        // the crescent, as the mark of the look
+        auto c = Rectangle<float> (s.getHeight() - 2, s.getHeight() - 2).withCentre ({ s.getX() + 34, s.getCentreY() });
         Path moon; moon.addEllipse (c);
         Path bite; bite.addEllipse (c.translated (c.getWidth() * 0.22f, 0).reduced (c.getWidth() * 0.06f));
         moon.setUsingNonZeroWinding (false); moon.addPath (bite);
         g.setGradientFill (ColourGradient (Colours::white, c.getX(), c.getCentreY(), th.checkB, c.getRight(), c.getCentreY(), false));
         g.fillPath (moon);
-        float load = doc.load;
+
+        const Colour okC = th.dark ? Colour (0xff5fcf7a) : Colour (0xff1f8a3c), tightC (0xfff7931e), overC (0xffff4a3a);
+        auto readout = [&] (Rectangle<float> r, const String& name, float v, bool known, const String& extra)
+        {
+            auto col = ! known ? th.chromeDim : (v > 1.0f ? overC : (v > 0.85f ? tightC : okC));
+            String word = ! known ? String() : (v > 1.0f ? "too heavy" : (v > 0.85f ? "tight" : "ok"));
+            g.setColour (th.chromeDim);
+            g.setFont (art::label (10));
+            g.drawText (name, r.withHeight (12), Justification::left);
+            g.setColour (col);
+            g.setFont (art::label (22));
+            auto num = r.withTrimmedTop (12).withHeight (24);
+            g.drawText (known ? String (roundToInt (v * 100)) + "%" : String ("--"), num, Justification::left);
+            g.setFont (art::label (11));
+            g.drawText (known ? word + (extra.isNotEmpty() ? "  " + extra : String()) : extra, num.withTrimmedLeft (70), Justification::centredLeft, true);
+            auto bar = Rectangle<float> (r.getX(), r.getBottom() - 6, r.getWidth() - 10, 6);
+            g.setColour (th.rail); g.fillRect (bar);
+            const float full = bar.getWidth() / 1.3f;               // the bar runs to 130 %; the white tick is 100 %
+            g.setColour (col); g.fillRect (bar.withWidth (jlimit (0.0f, bar.getWidth(), full * (known ? v : 0.0f))));
+            g.setColour (ink); g.fillRect (Rectangle<float> (bar.getX() + full - 1, bar.getY() - 3, 2, bar.getHeight() + 6));
+        };
         auto meas = link.connected() ? link.measured() : serial::Link::Measured {};
         bool fresh = meas.avg >= 0 && Time::getMillisecondCounter() - meas.when < 12000;
-        g.setColour (load > 0.85f || (fresh && meas.peak > 100) ? Colour (0xffff5a4a) : ink);
-        g.setFont (art::label (14));
-        g.drawText ("load " + String (roundToInt (load * 100)) + "%", s.withLeft (c.getRight() + 10).withWidth (120), Justification::centredLeft);
-        auto bars = s.withTrimmedLeft (230).withTrimmedRight (20);
-        float w = jmin (300.0f, (bars.getWidth() - 60) / 3);
-        auto b1 = Rectangle<float> (bars.getX(), s.getCentreY() - 10, w, 13);
-        g.setColour (th.checkA); g.fillRect (b1.withWidth (w * jlimit (0.0f, 1.0f, host.level)));
-        g.setColour (th.rail); g.fillRect (b1.withLeft (b1.getX() + w * jlimit (0.0f, 1.0f, host.level)));
-        g.setColour (ink); g.setFont (art::label (10.5f));
-        g.drawText ("out", b1.translated (0, 15), Justification::left);
-        auto b2 = b1.translated (w + 30, 0);
-        g.setColour (th.dark ? th.surface : Colours::white); g.fillRect (b2);
-        if (fresh)
-        {
-            g.setColour (th.checkB.withAlpha (0.7f)); g.fillRect (b2.withWidth (w * jlimit (0.0f, 1.0f, meas.avg / 100.0f)));
-            g.setColour (Colour (0xffe58fbf)); g.fillRect (Rectangle<float> (w * 0.12f, 5).withPosition (b2.getX() + w * jlimit (0.0f, 1.0f, meas.peak / 100.0f), b2.getY() + 4));
-        }
-        g.setColour (ink);
-        g.drawText (fresh ? "sp-1 " + String (meas.avg) + "% · peaks " + String (meas.peak) + "%" + (meas.over ? "  too heavy" : "") : String ("sp-1 load: plug it in"),
-                    b2.translated (0, 15).withWidth (w + 40), Justification::left);
-        auto b3 = b2.translated (w + 30, 0);
-        g.drawText ("memory " + String (roundToInt (100.0f * (float) doc.poolUsed / (float) doc.poolTotal)) + "%", b3.withHeight (28), Justification::left);
+        auto area = s.withTrimmedLeft (78).withTrimmedRight (170);
+        float w = area.getWidth() / 3;
+        readout (area.removeFromLeft (w), "LOAD (estimate)", doc.load, true, {});
+        readout (area.removeFromLeft (w), "SP-1 CPU (measured)", fresh ? (float) meas.peak / 100.0f : 0.0f, fresh,
+                 fresh ? "avg " + String (meas.avg) + "%" : String ("plug in the SP-1"));
+        readout (area, "MEMORY", (float) doc.poolUsed / (float) jmax (1, doc.poolTotal), true, {});
+        // the output level and the file, small, at the end
+        auto tail = s.withLeft (s.getRight() - 160);
+        g.setColour (th.chromeDim); g.setFont (art::label (10));
+        g.drawText ("out", tail.withHeight (12), Justification::left);
+        auto ob = Rectangle<float> (tail.getX(), tail.getY() + 16, 150, 6);
+        g.setColour (th.rail); g.fillRect (ob);
+        g.setColour (th.checkA); g.fillRect (ob.withWidth (150 * jlimit (0.0f, 1.0f, host.level)));
         g.setColour (th.chromeDim);
-        g.drawText (doc.file.existsAsFile() ? doc.file.getFileName() : String ("first night"), s.withTrimmedRight (10), Justification::centredRight);
+        g.drawText (doc.file.existsAsFile() ? doc.file.getFileName() : String ("first night"), tail.withTrimmedTop (26), Justification::left, true);
         g.setColour (th.dark ? Colour (0xff44465a) : Colour (0xffc4c8d8));
         for (int k = 0; k < 3; ++k) g.drawLine ((float) getWidth() - 30 + (float) k * 8, (float) getHeight(), (float) getWidth(), (float) getHeight() - 30 + (float) k * 8, 1.0f);
     }
