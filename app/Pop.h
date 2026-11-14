@@ -43,7 +43,7 @@ public:
     void mouseUp (const juce::MouseEvent&) override;
 
 private:
-    enum Kind { Tune, Att, Param, Switch };
+    enum Kind { Tune, Att, Param, Switch, Panel };
     struct Row
     {
         Kind kind; juce::String key, label;

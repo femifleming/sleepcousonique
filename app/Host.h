@@ -19,6 +19,7 @@ public:
     void setTune (int node, float octaves);
     void setAtt (int node, int inlet, float amount);
     void setParam (int node, int k, float value);
+    void setKnob (int node, int inlet, float value);
     void gotoScene (int);
     int scene();
     void control (int which, float value);

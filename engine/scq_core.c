@@ -328,6 +328,45 @@ static int rate_set(node *n, const tok *name, const tok *val)
 	return 1;
 }
 
+/* the default a place gives inlet k (its "defs" string) */
+static float place_def(const place *pl, int k)
+{
+	const char *d = pl->defs;
+	for (int i = 0; *d; i++) {
+		while (*d == ' ') d++;
+		const char *w = d;
+		while (*d && *d != ' ') d++;
+		if (i == k) return parse_num(w, (int)(d - w));
+	}
+	return 0.f;
+}
+
+/* INLET=value: the inlet's panel knob, as on an analog module. Alone it is the inlet's value;
+ * with something patched in, it adds (value - the default), so a knob left alone changes
+ * nothing. Only for an inlet name that isn't also one of the place's switches or params.
+ * Returns 1 if the word was one. */
+static int knob_set(node *n, const tok *name, const tok *val)
+{
+	if (!val) return 0;
+	const place *pl = &SCQ_PLACES[n->type];
+	int p = place_port(pl, 0, name->s, name->n);
+	if (p < 0) return 0;
+	optitem o;
+	const char *spec = place_opts(pl->name);
+	for (int k = 0; k < MAX_OPT && opt_at(spec, k, &o); k++)
+		if (o.nl == name->n) {
+			int same = 1;
+			for (int j = 0; j < o.nl; j++) if (o.name[j] != name->s[j]) same = 0;
+			if (same) return 0;            /* a switch or param of the same name wins */
+		}
+	if (val->t != T_NUM) { say('E', "", name->s, name->n, " wants a number, like time=0.4"); return 1; }
+	float v = parse_num(val->s, val->n);
+	n->def[p] = v;
+	n->koff[p] = v - place_def(pl, p);
+	n->knobset |= (uint16_t)(1u << p);
+	return 1;
+}
+
 /* att.INLET=amount: the attenuverter on a source's inlet. Returns 1 if the word was one. */
 static int att_set(node *n, const tok *name, const tok *val)
 {
@@ -563,6 +602,7 @@ static void st_the(tok *t, int nt)
 		int eq = k + 2 < nt && t[k + 1].t == T_EQ;
 		if (att_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0)) { k += eq ? 3 : 1; continue; }
 		if (rate_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0)) { k += eq ? 3 : 1; continue; }
+		if (knob_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0)) { k += eq ? 3 : 1; continue; }
 		if (opt_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0) < 0) return;
 		k += eq ? 3 : 1;
 	}
@@ -981,6 +1021,22 @@ float scq_get_att(int index, int inlet)
 float scq_get_param(int index, int k) { return index >= 0 && index < G.nn && k >= 0 && k < MAX_OPT ? G.n[index].opt[k] : 0.f; }
 float scq_get_control(int which) { return which >= 0 && which < SCQ_CTL_COUNT ? W.ctl[which] : 0.f; }
 
+float scq_get_knob(int index, int inlet)
+{
+	if (index < 0 || index >= G.nn || inlet < 0 || inlet >= G.n[index].nin) return 0.f;
+	return place_def(&SCQ_PLACES[G.n[index].type], inlet) + G.n[index].koff[inlet];
+}
+
+void scq_set_knob(int index, int inlet, float value)
+{
+	if (index < 0 || index >= G.nn || inlet < 0 || inlet >= G.n[index].nin) return;
+	node *n = &G.n[index];
+	n->koff[inlet] = value - place_def(&SCQ_PLACES[n->type], inlet);
+	n->def[inlet] = value;
+	n->knobset |= (uint16_t)(1u << inlet);
+	if (!(n->patched & (1u << inlet))) n->direct[inlet] = 0;   /* read def from now on, not a shared constant */
+}
+
 void scq_set_param(int index, int k, float value)
 {
 	if (index < 0 || index >= G.nn || k < 0 || k >= MAX_OPT) return;
@@ -1058,6 +1114,14 @@ static void gather(node *n, int k, const float *in[MAX_IN], float scratch[MAX_IN
 		const float *src = in[p];
 		float g = n->att[p], *dst = scratch[p];
 		LOOP dst[i] = g * src[i];
+		in[p] = dst;
+	}
+	for (uint16_t a = n->knobset & n->patched; a; a &= (uint16_t)(a - 1)) {  /* panel knobs over what's patched */
+		int p = 0;
+		while (!(a & (1u << p))) p++;
+		const float *src = in[p];
+		float o = n->koff[p], *dst = scratch[p];
+		LOOP dst[i] = src[i] + o;
 		in[p] = dst;
 	}
 	if (n->pitchin >= 0 && n->tune != 0.f) {                                 /* the tune knob */
@@ -1236,6 +1300,18 @@ const char *scq_describe(void)
 				}
 				sb_c(&s, '='); sb_f(&s, n->att[p]);
 			}
+			for (int p = 0; p < n->nin; p++) {             /* panel knobs: INLET=value */
+				if (!(n->knobset & (1u << p))) continue;
+				sb_c(&s, first ? ' ' : ','); first = 0;
+				const char *w = SCQ_PLACES[n->type].ins;
+				for (int idx = 0; *w; idx++) {
+					while (*w == ' ') w++;
+					const char *a = w;
+					while (*w && *w != ' ') w++;
+					if (idx == p) { sb_sn(&s, a, (int)(w - a)); break; }
+				}
+				sb_c(&s, '='); sb_f(&s, place_def(&SCQ_PLACES[n->type], p) + n->koff[p]);
+			}
 			if (n->rdiv > 1) {
 				sb_c(&s, first ? ' ' : ','); first = 0;
 				sb_s(&s, n->rdiv == 2 ? "samplerate=half" : (n->rdiv == 4 ? "samplerate=quarter" : "samplerate=eighth"));
@@ -1279,6 +1355,7 @@ const char *scq_catalog(void)
 			if (!(pl->flags & PF_SINGLE)) { sb_c(&s, ' '); sb_s(&s, RATE_OPT); }
 			sb_c(&s, '\n');
 		}
+		if (*pl->defs) { sb_s(&s, "D "); sb_s(&s, pl->name); sb_c(&s, ' '); sb_s(&s, pl->defs); sb_c(&s, '\n'); }   /* the inlets' defaults */
 	}
 	return catalog_buf;
 }

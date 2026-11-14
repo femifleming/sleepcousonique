@@ -114,6 +114,17 @@ void Tapestry::layout()
         if (n.opts.count ("tune")) b.tune = n.opts.at ("tune").getFloatValue();
         for (auto& in : p->ins)
             b.att.push_back (n.opts.count ("att." + in) ? n.opts.at ("att." + in).getFloatValue() : 1.0f);
+        for (int k = 0; k < p->ins.size(); ++k)        // panel knobs, as the module would have them
+        {
+            float lo = 0, hi = 1;
+            bool has = scq::knobRange (*p, k, lo, hi);
+            for (auto& o : p->opts) if (o.name == p->ins[k]) has = false;   // a param of that name is its knob already
+            float def = scq::knobDefault (*p, k);
+            b.hasPanel.push_back (has ? 1 : 0);
+            b.panelLo.push_back (lo); b.panelHi.push_back (hi); b.panelDef.push_back (def);
+            b.panel.push_back (n.opts.count (p->ins[k]) ? n.opts.at (p->ins[k]).getFloatValue() : def);
+            b.anyPanel = b.anyPanel || has;
+        }
         for (int k = 0; k < (int) p->opts.size(); ++k)       // numeric params become knobs
         {
             auto& o = p->opts[(size_t) k];
@@ -131,7 +142,7 @@ void Tapestry::layout()
         for (int i = 0; i < p->outs.size(); ++i)
             b.outs.push_back ({ p->outs[i], n.name + (i > 0 ? "." + p->outs[i] : String()), (int) outletSignal (*p, i) });
         int rows = jmax ((int) b.ins.size(), (int) b.outs.size(), 1);
-        b.r = { 0, 0, BW, HEAD + ROW * (float) rows + 8 };
+        b.r = { 0, 0, b.anyPanel ? BW + 22 : BW, HEAD + ROW * (float) rows + 8 };
         int col = p->family == Current ? 0 : (p->family == Source ? 1 : (p->family == Shape ? 2 : 3));
         Point<float> def (250.0f + (float) col * 220.0f, 40.0f + (float) perCol[col]++ * 0.0f);
         def.y = 40.0f;
@@ -171,7 +182,8 @@ Point<float> Tapestry::inletPos (const Board& b, int i) const { return { b.r.get
 Point<float> Tapestry::outletPos (const Board& b, int i) const { return { b.r.getRight(), b.r.getY() + HEAD + ROW * (float) i + 8 }; }
 Point<float> Tapestry::tunePos (const Board& b) const { return { b.r.getRight() - 21, b.r.getY() + 25 }; }
 Point<float> Tapestry::paramPos (const Board& b, int j) const { return tunePos (b).translated (-28.0f * (float) (j + (b.hasTune ? 1 : 0)), 0); }
-Point<float> Tapestry::attPos (const Board& b, int i) const { return { b.r.getX() + 76, inletPos (b, i).y }; }
+Point<float> Tapestry::attPos (const Board& b, int i) const { return { b.r.getX() + (b.anyPanel ? 98.0f : 76.0f), inletPos (b, i).y }; }
+Point<float> Tapestry::panelPos (const Board& b, int i) const { return { b.r.getX() + 78, inletPos (b, i).y }; }
 
 static constexpr float TUNE_RANGE = 12;   // the tune knob: +-12 octaves (well below 1 Hz to past 15 kHz)
 static float attRange (const String& inlet) { return inlet == "pitch" ? 10.0f : 2.0f; }
@@ -185,9 +197,11 @@ Tapestry::Knob Tapestry::knobAt (Point<float> d) const
         if (b.hasTune && tunePos (b).getDistanceFrom (d) < 13) return { i, -1 };
         for (int j = 0; j < (int) b.params.size(); ++j)
             if (paramPos (b, j).getDistanceFrom (d) < 12) return { i, -2, j };
+        for (int k = 0; k < (int) b.ins.size() && k < (int) b.hasPanel.size(); ++k)
+            if (b.hasPanel[(size_t) k] && panelPos (b, k).getDistanceFrom (d) < 8.0f) return { i, k, -1, true };
         if (b.hasAtt)
             for (int k = 0; k < (int) b.ins.size(); ++k)
-                if (attPos (b, k).getDistanceFrom (d) < 7.5f) return { i, k };
+                if (attPos (b, k).getDistanceFrom (d) < 6.0f) return { i, k };
     }
     return {};
 }
@@ -372,7 +386,8 @@ void Tapestry::paint (Graphics& g)
             g.fillRect (vis);
         }
 
-        // cords, under the boards so nothing on a board is hidden
+        auto drawCords = [&]
+        {
         for (int k = 0; k < (int) doc.cords.size(); ++k)
         {
             auto& c = doc.cords[(size_t) k];
@@ -408,6 +423,11 @@ void Tapestry::paint (Graphics& g)
             }
         }
 
+
+        };
+        // the journal look: cords under the boards, so nothing on a board is hidden;
+        // the openprocess look: over them
+        if (! art::theme().pop) drawCords();
 
         // boards, the selected ones on top
         std::vector<int> order;
@@ -476,11 +496,18 @@ void Tapestry::paint (Graphics& g)
                 auto p = inletPos (b, k);
                 art::drawLoop (g, p, hoverPort.board == i && ! hoverPort.out && hoverPort.port == k, art::ink);
                 g.setColour (art::ink);
-                g.drawText (b.ins[(size_t) k].label, Rectangle<float> (p.x + 9, p.y - 7, b.hasAtt ? 58.0f : r.getWidth() * 0.55f, 14), Justification::left);
+                g.drawText (b.ins[(size_t) k].label, Rectangle<float> (p.x + 9, p.y - 7, (b.hasAtt || b.anyPanel) ? 58.0f : r.getWidth() * 0.55f, 14), Justification::left);
+                if (k < (int) b.hasPanel.size() && b.hasPanel[(size_t) k])      // the inlet's own knob
+                {
+                    bool hot = (knob.board == i && knob.panel && knob.inlet == k) || (hoverKnob.board == i && hoverKnob.panel && hoverKnob.inlet == k);
+                    float lo = b.panelLo[(size_t) k], hi = b.panelHi[(size_t) k], v = b.panel[(size_t) k];
+                    if (lo < 0) drawKnob (g, panelPos (b, k), 7, v, hi, true, hot);
+                    else drawKnob (g, panelPos (b, k), 7, (v - lo) / jmax (1.0e-6f, hi - lo) * 2 - 1, 1, false, hot);
+                }
                 if (b.hasAtt && k < (int) b.att.size())
                 {
-                    bool hot = (knob.board == i && knob.inlet == k) || (hoverKnob.board == i && hoverKnob.inlet == k);
-                    drawKnob (g, attPos (b, k), 5, b.att[(size_t) k], attRange (b.ins[(size_t) k].label), true, hot);
+                    bool hot = (knob.board == i && ! knob.panel && knob.inlet == k) || (hoverKnob.board == i && ! hoverKnob.panel && hoverKnob.inlet == k);
+                    drawKnob (g, attPos (b, k), b.anyPanel ? 4.5f : 5.0f, b.att[(size_t) k], attRange (b.ins[(size_t) k].label), true, hot);
                 }
             }
             for (int k = 0; k < (int) b.outs.size(); ++k)
@@ -519,6 +546,8 @@ void Tapestry::paint (Graphics& g)
                     g.fillEllipse (c);
                 }
         }
+
+        if (art::theme().pop) drawCords();
 
         // the one you're pointing at or have picked, and those selected in the journal, on top of the boards
         for (int k = 0; k < (int) doc.cords.size(); ++k)
@@ -607,13 +636,14 @@ void Tapestry::mouseMove (const MouseEvent& e)
     auto d = toDesign (e.position);
     lastMouse = d;
     auto hk = knobAt (d);
-    if (hk.board != hoverKnob.board || hk.inlet != hoverKnob.inlet || hk.param != hoverKnob.param)
+    if (hk.board != hoverKnob.board || hk.inlet != hoverKnob.inlet || hk.param != hoverKnob.param || hk.panel != hoverKnob.panel)
     {
         hoverKnob = hk;
         if (hk.board >= 0 && onStatus)
         {
             auto& b = boards[(size_t) hk.board];
-            if (hk.param >= 0) onStatus (b.key + " " + b.params[(size_t) hk.param].name + " " + fmt (b.params[(size_t) hk.param].value) + ": drag to set");
+            if (hk.panel) onStatus (b.ins[(size_t) hk.inlet].text + " " + fmt (b.panel[(size_t) hk.inlet]) + ": its own knob (what's patched in adds to it)");
+            else if (hk.param >= 0) onStatus (b.key + " " + b.params[(size_t) hk.param].name + " " + fmt (b.params[(size_t) hk.param].value) + ": drag to set");
             else onStatus (hk.inlet < 0 ? b.key + " tune " + fmt (b.tune) + " octaves: drag to set the base pitch"
                                    : b.ins[(size_t) hk.inlet].text + " attenuverter " + fmt (b.att[(size_t) hk.inlet]) + ": scales what's patched in");
         }
@@ -704,7 +734,7 @@ void Tapestry::mouseDown (const MouseEvent& e)
     {
         auto& b = boards[(size_t) kn.board];
         mode = Mode::Knob; knob = kn;
-        knobStart = kn.param >= 0 ? b.params[(size_t) kn.param].value : (kn.inlet < 0 ? b.tune : b.att[(size_t) kn.inlet]);
+        knobStart = kn.panel ? b.panel[(size_t) kn.inlet] : kn.param >= 0 ? b.params[(size_t) kn.param].value : (kn.inlet < 0 ? b.tune : b.att[(size_t) kn.inlet]);
         return;
     }
     auto hp = portAt (d);
@@ -763,7 +793,18 @@ void Tapestry::mouseDrag (const MouseEvent& e)
             auto& b = boards[(size_t) knob.board];
             float dy = anchor.y - e.position.y;
             bool fine = e.mods.isShiftDown();
-            if (knob.param >= 0)      // a param: 200 px across its range, shift for fine
+            if (knob.panel)           // the inlet's own knob: 200 px across its range, shift for fine
+            {
+                const auto k = (size_t) knob.inlet;
+                float lo = b.panelLo[k], hi = b.panelHi[k];
+                float step = (hi - lo) / 200.0f / (fine ? 10.0f : 1.0f);
+                float v = jlimit (lo, hi, knobStart + std::round (dy) * step);
+                v = std::round (v * 1000.0f) / 1000.0f;
+                b.panel[k] = v;
+                host.setKnob (b.node, knob.inlet, v);
+                if (onStatus) onStatus (b.ins[k].text + " " + fmt (v) + "   shift: fine, double-click: " + fmt (b.panelDef[k]));
+            }
+            else if (knob.param >= 0) // a param: 200 px across its range, shift for fine
             {
                 auto& pr = b.params[(size_t) knob.param];
                 float step = (pr.hi - pr.lo) / 200.0f / (fine ? 10.0f : 1.0f);
@@ -834,7 +875,8 @@ void Tapestry::mouseUp (const MouseEvent& e)
     else if (mode == Mode::Knob && knob.board >= 0)
     {
         auto& b = boards[(size_t) knob.board];
-        if (knob.param >= 0) doc.setOption (b.node, b.params[(size_t) knob.param].name, fmt (b.params[(size_t) knob.param].value));
+        if (knob.panel) doc.setOption (b.node, b.ins[(size_t) knob.inlet].label, fmt (b.panel[(size_t) knob.inlet]));
+        else if (knob.param >= 0) doc.setOption (b.node, b.params[(size_t) knob.param].name, fmt (b.params[(size_t) knob.param].value));
         else if (knob.inlet < 0) doc.setOption (b.node, "tune", fmt (b.tune));
         else doc.setOption (b.node, "att." + b.ins[(size_t) knob.inlet].label, fmt (b.att[(size_t) knob.inlet]));
         knob = {};
@@ -858,7 +900,8 @@ void Tapestry::mouseDoubleClick (const MouseEvent& e)
     if (auto kn = knobAt (d); kn.board >= 0)     // back to where it rests: tune 0, attenuverter 1
     {
         auto& b = boards[(size_t) kn.board];
-        if (kn.param >= 0) { auto& pr = b.params[(size_t) kn.param]; pr.value = pr.def; host.setParam (b.node, pr.k, pr.def); doc.setOption (b.node, pr.name, fmt (pr.def)); }
+        if (kn.panel) { auto k = (size_t) kn.inlet; b.panel[k] = b.panelDef[k]; host.setKnob (b.node, kn.inlet, b.panelDef[k]); doc.setOption (b.node, b.ins[k].label, fmt (b.panelDef[k])); }
+        else if (kn.param >= 0) { auto& pr = b.params[(size_t) kn.param]; pr.value = pr.def; host.setParam (b.node, pr.k, pr.def); doc.setOption (b.node, pr.name, fmt (pr.def)); }
         else if (kn.inlet < 0) { b.tune = 0; host.setTune (b.node, 0); doc.setOption (b.node, "tune", "0"); }
         else { b.att[(size_t) kn.inlet] = 1; host.setAtt (b.node, kn.inlet, 1); doc.setOption (b.node, "att." + b.ins[(size_t) kn.inlet].label, "1"); }
         edited (false);

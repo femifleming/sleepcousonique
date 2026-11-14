@@ -30,6 +30,12 @@ const std::vector<PlaceInfo>& catalog()
         auto lines = juce::StringArray::fromLines (juce::String::fromUTF8 (scq_catalog()));
         for (auto& l : lines)
         {
+            if (l.startsWith ("D ") && ! v.empty())
+            {
+                auto t = juce::StringArray::fromTokens (l, " ", "");
+                for (int i = 2; i < t.size(); ++i) v.back().defs.push_back (t[i].getFloatValue());
+                continue;
+            }
             if (l.startsWith ("O ") && ! v.empty())
             {
                 auto t = juce::StringArray::fromTokens (l, " ", "");
@@ -64,6 +70,30 @@ const std::vector<PlaceInfo>& catalog()
         return v;
     }();
     return places;
+}
+
+float knobDefault (const PlaceInfo& p, int i) { return i >= 0 && i < (int) p.defs.size() ? p.defs[(size_t) i] : 0.0f; }
+
+bool knobRange (const PlaceInfo& p, int i, float& lo, float& hi)
+{
+    if (i < 0 || i >= p.ins.size() || p.family == Hands || p.family == Ears) return false;
+    auto n = p.ins[i];
+    static const juce::StringArray none { "in", "in1", "in2", "in3", "in4", "a", "b", "mod", "trig", "trig1", "trig2", "strike",
+                                          "pluck", "gate", "clock", "reset", "sync", "next", "back", "learn", "follow", "s1", "s2",
+                                          "s3", "s4", "s5", "s6", "s7", "s8", "x", "y" };
+    if (none.contains (n)) return false;                // sound and pulses come from cords, not knobs
+    if (n == "pitch")
+    {
+        if (p.tune) return false;                       // the tune knob is its pitch knob
+        lo = -4; hi = 4; return true;
+    }
+    struct Bi { const char* name; float r; };
+    static const Bi bi[] = { { "fm", 1 }, { "width", 1 }, { "root", 1 }, { "cutoff", 3 }, { "shift", 2 }, { "pan", 1 },
+                             { "spread", 1 }, { "rate", 4 }, { "ratio", 2 } };
+    for (auto& b : bi) if (n == b.name) { lo = -b.r; hi = b.r; if (n == "rate" || n == "ratio") { lo = 0; } return true; }
+    float d = knobDefault (p, i);
+    lo = juce::jmin (0.0f, d); hi = juce::jmax (1.0f, d * 2);
+    return true;
 }
 
 const PlaceInfo* findPlace (const juce::String& name)
@@ -247,6 +277,15 @@ void Document::setOption (int id, const juce::String& key, const juce::String& v
     {
         auto it = opts.find (o.name);
         if (it != opts.end() && it->second != o.def) written << " " << o.name << "=" << it->second;
+    }
+    for (int i = 0; i < p->ins.size(); ++i)       // the panel knobs, in inlet order, defaults left out
+    {
+        auto& in = p->ins[i];
+        bool isOpt = false;
+        for (auto& o : p->opts) if (o.name == in) isOpt = true;
+        auto it = opts.find (in);
+        if (! isOpt && it != opts.end() && std::abs (it->second.getFloatValue() - knobDefault (*p, i)) > 1.0e-4f)
+            written << " " << in << "=" << it->second;
     }
     for (auto& in : p->ins)                       // then the attenuverters, in inlet order, 1 left out
     {

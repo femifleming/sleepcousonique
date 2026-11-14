@@ -92,6 +92,8 @@ void Host::setAtt (int node, int in, float a) { { const juce::ScopedLock sl (loc
 
 void Host::setParam (int node, int k, float v) { { const juce::ScopedLock sl (lock); scq_set_param (node, k, v); } if (fleet) fleet->setParam (node, k, v); }
 
+void Host::setKnob (int node, int in, float v) { { const juce::ScopedLock sl (lock); scq_set_knob (node, in, v); } if (fleet) fleet->setKnob (node, in, v); }
+
 void Host::gotoScene (int s) { { const juce::ScopedLock sl (lock); scq_goto_scene (s); } if (fleet) fleet->gotoScene (s); }
 int Host::scene() { return scq_scene(); }
 void Host::control (int which, float v) { scq_control (which, v); if (fleet) fleet->control (which, v); }

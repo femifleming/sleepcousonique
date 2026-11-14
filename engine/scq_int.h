@@ -67,6 +67,8 @@ struct node {
 	float    tune;                /* base pitch knob, octaves added to the pitch inlet */
 	uint16_t attset;              /* bit per inlet whose attenuverter isn't 1 */
 	float    att[MAX_IN];         /* attenuverters: scale what's patched in (not the default) */
+	uint16_t knobset;             /* bit per inlet whose panel knob was turned */
+	float    koff[MAX_IN];        /* knob - the place's default: added to what's patched in */
 	uint32_t rng;
 	void    *mem;
 	uint32_t memlen;

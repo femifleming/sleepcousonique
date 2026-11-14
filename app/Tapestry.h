@@ -65,10 +65,13 @@ private:
         bool hasTune = false, hasAtt = false;
         float tune = 0;               // the base pitch knob, octaves
         std::vector<float> att;       // an attenuverter per inlet
+        std::vector<char> hasPanel;   // a panel knob on this inlet (its own value)
+        std::vector<float> panel, panelLo, panelHi, panelDef;
+        bool anyPanel = false;
         struct Param { juce::String name; int k = 0; float value = 0, def = 0, lo = 0, hi = 1; };
         std::vector<Param> params;    // numeric params as knobs (ratio, length...)
     };
-    struct Knob { int board = -1, inlet = -2, param = -1; };   // inlet -1: the tune knob; param >= 0: a param knob
+    struct Knob { int board = -1, inlet = -2, param = -1; bool panel = false; };   // inlet -1: tune; param >= 0: a param; panel: the inlet's own knob
     struct Hit { int board = -1; bool out = false; int port = -1; };
 
     void timerCallback() override;
@@ -88,6 +91,7 @@ private:
     juce::Point<float> tunePos (const Board&) const;
     juce::Point<float> paramPos (const Board&, int j) const;
     juce::Point<float> attPos (const Board&, int inlet) const;
+    juce::Point<float> panelPos (const Board&, int inlet) const;
     void drawKnob (juce::Graphics&, juce::Point<float> c, float radius, float value, float range, bool bipolar, bool hot) const;
     int boardAt (juce::Point<float> design) const;
     int cordAt (juce::Point<float> design) const;

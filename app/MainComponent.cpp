@@ -862,6 +862,13 @@ Timeline::Snapshot MainComponent::capture()
         if (! p || p->family >= scq::Hands) continue;
         if (p->tune) s.v["t:" + n.name] = scq_get_tune (n.id);
         if (p->att) for (int i = 0; i < p->ins.size(); ++i) s.v["a:" + n.name + ":" + String (i)] = scq_get_att (n.id, i);
+        for (int i = 0; i < p->ins.size(); ++i)        // the panel knobs
+        {
+            float lo, hi;
+            bool isOpt = false;
+            for (auto& o : p->opts) if (o.name == p->ins[i]) isOpt = true;
+            if (! isOpt && scq::knobRange (*p, i, lo, hi)) s.v["k:" + n.name + ":" + String (i)] = scq_get_knob (n.id, i);
+        }
         for (int k = 0; k < (int) p->opts.size(); ++k)
         {
             auto& o = p->opts[(size_t) k];
@@ -911,6 +918,7 @@ void MainComponent::applySnapshot (const Timeline::Values& values, int scene)
             if (kind == "t:") host.setTune (it->second, v);
             else if (kind == "a:") host.setAtt (it->second, idx, v);
             else if (kind == "p:") host.setParam (it->second, idx, v);
+            else if (kind == "k:") host.setKnob (it->second, idx, v);
         }
     }
 }

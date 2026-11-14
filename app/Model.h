@@ -27,6 +27,7 @@ struct PlaceInfo
     float nature = 1;
     juce::StringArray ins, outs;
     bool att = false;    // an attenuverter knob on every inlet (sources, and places with a pitch inlet)
+    std::vector<float> defs;   // each inlet's default
     bool tune = false;   // a base pitch knob (places with a pitch inlet)
 };
 
@@ -53,6 +54,10 @@ struct Message { bool error = false; int line = 0; juce::String text; };
 const std::vector<PlaceInfo>& catalog();
 const PlaceInfo* findPlace (const juce::String& name);
 Signal outletSignal (const PlaceInfo&, int port);
+// Does inlet i get a panel knob (as it would on an analog module), and over what range?
+// Audio and pulse inlets don't; pitch doesn't where the place has a tune knob.
+bool knobRange (const PlaceInfo&, int inlet, float& lo, float& hi);
+float knobDefault (const PlaceInfo&, int inlet);
 
 // The text, kept as the one source of truth. Every visual edit is a text edit.
 class Document

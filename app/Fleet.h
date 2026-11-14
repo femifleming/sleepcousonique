@@ -27,6 +27,7 @@ public:
     void setTune (int node, float v)                { set ('t', node, 0, v); }
     void setAtt (int node, int inlet, float v)      { set ('v', node, inlet, v); }
     void setParam (int node, int k, float v)        { set ('p', node, k, v); }
+    void setKnob (int node, int inlet, float v)     { set ('k', node, inlet, v); }
     void control (int ctl, float v);
     void gotoScene (int scene);
 

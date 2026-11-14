@@ -148,6 +148,15 @@ void Inspector::refresh()
             rows.push_back (r);
         }
     }
+    for (int i = 0; i < p->ins.size(); ++i)            // the inlets' own knobs
+    {
+        float lo, hi;
+        bool has = knobRange (*p, i, lo, hi);
+        for (auto& o : p->opts) if (o.name == p->ins[i]) has = false;
+        if (! has) continue;
+        float def = knobDefault (*p, i);
+        rows.push_back ({ Panel, p->ins[i], p->ins[i], i, opt (p->ins[i], String (def)).getFloatValue(), lo, hi, def });
+    }
     if (p->att)
         for (int i = 0; i < p->ins.size(); ++i)
         {
@@ -162,7 +171,7 @@ void Inspector::layoutRows()
 {
     auto r = getLocalBounds().toFloat().reduced (10, 0);
     r.removeFromTop (44);
-    const float h = jmin (52.0f, r.getHeight() / (float) jmax (1, (int) rows.size()));
+    const float h = jmin (52.0f, jmax (30.0f, r.getHeight() / (float) jmax (1, (int) rows.size())));
     for (auto& row : rows)
     {
         row.area = r.removeFromTop (h);
@@ -235,6 +244,7 @@ void Inspector::apply (Row& r, bool live)
         if (r.kind == Tune) host.setTune (node, r.value);
         else if (r.kind == Att) host.setAtt (node, r.index, r.value);
         else if (r.kind == Param) host.setParam (node, r.index, r.value);
+        else if (r.kind == Panel) host.setKnob (node, r.index, r.value);
         if (onStatus) onStatus (r.label + " " + comma (r.value) + "   (double-click: back to " + comma (r.def) + ")");
         repaint();
         return;

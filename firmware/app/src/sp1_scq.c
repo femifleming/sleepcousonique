@@ -18,7 +18,7 @@
  *             'E'                         -> 'o' "<errors>" / 'x' "<why>"
  *             'S' kind a(2x7) b v(5x7)    live: kind a = cord amount (cord a), t = tune (node a),
  *                                         v = attenuverter (node a, inlet b), p = param (node a,
- *                                         option b), c = control b (the editor's hands)
+ *                                         option b), k = panel knob (node a, inlet b), c = control b (the editor's hands)
  *             'G' scene(2x7)              go to a scene
  *             'P'                         -> 'p' (are you there)
  *             •• + T4 turns Bluetooth on and off (kept in the state page).
@@ -433,6 +433,7 @@ static void ble_poll(void)
 				case 't': scq_set_tune(a, v); break;
 				case 'v': scq_set_att(a, b, v); break;
 				case 'p': scq_set_param(a, b, v); break;
+				case 'k': scq_set_knob(a, b, v); break;
 				case 'c':
 					if (b < SCQ_CTL_COUNT) {
 						remote_ctl[b] = v;

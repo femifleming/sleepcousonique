@@ -74,9 +74,12 @@ float scq_get_tune(int node);
 float scq_get_att(int node, int inlet);
 float scq_get_param(int node, int k);
 float scq_get_control(int which);
+float scq_get_knob(int node, int inlet);  /* an inlet's panel knob (its own value) */
 
 /* Turn a numeric param (k = its place in the place's switches and params) while it plays. */
 void  scq_set_param(int node, int k, float value);
+/* Turn an inlet's panel knob: its value when nothing is patched in, added to what is. */
+void  scq_set_knob(int node, int inlet, float value);
 
 /* Desktop editor only (built with SCQ_HOST): check text without disturbing the sound.
  * Fills msgs like scq_messages(); returns the number of errors. */

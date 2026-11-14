@@ -160,6 +160,21 @@ same. For the sound of fewer bits, use `bitcrush`.)
 are already bare. **Lite places** are cut-down versions of heavy ones: `reverblite`,
 `choruslite`, `delaylite`, `fmlite`, `supersawlite`, `froglet` (one frog).
 
+## Panel knobs
+
+Every place has the knobs it would have on an analog modular: a delay's time and feedback, a
+filter's cutoff and resonance, an envelope's attack and release, an LFO's rate, a reverb's
+size. A knob is the inlet's own value; whatever you patch into the inlet adds to it (through
+its attenuverter). It is written after the place, with the inlet's name:
+
+    the hall is delay 9 time=0.4 feedback=0.6
+    the env is follower attack=0.05 release=0.8
+
+Sound and pulse inlets (in, trig, clock...) have no knob, as on hardware; a place's pitch is
+its tune knob. A knob left where it was changes nothing, so old dreams sound the same. On the
+tapestry the knob sits beside its inlet (the attenuverter just right of it); drag it (shift
+for fine), double-click to put it back. Snapshots keep every knob, and glide them.
+
 ## Tune and attenuverters (the knobs on the module)
 
 Every place with a `pitch` inlet (the oscillators, frogs, bell, string, kick, comb...) has a
