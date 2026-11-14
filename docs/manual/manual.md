@@ -158,6 +158,27 @@ When you are not typing in the journal, the computer keyboard plays the hands. *
 the doors, **↑ ↓** the rocker, **space** is PLAY and **.** is the dots. **.** + **↑ ↓** changes
 scene.
 
+## Snapshots and the timeline
+
+The strip above the SP-1's hands (View ▸ Snapshots and timeline) is for composing, after
+openprocess. A **snapshot** keeps what's sounding: every cord amount and kept value, every
+tune, attenuverter and param, the four faders, and the scene, by name, so it still works
+after you edit the dream.
+
+| to | do this |
+|---|---|
+| keep a snapshot | click an empty square (shift-click a kept one to keep it again; option-click clears it) |
+| go to it | click it: **cut** jumps there, **glide** gets there smoothly over the time beside it (click the time to change it: 0.5 to 30 s) |
+| put it on the timeline | drag its square onto the lane |
+| set a segment's length | drag its right edge (half seconds) or right-click ▸ length |
+| cut or glide | right-click a segment: **cut** holds its snapshot, **glide** morphs from it into the next one over its length (the white ramp) |
+| play | the red flag (or space with the strip selected); **loop** goes round again; click the lane to move the playhead |
+| remove a segment | select it and press delete, or right-click ▸ remove |
+
+Everything the timeline plays goes the same way as your own knobs: to the sound here, and to
+every SP-1 in Bluetooth mode at once. Snapshots and the timeline are kept in the dream as
+`;~snap` and `;~timeline` lines at the end, which the engine ignores; undo covers them.
+
 ## Scenes
 
 Every dated heading in the journal is a scene, and each scene is its own patch. The scene

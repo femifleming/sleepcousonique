@@ -136,6 +136,16 @@ MainComponent::MainComponent()
     journal.onTyped = [this] { pendingTyping = true; typedAt = Time::getMillisecondCounter(); doc.dirty = true; updateTitle(); };
     journal.onPickMessage = [this] (int line) { journal.showLine (line); };
     host.fleet = &fleet;
+    addAndMakeVisible (timeline);
+    timeline.onCapture = [this] { return capture(); };
+    timeline.onApply = [this] (const Timeline::Values& v, int scene) { applySnapshot (v, scene); };
+    timeline.onStatus = [this] (const String& t) { status (t); };
+    timeline.onChanged = [this]
+    {
+        if (pendingTyping) { pendingTyping = false; doc.text = journal.getText(); }   // keep what's being typed
+        doc.text = Timeline::without (doc.text) + timeline.toText();
+        textEdited (false);
+    };
     fleet.onChange = [this] { fleetChanged(); };
     tapestry.onFleetToggle = [this] (const String& id, bool on) { fleet.setOn (id, on); };
     journal.onUndo = [this] (bool redo) { undoRedo (redo); };
@@ -242,6 +252,7 @@ void MainComponent::compile (bool force)
 void MainComponent::afterLoad (const Host::Result& r)
 {
     struct Later { Inspector& i; ~Later() { i.refresh(); } } later { inspector };
+    timeline.fromText (doc.text);
     lastMessages = r.messages;
     doc.readDescription (r.describe.toRawUTF8(), r.messages.toRawUTF8());
     journal.setMessages (doc.messages, {});
@@ -343,6 +354,8 @@ void MainComponent::resized()
 
     statusArea = r.removeFromBottom (24);
     hands.setBounds (r.removeFromBottom (176));
+    timeline.setVisible (showTimeline);
+    if (showTimeline) timeline.setBounds (r.removeFromBottom (70));
 
     journal.setVisible (view != 2);
     tapestry.setVisible (view != 0);
@@ -395,7 +408,10 @@ void MainComponent::resizedPop()
     meters = stripArea;
     statusArea = {};
     auto handsArea = r.removeFromBottom (150);
-    marginArea = r.withTrimmedBottom (-handsArea.getHeight()).removeFromLeft (104);
+    auto tlArea = showTimeline ? r.removeFromBottom (70) : Rectangle<int>();
+    timeline.setVisible (showTimeline);
+    if (showTimeline) timeline.setBounds (tlArea.withTrimmedLeft (104));
+    marginArea = r.withTrimmedBottom (-(handsArea.getHeight() + tlArea.getHeight())).removeFromLeft (104);
     helpArea = marginArea.withTop (marginArea.getBottom() - 70).withHeight (24).withTrimmedLeft (12).withWidth (80);
     handsArea.removeFromLeft (104);
     hands.setBounds (handsArea);
@@ -825,6 +841,80 @@ void MainComponent::themeForShot (bool pop, bool dark)
     repaint();
 }
 
+// a snapshot: every value that can move while it plays, keyed by names (so it survives edits)
+static String cordKey (const scq::Document& doc, const scq::CordInfo& c)
+{
+    auto* d = doc.node (c.dst);
+    auto* s = c.src >= 0 ? doc.node (c.src) : nullptr;
+    if (! d) return {};
+    return c.src >= 0 ? (s ? "c:" + s->name + ":" + String (c.sport) + ">" + d->name + ":" + String (c.dport) : String())
+                      : "b:" + d->name + ":" + String (c.dport);
+}
+
+Timeline::Snapshot MainComponent::capture()
+{
+    Timeline::Snapshot s;
+    s.used = true;
+    s.scene = doc.scene;
+    for (auto& n : doc.nodes)
+    {
+        auto* p = scq::findPlace (n.place);
+        if (! p || p->family >= scq::Hands) continue;
+        if (p->tune) s.v["t:" + n.name] = scq_get_tune (n.id);
+        if (p->att) for (int i = 0; i < p->ins.size(); ++i) s.v["a:" + n.name + ":" + String (i)] = scq_get_att (n.id, i);
+        for (int k = 0; k < (int) p->opts.size(); ++k)
+        {
+            auto& o = p->opts[(size_t) k];
+            if (o.positions.isEmpty() && o.name != "tune") s.v["p:" + n.name + ":" + String (k)] = scq_get_param (n.id, k);
+        }
+    }
+    std::map<String, int> seen;
+    for (int k = 0; k < (int) doc.cords.size(); ++k)
+    {
+        auto& c = doc.cords[(size_t) k];
+        auto base = cordKey (doc, c);
+        if (base.isEmpty() || c.kind == scq::Door) continue;
+        s.v[base + "#" + String (seen[base]++)] = scq_get_amount (k);
+    }
+    for (int i = 0; i < 4; ++i) s.v["f:" + String (i)] = scq_get_control (i);
+    return s;
+}
+
+void MainComponent::applySnapshot (const Timeline::Values& values, int scene)
+{
+    if (scene != doc.scene && scene >= 0 && scene < (int) doc.scenes.size())
+    {
+        host.gotoScene (scene);                        // the SP-1s follow too
+        auto r = host.describe();
+        doc.readDescription (r.describe.toRawUTF8(), lastMessages.toRawUTF8());
+        tapestry.refresh();
+        refreshScenes();
+    }
+    std::map<String, int> nodes, cords, seen;
+    for (auto& n : doc.nodes) nodes[n.name] = n.id;
+    for (int k = 0; k < (int) doc.cords.size(); ++k)
+    {
+        auto base = cordKey (doc, doc.cords[(size_t) k]);
+        if (base.isNotEmpty()) cords[base + "#" + String (seen[base]++)] = k;
+    }
+    for (auto& [key, v] : values)
+    {
+        auto kind = key.substring (0, 2), rest = key.substring (2);
+        if (kind == "c:" || kind == "b:") { auto it = cords.find (key); if (it != cords.end()) host.setAmount (it->second, v); }
+        else if (kind == "f:") { int i = rest.getIntValue(); host.control (i, v); hands.showFader (i, v); }
+        else
+        {
+            auto name = rest.upToFirstOccurrenceOf (":", false, false);
+            auto it = nodes.find (name);
+            if (it == nodes.end()) continue;
+            int idx = rest.fromFirstOccurrenceOf (":", false, false).getIntValue();
+            if (kind == "t:") host.setTune (it->second, v);
+            else if (kind == "a:") host.setAtt (it->second, idx, v);
+            else if (kind == "p:") host.setParam (it->second, idx, v);
+        }
+    }
+}
+
 void MainComponent::fleetMenu()
 {
    #if JUCE_MAC
@@ -873,6 +963,7 @@ void MainComponent::applyLook()
     tapestry.setLight ((float) st->getIntValue ("roomLight", 100) / 100.0f);
     tapestry.setRouting (st->getBoolValue ("cableRouter", false));
     fleet.live = st->getBoolValue ("fleetLive", true);
+    showTimeline = st->getBoolValue ("showTimeline", true);
     tapestry.repaint();
     hands.resized();
     resized();                       // the two looks lay the window out differently
@@ -992,6 +1083,7 @@ PopupMenu MainComponent::getMenuForIndex (int idx, const String&)
         m.addSubMenu ("Cable slack", slack);
         m.addSubMenu ("Cable routing", route);
         m.addSeparator();
+        m.addItem (16, "Snapshots and timeline", true, showTimeline);
         m.addItem (14, "Find my patch (fit the tapestry in view)");
         m.addItem (15, "Sound settings...");
     }
@@ -1056,6 +1148,7 @@ void MainComponent::menuItemSelected (int id, int)
         }
         case 60: case 61: case 62: case 63: case 64: props.getUserSettings()->setValue ("cableSlack", id - 60); applyLook(); break;
         case 70: case 71: props.getUserSettings()->setValue ("cableRouter", id == 71); applyLook(); break;
+        case 16: showTimeline = ! showTimeline; props.getUserSettings()->setValue ("showTimeline", showTimeline); resized(); break;
         case 80: case 81: props.getUserSettings()->setValue ("look", id == 80 ? "openprocess" : "journal"); applyLook(); break;
         case 85: case 86: case 87: props.getUserSettings()->setValue ("appearance", id == 85 ? "dark" : (id == 86 ? "light" : "system")); applyLook(); break;
         case 90: fleetMenu(); break;

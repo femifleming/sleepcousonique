@@ -1,12 +1,13 @@
 #pragma once
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <juce_events/juce_events.h>
+#include <map>
 
 // Every SP-1 in Bluetooth mode the computer can see, as one fleet: the dream you're patching
 // goes to all of them, and every live change (cords, knobs, settings, the hands, scenes)
 // goes to all of them as you make it. Each SP-1 is a Bluetooth MIDI port called
 // "SP-1 SCQ xxxx"; the messages are SysEx F0 7D 'S' 'Q' ... F7 (see firmware sp1_scq.c).
-class Fleet : private juce::Timer, private juce::MidiInputCallback
+class Fleet : private juce::MultiTimer, private juce::MidiInputCallback
 {
 public:
     Fleet();
@@ -38,7 +39,10 @@ private:
         bool answered = false, on = true;
         juce::uint32 pinged = 0;
     };
-    void timerCallback() override;
+    void timerCallback (int id) override;           // 1: look for SP-1s, 2: send what changed
+    void scan();
+    void flush();
+    std::map<juce::int64, float> pending;            // (kind, a, b) -> the latest value, sent ~20x a second
     void handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage&) override;
     void set (char kind, int a, int b, float v);
     void sysex (const std::vector<juce::uint8>& payload, bool onlyAnswered = true);

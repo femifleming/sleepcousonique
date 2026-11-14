@@ -8,6 +8,7 @@
 #include "Serial.h"
 #include "Pop.h"
 #include "Fleet.h"
+#include "Timeline.h"
 
 class MainComponent : public juce::Component,
                       public juce::DarkModeSettingListener,
@@ -47,7 +48,10 @@ private:
     void applyLook();
     void textEdited (bool recompile);
     void fleetMenu();                // pair, choose, send, follow live
-    void fleetChanged();   // the tapestry or the settings column changed the text
+    void fleetChanged();
+    Timeline::Snapshot capture();        // what's sounding now, by names
+    void applySnapshot (const Timeline::Values&, int scene);
+    bool showTimeline = true;   // the tapestry or the settings column changed the text
     void mouseDown (const juce::MouseEvent&) override;
     void resizedPop();
     void paintPop (juce::Graphics&);
@@ -80,6 +84,7 @@ private:
     juce::TextButton sendBtn { "send to SP-1" }, soundBtn { "sound" }, undoBtn { "undo" }, redoBtn { "redo" };
     PlaceBrowser browser;
     Inspector inspector { doc, host };
+    Timeline timeline;
     juce::Rectangle<int> pillArea, marginArea, stripArea, contentArea, helpArea;
     juce::TextButton kindBtn[4], viewBtn[3], addSceneBtn { "+ scene" };
     juce::OwnedArray<juce::TextButton> sceneBtns;

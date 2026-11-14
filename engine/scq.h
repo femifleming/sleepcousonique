@@ -68,6 +68,13 @@ void  scq_set_amount(int cord, float amount);
 void  scq_set_tune(int node, float octaves);
 /* Turn an inlet's attenuverter (scales what's patched in) while it plays. */
 void  scq_set_att(int node, int inlet, float amount);
+/* What's sounding now, in the text's units (the editor's snapshots read these). */
+float scq_get_amount(int cord);        /* percent (milliseconds for water); 0 for a door */
+float scq_get_tune(int node);
+float scq_get_att(int node, int inlet);
+float scq_get_param(int node, int k);
+float scq_get_control(int which);
+
 /* Turn a numeric param (k = its place in the place's switches and params) while it plays. */
 void  scq_set_param(int node, int k, float value);
 

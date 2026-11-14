@@ -21,6 +21,7 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
     void resizedPop();
+    void showFader (int i, float v) { if (i >= 0 && i < 4) { items[(size_t) i].value = v; repaint(); } }   // a snapshot moved it
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;

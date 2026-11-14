@@ -59,6 +59,7 @@ target_sources(Sleepcousonique PRIVATE
     app/Router.cpp
     app/Pop.cpp
     app/Fleet.cpp
+    app/Timeline.cpp
     app/MainComponent.cpp)
 
 target_compile_definitions(Sleepcousonique PRIVATE

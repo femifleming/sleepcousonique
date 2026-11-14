@@ -962,6 +962,25 @@ void scq_set_tune(int index, float octaves)
 	G.n[index].tune = octaves;
 }
 
+float scq_get_amount(int index)
+{
+	if (index < 0 || index >= G.nc) return 0.f;
+	const cord *c = &G.c[index];
+	switch (c->kind) {
+	case K_WATER: return c->b;
+	case K_DOOR:  return 0.f;
+	default:      return c->a * 100.f;
+	}
+}
+
+float scq_get_tune(int index) { return index >= 0 && index < G.nn ? G.n[index].tune : 0.f; }
+float scq_get_att(int index, int inlet)
+{
+	return index >= 0 && index < G.nn && inlet >= 0 && inlet < G.n[index].nin ? G.n[index].att[inlet] : 1.f;
+}
+float scq_get_param(int index, int k) { return index >= 0 && index < G.nn && k >= 0 && k < MAX_OPT ? G.n[index].opt[k] : 0.f; }
+float scq_get_control(int which) { return which >= 0 && which < SCQ_CTL_COUNT ? W.ctl[which] : 0.f; }
+
 void scq_set_param(int index, int k, float value)
 {
 	if (index < 0 || index >= G.nn || k < 0 || k >= MAX_OPT) return;

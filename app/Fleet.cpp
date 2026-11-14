@@ -8,13 +8,14 @@ static bool isSp1 (const String& name) { return name.startsWith ("SP-1 SCQ"); }
 Fleet::Fleet()
 {
     for (auto& v : lastCtl) v = -1000.0f;
-    startTimer (1500);
-    timerCallback();
+    startTimer (1, 1500);
+    startTimer (2, 50);
+    scan();
 }
 
 Fleet::~Fleet()
 {
-    stopTimer();
+    stopTimer (1); stopTimer (2);
     const ScopedLock sl (lock);
     for (auto& s : sp1s) if (s->in) s->in->stop();
 }
@@ -46,8 +47,10 @@ void Fleet::changed()
     MessageManager::callAsync ([this] { if (onChange) onChange(); });
 }
 
+void Fleet::timerCallback (int id) { if (id == 1) scan(); else flush(); }
+
 // find SP-1s as they appear (paired and connected), let go of the ones that went, and say hello
-void Fleet::timerCallback()
+void Fleet::scan()
 {
     auto outs = MidiOutput::getAvailableDevices();
     auto ins = MidiInput::getAvailableDevices();
@@ -124,6 +127,7 @@ void Fleet::sysex (const std::vector<uint8>& payload, bool onlyAnswered)
 void Fleet::sendDream (const String& text, int slot)
 {
     if (playing() == 0) return;
+    { const ScopedLock sl (lock); pending.clear(); }   // values for the old dream mean nothing to the new one
     auto utf8 = text.toStdString();
     const int len = (int) utf8.size();
     sysex ({ 0x7D, 'S', 'Q', 'B', (uint8) (len & 0x7f), (uint8) ((len >> 7) & 0x7f), (uint8) ((len >> 14) & 0x7f), (uint8) jlimit (0, 127, slot) });
@@ -141,12 +145,27 @@ void Fleet::sendDream (const String& text, int slot)
     sysex ({ 0x7D, 'S', 'Q', 'E' });
 }
 
+// live values are merged: only the latest of each goes out, about 20 times a second, so a glide
+// across a whole snapshot never floods the Bluetooth link
 void Fleet::set (char kind, int a, int b, float v)
 {
     if (playing() == 0) return;
-    uint32 u; std::memcpy (&u, &v, 4);
-    sysex ({ 0x7D, 'S', 'Q', 'S', (uint8) kind, (uint8) (a & 0x7f), (uint8) ((a >> 7) & 0x7f), (uint8) (b & 0x7f),
-             (uint8) (u & 0x7f), (uint8) ((u >> 7) & 0x7f), (uint8) ((u >> 14) & 0x7f), (uint8) ((u >> 21) & 0x7f), (uint8) ((u >> 28) & 0x0f) });
+    const ScopedLock sl (lock);
+    pending[((int64) (uint8) kind << 32) | ((int64) (a & 0xffff) << 8) | (b & 0xff)] = v;
+}
+
+void Fleet::flush()
+{
+    std::map<int64, float> now;
+    { const ScopedLock sl (lock); now.swap (pending); }
+    for (auto& [key, v] : now)
+    {
+        const char kind = (char) (key >> 32);
+        const int a = (int) ((key >> 8) & 0xffff), b = (int) (key & 0xff);
+        uint32 u; std::memcpy (&u, &v, 4);
+        sysex ({ 0x7D, 'S', 'Q', 'S', (uint8) kind, (uint8) (a & 0x7f), (uint8) ((a >> 7) & 0x7f), (uint8) (b & 0x7f),
+                 (uint8) (u & 0x7f), (uint8) ((u >> 7) & 0x7f), (uint8) ((u >> 14) & 0x7f), (uint8) ((u >> 21) & 0x7f), (uint8) ((u >> 28) & 0x0f) });
+    }
 }
 
 void Fleet::control (int ctl, float v)
@@ -159,5 +178,6 @@ void Fleet::control (int ctl, float v)
 void Fleet::gotoScene (int scene)
 {
     if (playing() == 0) return;
+    flush();
     sysex ({ 0x7D, 'S', 'Q', 'G', (uint8) (scene & 0x7f), (uint8) ((scene >> 7) & 0x7f) });
 }
