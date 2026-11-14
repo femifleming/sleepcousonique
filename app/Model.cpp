@@ -272,6 +272,7 @@ void Document::setOption (int id, const juce::String& key, const juce::String& v
     if (! p || n->line < 1) return;
     auto opts = n->opts;
     opts[key] = value;
+    for (auto& m : nodes) if (m.id == id) m.opts = opts;   // the tapestry and the settings column draw from this until the dream is next read
     juce::String written;
     for (auto& o : p->opts)                       // in the place's own order, defaults left out
     {

@@ -109,6 +109,19 @@ int main()
         CHECK (intoOut == 0 && r.cords.size() == 2, "a -> b and c -> b.cutoff stay, nothing into out");
     }
 
+    // a knob turned and let go keeps its new value on the board (no reload happens after it)
+    {
+        scq::Document k;
+        k.text = "the h is delay 9\nthe s is saw\ns -> h -> out\n";
+        compile (k);
+        int id = -1;
+        for (auto& n : k.nodes) if (n.name == "h") id = n.id;
+        k.setOption (id, "feedback", "0.7");
+        auto* n = k.node (id);
+        CHECK (n && n->opts.count ("feedback") && n->opts.at ("feedback") == "0.7", "a turned knob keeps its value before any reload");
+        CHECK (k.text.contains ("the h is delay 9 feedback=0.7"), "and it's written in the dream");
+    }
+
     // every scale in the scales folder becomes a tuning the engine takes, and quantizes to it
     for (auto& sc : scales::names())
     {

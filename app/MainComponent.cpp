@@ -904,10 +904,22 @@ void MainComponent::applySnapshot (const Timeline::Values& values, int scene)
         auto base = cordKey (doc, doc.cords[(size_t) k]);
         if (base.isNotEmpty()) cords[base + "#" + String (seen[base]++)] = k;
     }
+    // what's shown follows too: the knobs and the cord amounts move with a recall or a glide
+    // (only in memory: the text keeps what you wrote)
+    auto shown = [this] (int id, const String& key, float v)
+    {
+        for (auto& n : doc.nodes) if (n.id == id) n.opts[key] = scq::fmt (v);
+    };
     for (auto& [key, v] : values)
     {
         auto kind = key.substring (0, 2), rest = key.substring (2);
-        if (kind == "c:" || kind == "b:") { auto it = cords.find (key); if (it != cords.end()) host.setAmount (it->second, v); }
+        if (kind == "c:" || kind == "b:")
+        {
+            auto it = cords.find (key);
+            if (it == cords.end()) continue;
+            host.setAmount (it->second, v);
+            doc.cords[(size_t) it->second].amt = v;
+        }
         else if (kind == "f:") { int i = rest.getIntValue(); host.control (i, v); hands.showFader (i, v); }
         else
         {
@@ -915,12 +927,17 @@ void MainComponent::applySnapshot (const Timeline::Values& values, int scene)
             auto it = nodes.find (name);
             if (it == nodes.end()) continue;
             int idx = rest.fromFirstOccurrenceOf (":", false, false).getIntValue();
-            if (kind == "t:") host.setTune (it->second, v);
-            else if (kind == "a:") host.setAtt (it->second, idx, v);
-            else if (kind == "p:") host.setParam (it->second, idx, v);
-            else if (kind == "k:") host.setKnob (it->second, idx, v);
+            auto* nd = doc.node (it->second);
+            auto* p = nd ? scq::findPlace (nd->place) : nullptr;
+            if (! p) continue;
+            if (kind == "t:") { host.setTune (it->second, v); shown (it->second, "tune", v); }
+            else if (kind == "a:") { host.setAtt (it->second, idx, v); if (idx < p->ins.size()) shown (it->second, "att." + p->ins[idx], v); }
+            else if (kind == "p:") { host.setParam (it->second, idx, v); if (idx < (int) p->opts.size()) shown (it->second, p->opts[(size_t) idx].name, v); }
+            else if (kind == "k:") { host.setKnob (it->second, idx, v); if (idx < p->ins.size()) shown (it->second, p->ins[idx], v); }
         }
     }
+    static uint32 lastShown = 0;                       // redraw the boards at most ~15 times a second
+    if (Time::getMillisecondCounter() - lastShown > 66) { lastShown = Time::getMillisecondCounter(); tapestry.refresh(); inspector.refresh(); }
 }
 
 void MainComponent::applyLook()
