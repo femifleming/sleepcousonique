@@ -333,7 +333,10 @@ Path Tapestry::cordPath (int k) const
         }
         if (k < (int) routes.size() && ! routes[(size_t) k].isEmpty()) return routes[(size_t) k];
     }
-    return art::cablePath (a, b);
+    auto& c = doc.cords[(size_t) k];
+    int sb, sr;
+    bool audio = endpoint (c.src, c.sport, true, sb, sr) && boards[(size_t) sb].outs[(size_t) sr].signal == scq::Sound;
+    return art::cablePath (a, b, audio ? 1.25f : 1.0f);     // the fat audio leads hang a little lower
 }
 
 void Tapestry::setRouting (bool on) { routing = on; routesDirty = true; repaint(); }
@@ -412,7 +415,7 @@ void Tapestry::paint (Graphics& g)
             auto& from = boards[(size_t) sb];
             auto col = art::signalColour (from.outs[(size_t) sr].signal);
             auto path = cordPath (k);
-            art::drawCablePath (g, path, col, c.kind == scq::Range ? 4 : c.kind, k == hoverCord || k == selectedCord, 1.0f);
+            art::drawCablePath (g, path, col, c.kind == scq::Range ? 4 : c.kind, k == hoverCord || k == selectedCord, 1.0f, (int) from.outs[(size_t) sr].signal);
             if ((c.kind != Hall || std::abs (c.amt - 100) > 0.01f) && c.kind != Door)
             {
                 auto m = path.getPointAlongPath (path.getLength() * 0.5f);
@@ -556,7 +559,8 @@ void Tapestry::paint (Graphics& g)
             if (c.src < 0 || ! (k == hoverCord || k == selectedCord || lit (c.line))) continue;
             int sb, sr;
             if (! endpoint (c.src, c.sport, true, sb, sr)) continue;
-            art::drawCablePath (g, cordPath (k), art::signalColour (boards[(size_t) sb].outs[(size_t) sr].signal), c.kind == scq::Range ? 4 : c.kind, true, 1.0f);
+            const int sig = (int) boards[(size_t) sb].outs[(size_t) sr].signal;
+            art::drawCablePath (g, cordPath (k), art::signalColour (sig), c.kind == scq::Range ? 4 : c.kind, true, 1.0f, sig);
         }
 
         // the cord in your hand
@@ -565,8 +569,9 @@ void Tapestry::paint (Graphics& g)
             auto& b = boards[(size_t) cableFrom.board];
             auto a = cableFrom.out ? outletPos (b, cableFrom.port) : inletPos (b, cableFrom.port);
             auto col = cableFrom.out ? art::signalColour (b.outs[(size_t) cableFrom.port].signal) : art::umber;
-            if (cableFrom.out) art::drawCable (g, a, dragPos, col, handKind, false, 0.85f);
-            else art::drawCable (g, dragPos, a, col, handKind, false, 0.85f);
+            const int sig = cableFrom.out ? (int) b.outs[(size_t) cableFrom.port].signal : 0;
+            if (cableFrom.out) art::drawCable (g, a, dragPos, col, handKind, false, 0.85f, sig);
+            else art::drawCable (g, dragPos, a, col, handKind, false, 0.85f, sig);
         }
         if (dropPos.x >= 0)
         {

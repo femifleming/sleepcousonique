@@ -187,10 +187,10 @@ void paintCanvas (Graphics& g, Rectangle<float> a, int seed)
 
 CableStyle& cableStyle() { static CableStyle s; return s; }
 
-static void bez (Point<float> a, Point<float> b, Point<float>& c1, Point<float>& c2)
+static void bez (Point<float> a, Point<float> b, Point<float>& c1, Point<float>& c2, float heavy = 1.0f)
 {
     float dist = a.getDistanceFrom (b);
-    const float slack = cableStyle().slack;
+    const float slack = cableStyle().slack * heavy;
     float sag = jmin (80.0f * jmax (0.25f, slack), (14.0f + 0.12f * dist) * slack);   // elasticity: how far it hangs
     c1 = a + Point<float> (jmax (30.0f, (b.x - a.x) * 0.35f), sag * 0.6f);
     c2 = b + Point<float> (-jmax (30.0f, (b.x - a.x) * 0.35f), sag * 0.6f);
@@ -202,10 +202,10 @@ static Point<float> bezAt (Point<float> a, Point<float> c1, Point<float> c2, Poi
     return a * (u * u * u) + c1 * (3 * u * u * t) + c2 * (3 * u * t * t) + b * (t * t * t);
 }
 
-Path cablePath (Point<float> a, Point<float> b)
+Path cablePath (Point<float> a, Point<float> b, float heavy)
 {
     Point<float> c1, c2;
-    bez (a, b, c1, c2);
+    bez (a, b, c1, c2, heavy);
     Path p;
     p.startNewSubPath (a);
     p.cubicTo (c1, c2, b);
@@ -272,73 +272,84 @@ static void drawPart (Graphics& g, Point<float> c, float angle, int kind)
     }
 }
 
-void drawCablePath (Graphics& g, const Path& p, Colour col, int kind, bool hover, float alpha)
+static void stroke (Graphics& g, const Path& p, float w, Colour c, const float* dash = nullptr, int nd = 0, PathStrokeType::EndCapStyle cap = PathStrokeType::rounded)
+{
+    g.setColour (c);
+    if (! dash) { g.strokePath (p, PathStrokeType (w, PathStrokeType::curved, cap)); return; }
+    Path d;
+    PathStrokeType (w, PathStrokeType::curved, cap).createDashedStroke (d, p, dash, nd);
+    g.fillPath (d);
+}
+
+void drawCablePath (Graphics& g, const Path& p, Colour col, int kind, bool hover, float alpha, int signal)
 {
     auto& st = cableStyle();
+    auto& th = theme();
+    if (signal < 0)                                     // which signal is this colour
+        signal = col == th.sound ? 0 : (col == th.current ? 1 : (col == th.pulse ? 2 : 0));
+    const bool audio = signal == 0, pulse = signal == 2;
     if (! hover) alpha *= st.opacity;
     col = col.withMultipliedAlpha (alpha);
-    if (theme().pop)                  // flat cords: sound dotted, current with a light core, pulses plain
-    {
-        if (st.glow > 0.01f)
-        {
-            g.setColour (col.withMultipliedAlpha (0.12f * st.glow)); g.strokePath (p, PathStrokeType (14.0f, PathStrokeType::curved, PathStrokeType::rounded));
-            g.setColour (col.withMultipliedAlpha (0.25f * st.glow)); g.strokePath (p, PathStrokeType (7.0f, PathStrokeType::curved, PathStrokeType::rounded));
-        }
-        if (hover) { g.setColour (theme().checkA.withAlpha (0.5f)); g.strokePath (p, PathStrokeType (8.0f, PathStrokeType::curved, PathStrokeType::rounded)); }
-        bool sound = col.getRed() > 180 && col.getGreen() < 120;
-        if (sound)
-        {
-            Path dots; const float dash[] = { 3.0f, 2.6f };
-            PathStrokeType (3.4f, PathStrokeType::curved, PathStrokeType::butt).createDashedStroke (dots, p, dash, 2);
-            g.setColour (col); g.fillPath (dots);
-        }
-        else
-        {
-            g.setColour (col); g.strokePath (p, PathStrokeType (3.0f, PathStrokeType::curved, PathStrokeType::rounded));
-            if (col.getBlue() > col.getRed() + 60)          // current: a light dashed core
-            {
-                Path core; const float dash[] = { 2.0f, 2.0f };
-                PathStrokeType (0.9f).createDashedStroke (core, p, dash, 2);
-                g.setColour (Colours::white.withAlpha (0.8f * alpha)); g.fillPath (core);
-            }
-        }
-        float len = p.getLength();
-        auto q0 = p.getPointAlongPath (len * 0.47f), q1 = p.getPointAlongPath (len * 0.53f);
-        drawPart (g, p.getPointAlongPath (len * 0.5f), std::atan2 (q1.y - q0.y, q1.x - q0.x), kind);
-        return;
-    }
-    if (st.glow > 0.01f)                        // lights down: the cable glows
+    const float w = audio ? 4.6f : 2.0f;                 // audio fat, CV thin
+
+    if (st.glow > 0.01f)                                // lights down: everything glows, audio wider
     {
         auto halo = col.brighter (0.4f);
-        g.setColour (halo.withMultipliedAlpha (0.10f * st.glow));
-        g.strokePath (p, PathStrokeType (16.0f, PathStrokeType::curved, PathStrokeType::rounded));
-        g.setColour (halo.withMultipliedAlpha (0.22f * st.glow));
-        g.strokePath (p, PathStrokeType (8.0f, PathStrokeType::curved, PathStrokeType::rounded));
+        stroke (g, p, w * 3.2f, halo.withMultipliedAlpha (0.10f * st.glow));
+        stroke (g, p, w * 1.7f, halo.withMultipliedAlpha (0.24f * st.glow));
     }
-    else
+    if (hover) stroke (g, p, w + 5.0f, th.pop ? th.checkA.withAlpha (0.5f) : Colour (0x99fff2b0));
+
+    if (th.pop)                                         // the openprocess look: flat
     {
-        g.setColour (Colour (0x26000000).withMultipliedAlpha (alpha));
-        g.strokePath (p, PathStrokeType (4.0f, PathStrokeType::curved, PathStrokeType::rounded), AffineTransform::translation (2.5f, 5.0f));
+        if (audio)                                      // a thick dotted line on a faint thread
+        {
+            stroke (g, p, 1.2f, col.withMultipliedAlpha (0.45f));
+            const float dash[] = { 3.2f, 2.4f };
+            stroke (g, p, 4.4f, col, dash, 2, PathStrokeType::butt);
+        }
+        else if (pulse)                                 // thin dashes
+        {
+            const float dash[] = { 6.0f, 3.5f };
+            stroke (g, p, 1.8f, col, dash, 2, PathStrokeType::butt);
+        }
+        else stroke (g, p, 1.7f, col);                  // thin and solid
     }
-    if (hover)
+    else                                                // the journal look: real cables
     {
-        g.setColour (Colour (0x99fff2b0));
-        g.strokePath (p, PathStrokeType (9.0f, PathStrokeType::curved, PathStrokeType::rounded));
+        if (st.glow <= 0.01f)
+            g.setColour (Colour (0x26000000).withMultipliedAlpha (alpha)),
+            g.strokePath (p, PathStrokeType (w, PathStrokeType::curved, PathStrokeType::rounded), AffineTransform::translation (2.5f, audio ? 5.5f : 3.5f));
+        const auto lit = st.glow > 0.01f;
+        if (audio)                                      // braided: a dark jacket, the colour, a twist of shade, a sheen
+        {
+            stroke (g, p, w + 1.4f, lit ? col : col.darker (0.75f));
+            stroke (g, p, w, lit ? col.brighter (0.5f) : col);
+            const float twist[] = { 3.6f, 3.6f };
+            stroke (g, p, w * 0.62f, (lit ? col : col.darker (0.45f)).withMultipliedAlpha (0.75f), twist, 2, PathStrokeType::butt);
+            g.setColour (Colours::white.withAlpha ((0.30f + 0.4f * st.glow) * alpha));
+            g.strokePath (p, PathStrokeType (1.0f), AffineTransform::translation (-0.7f, -1.1f));
+        }
+        else if (pulse)                                 // thin, beaded
+        {
+            stroke (g, p, 1.0f, (lit ? col : col.darker (0.4f)).withMultipliedAlpha (0.8f));
+            const float beads[] = { 2.2f, 3.6f };
+            stroke (g, p, 3.4f, lit ? col.brighter (0.4f) : col, beads, 2, PathStrokeType::rounded);
+        }
+        else                                            // thin and plain
+        {
+            stroke (g, p, w + 0.8f, lit ? col : col.darker (0.6f));
+            stroke (g, p, w, lit ? col.brighter (0.5f) : col);
+        }
     }
-    g.setColour (st.glow > 0.01f ? col : col.darker (0.7f));
-    g.strokePath (p, PathStrokeType (4.2f, PathStrokeType::curved, PathStrokeType::rounded));
-    g.setColour (st.glow > 0.01f ? col.brighter (0.5f) : col);
-    g.strokePath (p, PathStrokeType (3.0f, PathStrokeType::curved, PathStrokeType::rounded));
-    g.setColour (Colours::white.withAlpha ((0.28f + 0.4f * st.glow) * alpha));
-    g.strokePath (p, PathStrokeType (0.9f), AffineTransform::translation (-0.6f, -0.8f));
     float len = p.getLength();
     auto q0 = p.getPointAlongPath (len * 0.47f), q1 = p.getPointAlongPath (len * 0.53f);
     drawPart (g, p.getPointAlongPath (len * 0.5f), std::atan2 (q1.y - q0.y, q1.x - q0.x), kind);
 }
 
-void drawCable (Graphics& g, Point<float> a, Point<float> b, Colour col, int kind, bool hover, float alpha)
+void drawCable (Graphics& g, Point<float> a, Point<float> b, Colour col, int kind, bool hover, float alpha, int signal)
 {
-    drawCablePath (g, cablePath (a, b), col, kind, hover, alpha);
+    drawCablePath (g, cablePath (a, b, signal == 0 ? 1.25f : 1.0f), col, kind, hover, alpha, signal);
 }
 
 void drawLoop (Graphics& g, Point<float> c, bool hot, Colour signal)

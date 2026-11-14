@@ -49,12 +49,15 @@ struct CableStyle
 };
 CableStyle& cableStyle();
 
-juce::Path cablePath (juce::Point<float> a, juce::Point<float> b);
+juce::Path cablePath (juce::Point<float> a, juce::Point<float> b, float heavy = 1.0f);   // heavy > 1 hangs lower
 // a cable along any path (curved, or routed around the boards); mid and angle place its part
-void drawCablePath (juce::Graphics&, const juce::Path&, juce::Colour, int kind, bool hover, float alpha);
+// Two kinds of cable, as on a modular where the audio leads are fat and the CV leads thin:
+// signal 0 (sound) is a thick braided cable; 1 (current) is thin and plain; 2 (pulses) thin
+// and beaded. -1 works it out from the colour.
+void drawCablePath (juce::Graphics&, const juce::Path&, juce::Colour, int kind, bool hover, float alpha, int signal = -1);
 float distanceToCable (juce::Point<float> a, juce::Point<float> b, juce::Point<float> p);
 juce::Point<float> cableMid (juce::Point<float> a, juce::Point<float> b);
-void drawCable (juce::Graphics&, juce::Point<float> a, juce::Point<float> b, juce::Colour, int kind, bool hover, float alpha);
+void drawCable (juce::Graphics&, juce::Point<float> a, juce::Point<float> b, juce::Colour, int kind, bool hover, float alpha, int signal = -1);
 void drawLoop (juce::Graphics&, juce::Point<float> c, bool hot, juce::Colour signal);
 void drawDymo (juce::Graphics&, juce::Rectangle<float> r, const juce::String& text);
 juce::Font mono (float h);

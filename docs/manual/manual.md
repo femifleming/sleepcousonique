@@ -128,6 +128,10 @@ range, a quantizer's scale); the journal line changes with it.
 | find in the journal | double-click a board |
 | move around | drag the empty canvas or scroll; ⌘-scroll or pinch zooms; ⌘0 fits everything |
 
+Cords come in two kinds, as on a modular. **Audio** leads (from a sound outlet) are fat and
+braided and hang a little lower; in the openprocess look, a thick dotted line. **CV** leads are
+thin and plain, and **pulses** thin and beaded (dashed in the openprocess look).
+
 Hovering an outlet shows its live value at the bottom of the window, like a probe. Board
 positions are kept in the file as notes at the very end, lines starting with `;@`. The engine
 ignores them.
