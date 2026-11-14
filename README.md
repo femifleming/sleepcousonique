@@ -34,8 +34,10 @@ fader1 -> hall.feedback
   Hordijk, the DX7...), bare and lite versions for big patches, `samplerate=` on every one.
 - **difference tones** (after Alex Chechile), a **quantizer** with 38 scales plus any Scala
   `.scl` file in your scales folder (La Monte Young, ragas, Carlos, Stockhausen, Riley...).
-- **knobs on the modules**: tune and attenuverters, live while you drag; undo / redo for everything.
-- **cables**: hanging or routed around the boards like Max, opacity, slack, room light with glow.
+- **knobs on the modules**: a panel knob on every control input (time, feedback, cutoff, rate...), tune and attenuverters, live while you drag; undo / redo for everything.
+- **snapshots and a timeline** (after openprocess): keep what's sounding, cut or glide between snapshots, sequence them.
+- **cables**: fat braided audio, thin CV; hanging or routed around the boards like Max, opacity, slack, room light with glow.
+- **an honest load meter**: every module measured on an SP-1, so what the editor says is what the SP-1 does.
 - **looks**: the original journal (default) or openprocess, each light or dark, or following the computer.
 
 Inspired by the dream journal at femishonuga.com, Peter Blasser's **Nabra** (knobless; cords
