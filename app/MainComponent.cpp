@@ -135,6 +135,9 @@ MainComponent::MainComponent()
 
     journal.onTyped = [this] { pendingTyping = true; typedAt = Time::getMillisecondCounter(); doc.dirty = true; updateTitle(); };
     journal.onPickMessage = [this] (int line) { journal.showLine (line); };
+    host.fleet = &fleet;
+    fleet.onChange = [this] { fleetChanged(); };
+    tapestry.onFleetToggle = [this] (const String& id, bool on) { fleet.setOn (id, on); };
     journal.onUndo = [this] (bool redo) { undoRedo (redo); };
     tapestry.onTextEdited = [this] (bool recompile) { textEdited (recompile); };
     inspector.onEdited = [this] (bool recompile) { textEdited (recompile); };
@@ -232,6 +235,8 @@ void MainComponent::compile (bool force)
     }
     afterLoad (host.load (doc.text, nights));
     lastCode = code;
+    if (fleet.live && fleet.playing() > 0)
+        fleet.sendDream (scales::withTunings (doc.text), 127);   // played on every SP-1, not saved
 }
 
 void MainComponent::afterLoad (const Host::Result& r)
@@ -452,7 +457,10 @@ void MainComponent::paintPop (Graphics& g)
         g.fillRect (sq.reduced (5));
         g.setColour (Colours::white);
         g.setFont (art::label (12.5f));
-        String a = "sp-1 ", c = ! open ? "not connected" : (live ? "connected" : "waiting...");
+        const int bt = fleet.playing();
+        String a = "sp-1 ", c = ! open ? (bt > 0 ? String (bt) + " over bluetooth" : String ("not connected"))
+                                       : (live ? (bt > 0 ? "usb + " + String (bt) + " bluetooth" : String ("connected")) : String ("waiting..."));
+        if (bt > 0) live = true;
         g.drawText (a + "/ " + c, b.withTrimmedLeft (36), Justification::centredLeft);
         if (live)
         {
@@ -569,10 +577,12 @@ void MainComponent::paint (Graphics& g)
         auto now = Time::getMillisecondCounter();
         if (h.count != handsSeen) { handsSeen = h.count; handsAt = now; }
         bool live = open && handsAt != 0 && now - handsAt < 1500;
-        String text = ! open ? "SP-1 not connected"
+        const int bt = fleet.playing();
+        String text = ! open ? (bt > 0 ? String (bt) + " SP-1" + (bt > 1 ? "s" : "") + " over Bluetooth" : String ("SP-1 not connected"))
                     : live ? "SP-1 connected  " + link.port().fromLastOccurrenceOf ("/", false, false)
                              + "  slot " + String (h.slot) + "  scene " + String (h.scene)
                     : "SP-1 found, waiting for it to answer...";
+        if (bt > 0) live = true;            // the dot breathes for Bluetooth SP-1s too
         auto r = linkArea.toFloat();
         auto dot = Rectangle<float> (12, 12).withCentre ({ r.getRight() - 8, r.getCentreY() });
         auto green = Colour (0xff3f8f4a);
@@ -767,9 +777,13 @@ void MainComponent::sendToSP1()
     String port;
     String err;
     auto sent = scales::withTunings (doc.text);       // the SP-1 has no scales folder: the tunings go with the dream
+    int over = fleet.playing();
+    if (over > 0) fleet.sendDream (sent, 126);        // every SP-1 over Bluetooth keeps it in its playing slot
     if (link.connected()) { err = link.send (sent, -1); port = link.port(); }   // -1: the slot that is playing
-    else err = serial::send (sent, -1, port);
-    if (err.isEmpty()) status ("sent to the SP-1 on " + port);
+    else if (over == 0) err = serial::send (sent, -1, port);
+    String bt = over > 0 ? String (over) + " SP-1" + (over > 1 ? "s" : "") + " over Bluetooth" : String();
+    if (err.isEmpty() && port.isNotEmpty()) status ("sent to the SP-1 on " + port + (bt.isNotEmpty() ? " and " + bt : String()));
+    else if (over > 0 && (err.isEmpty() || ! link.connected())) status ("sent to " + bt);
     else AlertWindow::showMessageBoxAsync (MessageBoxIconType::InfoIcon, "send to SP-1", err);
 }
 
@@ -811,6 +825,32 @@ void MainComponent::themeForShot (bool pop, bool dark)
     repaint();
 }
 
+void MainComponent::fleetMenu()
+{
+   #if JUCE_MAC
+    if (BluetoothMidiDevicePairingDialogue::isAvailable())
+    {
+        BluetoothMidiDevicePairingDialogue::open();
+        return;
+    }
+   #endif
+    AlertWindow::showMessageBoxAsync (MessageBoxIconType::InfoIcon, "pair SP-1s over Bluetooth",
+        "Put each SP-1 in Bluetooth mode (it starts in it; dots + T4 turns it on and off), then:\n\n"
+        "macOS: Audio MIDI Setup > Window > Show MIDI Studio > the Bluetooth button, and Connect each \"SP-1 SCQ ...\".\n"
+        "Windows: Settings > Bluetooth & devices > Add device > Bluetooth, and pick each \"SP-1 SCQ ...\".\n\n"
+        "Each one appears in the SP-1s menu and on the tapestry within a couple of seconds.");
+}
+
+void MainComponent::fleetChanged()
+{
+    std::vector<Tapestry::FleetChip> chips;
+    for (auto& f : fleet.list())
+        chips.push_back ({ f.id, f.name.fromFirstOccurrenceOf ("SP-1 SCQ ", false, false), f.answered, f.on });
+    tapestry.setFleet (chips);
+    if (! chips.empty()) status (String (fleet.playing()) + " SP-1" + (fleet.playing() == 1 ? "" : "s") + " over Bluetooth");
+    repaint (linkArea);
+}
+
 void MainComponent::applyLook()
 {
     auto* st = props.getUserSettings();
@@ -832,6 +872,7 @@ void MainComponent::applyLook()
     art::cableStyle().slack = slacks[jlimit (0, 4, st->getIntValue ("cableSlack", 2))];
     tapestry.setLight ((float) st->getIntValue ("roomLight", 100) / 100.0f);
     tapestry.setRouting (st->getBoolValue ("cableRouter", false));
+    fleet.live = st->getBoolValue ("fleetLive", true);
     tapestry.repaint();
     hands.resized();
     resized();                       // the two looks lay the window out differently
@@ -894,7 +935,7 @@ bool MainComponent::keyPressed (const KeyPress& k)
 
 // ------------------------------------------------------------------------------------------ menus
 
-StringArray MainComponent::getMenuBarNames() { return { "File", "Edit", "View", "Help" }; }
+StringArray MainComponent::getMenuBarNames() { return { "File", "Edit", "View", "SP-1s", "Help" }; }
 
 PopupMenu MainComponent::getMenuForIndex (int idx, const String&)
 {
@@ -954,6 +995,20 @@ PopupMenu MainComponent::getMenuForIndex (int idx, const String&)
         m.addItem (14, "Find my patch (fit the tapestry in view)");
         m.addItem (15, "Sound settings...");
     }
+    else if (idx == 3)
+    {
+        m.addItem (90, String ("Pair SP-1s over Bluetooth") + String::fromUTF8 ("\xe2\x80\xa6"));
+        m.addSeparator();
+        auto sp = fleet.list();
+        if (sp.empty()) m.addItem (91, "no SP-1 in Bluetooth mode yet", false);
+        for (int i = 0; i < (int) sp.size(); ++i)
+            m.addItem (100 + i, sp[(size_t) i].name + (sp[(size_t) i].answered ? "" : "  (not answering)")
+                                  + (sp[(size_t) i].last.isNotEmpty() && sp[(size_t) i].last != "ok" ? "  " + sp[(size_t) i].last : String()),
+                       true, sp[(size_t) i].on);
+        m.addSeparator();
+        m.addItem (92, "Play every change on them live", true, fleet.live);
+        m.addItem (93, "Send the dream to all of them (and keep it)", fleet.playing() > 0);
+    }
     else
     {
         m.addItem (21, "The places (reference)");
@@ -964,6 +1019,12 @@ PopupMenu MainComponent::getMenuForIndex (int idx, const String&)
 
 void MainComponent::menuItemSelected (int id, int)
 {
+    if (id >= 100 && id < 200)                        // an SP-1 in the list: in or out of the fleet
+    {
+        auto sp = fleet.list();
+        if (id - 100 < (int) sp.size()) fleet.setOn (sp[(size_t) (id - 100)].id, ! sp[(size_t) (id - 100)].on);
+        return;
+    }
     switch (id)
     {
         case 1: newDream(); break;
@@ -997,6 +1058,9 @@ void MainComponent::menuItemSelected (int id, int)
         case 70: case 71: props.getUserSettings()->setValue ("cableRouter", id == 71); applyLook(); break;
         case 80: case 81: props.getUserSettings()->setValue ("look", id == 80 ? "openprocess" : "journal"); applyLook(); break;
         case 85: case 86: case 87: props.getUserSettings()->setValue ("appearance", id == 85 ? "dark" : (id == 86 ? "light" : "system")); applyLook(); break;
+        case 90: fleetMenu(); break;
+        case 92: fleet.live = ! fleet.live; props.getUserSettings()->setValue ("fleetLive", fleet.live); if (fleet.live) compile (true); break;
+        case 93: sendToSP1(); break;
         case 31: undoRedo (false); break;
         case 32: undoRedo (true); break;
         case 11: case 12: case 13: setView (id - 11); break;

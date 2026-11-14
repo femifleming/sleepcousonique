@@ -2,9 +2,12 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 
 // Runs the C engine on the computer's sound card, exactly as the SP-1 will run it.
+class Fleet;
+
 class Host : private juce::AudioIODeviceCallback
 {
 public:
+    Fleet* fleet = nullptr;          // SP-1s over Bluetooth: every live change goes to them too
     Host();
     ~Host() override;
 

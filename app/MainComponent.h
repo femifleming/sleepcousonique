@@ -7,6 +7,7 @@
 #include "Hands.h"
 #include "Serial.h"
 #include "Pop.h"
+#include "Fleet.h"
 
 class MainComponent : public juce::Component,
                       public juce::DarkModeSettingListener,
@@ -44,7 +45,9 @@ private:
     void resetHistory();             // a new or opened dream
     void undoRedo (bool redo);
     void applyLook();
-    void textEdited (bool recompile);   // the tapestry or the settings column changed the text
+    void textEdited (bool recompile);
+    void fleetMenu();                // pair, choose, send, follow live
+    void fleetChanged();   // the tapestry or the settings column changed the text
     void mouseDown (const juce::MouseEvent&) override;
     void resizedPop();
     void paintPop (juce::Graphics&);
@@ -65,6 +68,7 @@ private:
     juce::String codeOf (const juce::String& text) const;
 
     scq::Document doc;
+    Fleet fleet;                     // SP-1s over Bluetooth
     Host host;
     serial::Link link;
     Journal journal;

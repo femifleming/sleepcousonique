@@ -38,7 +38,9 @@ juce_add_gui_app(Sleepcousonique
     BUNDLE_ID "com.sleepcousonique.editor"
     DOCUMENT_EXTENSIONS dream
     ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/app/icon/icon.png"
-    MICROPHONE_PERMISSION_ENABLED FALSE)
+    MICROPHONE_PERMISSION_ENABLED FALSE
+    BLUETOOTH_PERMISSION_ENABLED TRUE
+    BLUETOOTH_PERMISSION_TEXT "Sleepcousonique pairs with SP-1s over Bluetooth MIDI to send them patches and play them live.")
 
 file(GLOB SCQ_SCALE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/scales/*.scl)
 juce_add_binary_data(ScqData HEADER_NAME ScqData.h NAMESPACE ScqData
@@ -56,10 +58,12 @@ target_sources(Sleepcousonique PRIVATE
     app/Scales.cpp
     app/Router.cpp
     app/Pop.cpp
+    app/Fleet.cpp
     app/MainComponent.cpp)
 
 target_compile_definitions(Sleepcousonique PRIVATE
     JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_DISPLAY_SPLASH_SCREEN=0
+    JUCE_USE_WINRT_MIDI=1   # Windows: Bluetooth MIDI (the SP-1s in Bluetooth mode)
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:Sleepcousonique,JUCE_PRODUCT_NAME>"
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:Sleepcousonique,JUCE_VERSION>")
 
