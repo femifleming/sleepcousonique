@@ -179,8 +179,7 @@ after you edit the dream.
 | play | the red flag (or space with the strip selected); **loop** goes round again; click the lane to move the playhead |
 | remove a segment | select it and press delete, or right-click ▸ remove |
 
-Everything the timeline plays goes the same way as your own knobs: to the sound here, and to
-every SP-1 in Bluetooth mode at once. Snapshots and the timeline are kept in the dream as
+Everything the timeline plays goes the same way as your own knobs, to the sound here. Snapshots and the timeline are kept in the dream as
 `;~snap` and `;~timeline` lines at the end, which the engine ignores; undo covers them.
 
 ## Scenes

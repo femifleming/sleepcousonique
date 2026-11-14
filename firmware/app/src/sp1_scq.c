@@ -11,17 +11,6 @@
  *             "SCQ WATCH 1"   -> streams the hands ~30x a second until "SCQ WATCH 0" or the
  *                                port closes:  "SCQ HANDS f1 f2 f3 f4 buttons scene slot leds"
  *                                (faders 0-4095, buttons a bitmask, leds 8 hex bytes)
- * Bluetooth (CONFIG_SP1_BLE): BLE-MIDI SysEx, F0 7D 'S' 'Q' <cmd> ... F7 (sp1_ble.c):
- *             'H'                         -> 'h' "SLEEPCOUSONIQUE <version> <name>"
- *             'B' len(3x7 bits) slot      start a dream (slot 0-4 saves it; 127 plays it, unsaved)
- *             'D' nibbles...              its bytes, high nibble then low
- *             'E'                         -> 'o' "<errors>" / 'x' "<why>"
- *             'S' kind a(2x7) b v(5x7)    live: kind a = cord amount (cord a), t = tune (node a),
- *                                         v = attenuverter (node a, inlet b), p = param (node a,
- *                                         option b), k = panel knob (node a, inlet b), c = control b (the editor's hands)
- *             'G' scene(2x7)              go to a scene
- *             'P'                         -> 'p' (are you there)
- *             •• + T4 turns Bluetooth on and off (kept in the state page).
  */
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
@@ -44,9 +33,6 @@
 #include <cmsis_core.h>
 #include "scq.h"
 #include "scq_default.h"     /* the first night, generated from examples/first-night.dream */
-#if defined(CONFIG_SP1_BLE)
-#include "sp1_ble.h"
-#endif
 
 #define SCQ_VERSION   "1.0.0"
 #define SLOTS         5
@@ -67,9 +53,6 @@ static bool     audio_live;        /* ON and the audio thread running: flash wri
 static volatile uint32_t eng_sum, eng_n, eng_max, eng_skipped;   /* skipped: over budget, played as silence */   /* engine cycles, from the audio thread */
 static uint32_t report_ms;
 static bool     watching;          /* the editor wants the hands, live */
-static bool     ble_wanted = true; /* Bluetooth: on unless turned off with •• + T4 */
-static float    remote_ctl[SCQ_CTL_COUNT];   /* the editor's hands, over Bluetooth */
-static bool     remote_on[SCQ_CTL_COUNT];
 static uint32_t watch_ms;
 
 struct slot_head  { uint32_t magic, len; };
@@ -155,7 +138,7 @@ static void audio_resume(void)
 static void state_write(void)
 {
 	const struct flash_area *fa = area();
-	struct state_page st = { STATE_MAGIC, (uint32_t)slot, nights, ble_wanted ? 0u : 1u };
+	struct state_page st = { STATE_MAGIC, (uint32_t)slot, nights, 0 };
 	if (!fa) {
 		return;
 	}
@@ -264,36 +247,6 @@ static void reply(const char *s)
 	}
 }
 
-/* A dream in staging[0..len): play it, and keep it in `target` (0-4), or with target 127
- * just play it (live from the editor: no flash write, so no gap in the sound). */
-static int accept_dream(int len, int target, char *msg, int cap)
-{
-	int e = load_text(staging, len);
-	if (e != 0) {
-		snprintf(msg, (size_t)cap, "ERR %d mistakes\n", e);
-		play_slot(slot);              /* back to what was there */
-		return -1;
-	}
-	if (target == 127) {
-		snprintf(msg, (size_t)cap, "OK 0\n");
-		return 0;
-	}
-	slot = target;
-	audio_pause();                    /* one pause for both writes */
-	int wr = slot_write(slot, staging, len);
-	if (wr == 0) {
-		state_write();
-	}
-	audio_resume();
-	printk("SCQ received %d bytes into slot %d\n", len, slot + 1);
-	if (wr != 0) {
-		snprintf(msg, (size_t)cap, "ERR could not save (playing it anyway)\n");
-		return -1;
-	}
-	snprintf(msg, (size_t)cap, "OK %d\n", e);
-	return 0;
-}
-
 /* line-or-bytes parser */
 static char  line[96];
 static int   line_n;
@@ -340,9 +293,30 @@ static void serial_poll(void)
 				continue;
 			}
 			want = -1;
-			char msg[48];
-			accept_dream(got, want_slot, msg, sizeof msg);
-			reply(msg);
+			int e = load_text(staging, got);
+			if (e == 0) {
+				/* the playing dream is the new one; keep it */
+				slot = want_slot;
+				audio_pause();                       /* one pause for both writes */
+				int wr = slot_write(slot, staging, got);
+				if (wr == 0) {
+					state_write();
+				}
+				audio_resume();
+				if (wr != 0) {
+					reply("ERR could not save (playing it anyway)\n");
+				} else {
+					char ok[24];
+					snprintf(ok, sizeof ok, "OK %d\n", e);
+					reply(ok);
+				}
+				printk("SCQ received %d bytes into slot %d\n", got, slot + 1);
+			} else {
+				char err[40];
+				snprintf(err, sizeof err, "ERR %d mistakes\n", e);
+				reply(err);
+				play_slot(slot);      /* back to what was there */
+			}
 			continue;
 		}
 		if (c == '\n' || c == '\r') {
@@ -355,109 +329,6 @@ static void serial_poll(void)
 	}
 }
 
-/* ------------------------------------------------------------------ Bluetooth */
-
-#if defined(CONFIG_SP1_BLE)
-static int  ble_want = -1, ble_got, ble_slot;
-
-static void ble_reply(char kind, const char *text)
-{
-	uint8_t out[96] = { 0x7D, 'S', 'Q', (uint8_t)kind };
-	int n = 4;
-	while (*text && n < (int)sizeof out) {
-		out[n++] = (uint8_t)(*text++ & 0x7f);
-	}
-	sp1_ble_send(out, n);
-}
-
-static float unpack_float(const uint8_t *b)
-{
-	uint32_t u = (uint32_t)b[0] | ((uint32_t)b[1] << 7) | ((uint32_t)b[2] << 14) | ((uint32_t)b[3] << 21) | ((uint32_t)b[4] << 28);
-	float f;
-	memcpy(&f, &u, 4);
-	return f;
-}
-
-static void ble_poll(void)
-{
-	static uint8_t m[SP1_BLE_MAX_MSG];
-	int n;
-	while ((n = sp1_ble_take(m, sizeof m)) > 0) {
-		if (n < 4 || m[0] != 0x7D || m[1] != 'S' || m[2] != 'Q') {
-			continue;
-		}
-		const uint8_t *p = m + 4;
-		const int len = n - 4;
-		switch (m[3]) {
-		case 'H': {
-			char t[64];
-			snprintf(t, sizeof t, "SLEEPCOUSONIQUE " SCQ_VERSION " %s", sp1_ble_name());
-			ble_reply('h', t);
-		} break;
-		case 'P': ble_reply('p', ""); break;
-		case 'B':
-			if (len >= 4) {
-				int total = p[0] | (p[1] << 7) | (p[2] << 14);
-				ble_want = total > 0 && total < (int)sizeof staging ? total : -1;
-				ble_got = 0;
-				ble_slot = p[3] == 127 ? 127 : (p[3] < SLOTS ? p[3] : slot);
-				if (ble_want < 0) {
-					ble_reply('x', "too big");
-				}
-			}
-			break;
-		case 'D':
-			for (int i = 0; ble_want >= 0 && i + 1 < len && ble_got < ble_want; i += 2) {
-				staging[ble_got++] = (char)(((p[i] & 0x0f) << 4) | (p[i + 1] & 0x0f));
-			}
-			break;
-		case 'E':
-			if (ble_want >= 0 && ble_got == ble_want) {
-				char msg[48];
-				int r = accept_dream(ble_got, ble_slot, msg, sizeof msg);
-				char *nl = strchr(msg, '\n');
-				if (nl) { *nl = 0; }
-				ble_reply(r == 0 ? 'o' : 'x', msg);
-			} else {
-				ble_reply('x', "the dream arrived incomplete");
-			}
-			ble_want = -1;
-			break;
-		case 'S':
-			if (len >= 9) {
-				const int a = p[1] | (p[2] << 7), b = p[3];
-				const float v = unpack_float(p + 4);
-				k_mutex_lock(&engine_lock, K_FOREVER);
-				switch (p[0]) {
-				case 'a': scq_set_amount(a, v); break;
-				case 't': scq_set_tune(a, v); break;
-				case 'v': scq_set_att(a, b, v); break;
-				case 'p': scq_set_param(a, b, v); break;
-				case 'k': scq_set_knob(a, b, v); break;
-				case 'c':
-					if (b < SCQ_CTL_COUNT) {
-						remote_ctl[b] = v;
-						remote_on[b] = true;
-					}
-					break;
-				default: break;
-				}
-				k_mutex_unlock(&engine_lock);
-			}
-			break;
-		case 'G':
-			if (len >= 2) {
-				k_mutex_lock(&engine_lock, K_FOREVER);
-				scq_goto_scene(p[0] | (p[1] << 7));
-				k_mutex_unlock(&engine_lock);
-			}
-			break;
-		default: break;
-		}
-	}
-}
-#endif
-
 /* ------------------------------------------------------------------ hands and lamp */
 
 void sp1_scq_init(void)
@@ -467,7 +338,6 @@ void sp1_scq_init(void)
 	if (fa && flash_area_read(fa, STATE_OFF, &st, sizeof st) == 0 && st.magic == STATE_MAGIC) {
 		slot = (int)(st.slot % SLOTS);
 		nights = st.nights + 1;
-		ble_wanted = (st.pad & 1u) == 0u;
 	}
 	if (device_is_ready(cdc)) {
 		uart_irq_callback_set(cdc, rx_isr);
@@ -479,27 +349,12 @@ void sp1_scq_init(void)
 	}
 	play_slot(slot);
 	state_save();             /* one more night */
-#if defined(CONFIG_SP1_BLE)
-	sp1_ble_set(ble_wanted);
-#endif
 }
 
 void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 {
 	audio_live = true;             /* the ON loop only runs with the audio started */
 	serial_poll();
-#if defined(CONFIG_SP1_BLE)
-	ble_poll();
-	/* •• + T4: Bluetooth on / off; the track row says which (all four lit: on) */
-	if (fnc && sp1_button_pressed(SP1_BTN_T4)) {
-		(void)sp1_shift_used();
-		ble_wanted = !ble_wanted;
-		sp1_ble_set(ble_wanted);
-		const uint8_t lv[4] = { ble_wanted ? 255 : 0, ble_wanted ? 255 : 0, ble_wanted ? 255 : 0, 255 };
-		sp1_display_transient(lv, 900);
-		state_save();
-	}
-#endif
 
 	/* the editor is watching: send the hands, about 30 times a second. Stops when the port
 	 * closes (DTR low), so nothing is written to a computer that isn't listening. */
@@ -572,25 +427,13 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 		}
 	}
 
-	/* the faders: the SP-1's own, unless the editor sent one over Bluetooth; moving the
-	 * hardware fader takes it back */
 	if (sp1_faders_valid()) {
-		static int last_raw[4] = { -1, -1, -1, -1 };
 		for (int i = 0; i < 4; i++) {
-			const int raw = (int)sp1_fader_raw(i);
-			if (last_raw[i] >= 0 && abs(raw - last_raw[i]) > 60) {
-				remote_on[SCQ_CTL_LEAN1 + i] = false;
-			}
-			last_raw[i] = raw;
-			scq_control(SCQ_CTL_LEAN1 + i, remote_on[SCQ_CTL_LEAN1 + i] ? remote_ctl[SCQ_CTL_LEAN1 + i]
-										      : (float)raw * (1.f / 4095.f));
+			scq_control(SCQ_CTL_LEAN1 + i, (float)sp1_fader_raw(i) * (1.f / 4095.f));
 		}
 	}
 	for (int i = 0; i < 4; i++) {
-		const bool held = sp1_button_held((enum sp1_button)(SP1_BTN_T1 + i));
-		const float remote = remote_on[SCQ_CTL_DOOR1 + i] ? remote_ctl[SCQ_CTL_DOOR1 + i] : 0.f;
-		/* T4 with •• is the Bluetooth switch, not button4 */
-		scq_control(SCQ_CTL_DOOR1 + i, (fnc && i == 3) ? 0.f : (held ? 1.f : remote));
+		scq_control(SCQ_CTL_DOOR1 + i, sp1_button_held((enum sp1_button)(SP1_BTN_T1 + i)) ? 1.f : 0.f);
 	}
 	/* •• + the rocker: the next / previous scene. While •• is held the rocker belongs to the
 	 * scenes and never reaches `lift`, so lift stays free to patch. */
@@ -613,8 +456,7 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 	}
 	scq_control(SCQ_CTL_LIFT, rocker_taken ? 0.f :
 		    (sp1_button_held(SP1_BTN_FFWD) ? 1.f : (sp1_button_held(SP1_BTN_RWD) ? -1.f : 0.f)));
-	scq_control(SCQ_CTL_WAKE, sp1_button_held(SP1_BTN_PLAY) ? 1.f
-				  : (remote_on[SCQ_CTL_WAKE] ? remote_ctl[SCQ_CTL_WAKE] : 0.f));
+	scq_control(SCQ_CTL_WAKE, sp1_button_held(SP1_BTN_PLAY) ? 1.f : 0.f);
 	scq_control(SCQ_CTL_LUCID, fnc ? 1.f : 0.f);
 
 	/* •• + VOL: another dream slot (VOL alone stays the volume, in main.c) */

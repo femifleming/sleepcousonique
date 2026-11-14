@@ -23,9 +23,6 @@ public:
     void removeSelection();
     void fitAll();
     void themeChanged();
-    struct FleetChip { juce::String id, name; bool answered = false, on = true; };
-    void setFleet (const std::vector<FleetChip>& chips) { fleet = chips; repaint(); }
-    std::function<void (const juce::String& id, bool on)> onFleetToggle;   // click a chip
     int selectedNode() const;                // the one selected place, or -1
     juce::Point<float> viewCentre() const { return toDesign (getLocalBounds().getCentre().toFloat()); }                     // the look changed: repaint the canvas
     void setRouting (bool on);              // cables around the boards, like Max
@@ -35,7 +32,6 @@ public:
     float light = 1.0f;
     void centreOn (int board);              // bring one board to the middle and select it
     juce::Rectangle<int> findButton() const;
-    juce::Rectangle<int> chipRect (int i) const;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -80,7 +76,6 @@ private:
     mutable std::vector<juce::Path> routes;
     mutable bool routesDirty = true;
     int hlFirst = 0, hlLast = -1;
-    std::vector<FleetChip> fleet;   // the SP-1s over Bluetooth, shown top right
     bool lit (int line) const { return line >= hlFirst && line <= hlLast; }
     void layout();
     juce::Point<float> inletPos (const Board&, int) const;

@@ -580,23 +580,6 @@ void Tapestry::paint (Graphics& g)
         }
     }
 
-    // the SP-1s over Bluetooth, top right: one chip each (green: playing, hollow: not answering,
-    // faint: left out). Click one to take it in or out.
-    for (int i = 0; i < (int) fleet.size(); ++i)
-    {
-        auto& f = fleet[(size_t) i];
-        auto& th = art::theme();
-        auto r = chipRect (i).toFloat();
-        g.setColour ((th.pop ? th.button : art::cream).withAlpha (f.on ? 1.0f : 0.45f));
-        if (th.pop) g.fillRect (r); else g.fillRoundedRectangle (r, 6);
-        auto dot = Rectangle<float> (10, 10).withCentre ({ r.getX() + 13, r.getCentreY() });
-        g.setColour (f.answered && f.on ? Colour (0xff3fbf62) : th.chromeDim);
-        if (f.answered) g.fillEllipse (dot); else g.drawEllipse (dot, 1.6f);
-        g.setColour ((th.pop ? th.buttonText : art::ink).withAlpha (f.on ? 1.0f : 0.5f));
-        g.setFont (art::label (11));
-        g.drawText ("SP-1 " + f.name, r.withTrimmedLeft (24), Justification::centredLeft);
-    }
-
     // find my patch: always there, bottom right
     {
         auto fb = findButton().toFloat();
@@ -681,13 +664,6 @@ void Tapestry::mouseDown (const MouseEvent& e)
 {
     grabKeyboardFocus();
     if (findButton().contains (e.getPosition()) && ! e.mods.isPopupMenu()) { fitAll(); mode = Mode::None; return; }
-    for (int i = 0; i < (int) fleet.size(); ++i)
-        if (chipRect (i).contains (e.getPosition()))
-        {
-            if (onFleetToggle) onFleetToggle (fleet[(size_t) i].id, ! fleet[(size_t) i].on);
-            mode = Mode::None;
-            return;
-        }
     auto d = toDesign (e.position);
     anchor = e.position;
     dragPos = d;
@@ -943,11 +919,6 @@ void Tapestry::mouseWheelMove (const MouseEvent& e, const MouseWheelDetails& w)
 }
 
 void Tapestry::mouseMagnify (const MouseEvent& e, float s) { zoomAbout (zoom * s, e.position); }
-
-juce::Rectangle<int> Tapestry::chipRect (int i) const
-{
-    return Rectangle<int> (getWidth() - 10 - 118 * (i + 1), 8, 112, 24);
-}
 
 juce::Rectangle<int> Tapestry::findButton() const { return getLocalBounds().removeFromBottom (40).removeFromRight (170).reduced (8); }
 

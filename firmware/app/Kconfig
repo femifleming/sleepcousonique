@@ -234,19 +234,6 @@ config SP1_SCQ
 	  Runs .dream patches sent from the Sleepcousonique editor over USB serial,
 	  in place of Wakes' Plaits/Marbles voice. Turn SP1_PLAITS off with it.
 
-
-config SP1_BLE
-	bool "Sleepcousonique over Bluetooth MIDI, on the nRF52840's own radio"
-	default y
-	depends on SP1_SCQ
-	select BT
-	select BT_PERIPHERAL
-	select HWINFO
-	help
-	  Advertises as "SP-1 SCQ xxxx" with the standard BLE-MIDI service, so several SP-1s
-	  can take dreams and live control from one editor at once (sp1_ble.c). •• + T4
-	  turns it on and off.
-
 config SP1_PLAITS
 	bool "Plaits voice as the audio source (M3)"
 	default y

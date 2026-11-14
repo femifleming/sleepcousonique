@@ -7,7 +7,6 @@
 #include "Hands.h"
 #include "Serial.h"
 #include "Pop.h"
-#include "Fleet.h"
 #include "Timeline.h"
 
 class MainComponent : public juce::Component,
@@ -47,8 +46,6 @@ private:
     void undoRedo (bool redo);
     void applyLook();
     void textEdited (bool recompile);
-    void fleetMenu();                // pair, choose, send, follow live
-    void fleetChanged();
     Timeline::Snapshot capture();        // what's sounding now, by names
     void applySnapshot (const Timeline::Values&, int scene);
     bool showTimeline = true;   // the tapestry or the settings column changed the text
@@ -72,7 +69,6 @@ private:
     juce::String codeOf (const juce::String& text) const;
 
     scq::Document doc;
-    Fleet fleet;                     // SP-1s over Bluetooth
     Host host;
     serial::Link link;
     Journal journal;

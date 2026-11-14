@@ -1,7 +1,6 @@
 #include "Host.h"
 #include "scq.h"
 #include "Scales.h"
-#include "Fleet.h"
 
 Host::Host()
 {
@@ -85,17 +84,17 @@ Host::Result Host::check (const juce::String& text, juce::uint32 nights)
     return r;
 }
 
-void Host::setAmount (int cord, float amount) { { const juce::ScopedLock sl (lock); scq_set_amount (cord, amount); } if (fleet) fleet->setAmount (cord, amount); }
+void Host::setAmount (int cord, float amount) { const juce::ScopedLock sl (lock); scq_set_amount (cord, amount); }
 
-void Host::setTune (int node, float o) { { const juce::ScopedLock sl (lock); scq_set_tune (node, o); } if (fleet) fleet->setTune (node, o); }
-void Host::setAtt (int node, int in, float a) { { const juce::ScopedLock sl (lock); scq_set_att (node, in, a); } if (fleet) fleet->setAtt (node, in, a); }
+void Host::setTune (int node, float o) { const juce::ScopedLock sl (lock); scq_set_tune (node, o); }
+void Host::setAtt (int node, int in, float a) { const juce::ScopedLock sl (lock); scq_set_att (node, in, a); }
 
-void Host::setParam (int node, int k, float v) { { const juce::ScopedLock sl (lock); scq_set_param (node, k, v); } if (fleet) fleet->setParam (node, k, v); }
+void Host::setParam (int node, int k, float v) { const juce::ScopedLock sl (lock); scq_set_param (node, k, v); }
 
-void Host::setKnob (int node, int in, float v) { { const juce::ScopedLock sl (lock); scq_set_knob (node, in, v); } if (fleet) fleet->setKnob (node, in, v); }
+void Host::setKnob (int node, int in, float v) { const juce::ScopedLock sl (lock); scq_set_knob (node, in, v); }
 
-void Host::gotoScene (int s) { { const juce::ScopedLock sl (lock); scq_goto_scene (s); } if (fleet) fleet->gotoScene (s); }
+void Host::gotoScene (int s) { const juce::ScopedLock sl (lock); scq_goto_scene (s); }
 int Host::scene() { return scq_scene(); }
-void Host::control (int which, float v) { scq_control (which, v); if (fleet) fleet->control (which, v); }
+void Host::control (int which, float v) { scq_control (which, v); }
 float Host::lamp (int led) { return scq_lamp (led); }
 float Host::probe (int node, int port) { return scq_probe (node, port); }

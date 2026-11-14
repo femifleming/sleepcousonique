@@ -2,13 +2,13 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <map>
 
-// Snapshots and a timeline, after openprocess: for composing a piece for the SP-1 ensemble.
+// Snapshots and a timeline, after openprocess: for composing a piece.
 //
 // A snapshot is what's sounding: every cord amount and kept value, every tune, attenuverter and
 // param, the four faders, and the scene, keyed by names so it survives editing the dream.
 // Recalling one cuts to it or glides there. The timeline is a row of segments, each a snapshot
 // and a length; a glide segment morphs into the next snapshot over its length, a cut segment
-// holds. Everything it plays goes through the editor's live path, so every SP-1 follows.
+// holds. Everything it plays goes through the editor's live path, like turning the knobs by hand.
 // Snapshots and the timeline are kept in the dream as ";~" lines, which the engine ignores.
 class Timeline : public juce::Component, private juce::Timer
 {
