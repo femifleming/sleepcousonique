@@ -7,7 +7,11 @@
 class SleepcousoniqueApp : public juce::JUCEApplication
 {
 public:
+   #if SCQ_LEGACY
+    const juce::String getApplicationName() override { return "Sleepcousonique Legacy"; }
+   #else
     const juce::String getApplicationName() override { return "Sleepcousonique"; }
+   #endif
     const juce::String getApplicationVersion() override { return JUCE_APPLICATION_VERSION_STRING; }
     bool moreThanOneInstanceAllowed() override
     {
@@ -51,7 +55,7 @@ public:
             if (int th = args.indexOf ("--theme"); th >= 0)   // --theme openprocess|journal,dark|light
             {
                 auto t = juce::StringArray::fromTokens (args[th + 1], ",", "");
-                juce::Timer::callAfterDelay (700, [this, t] { window->main->themeForShot (t[0] != "journal", t[1] != "light"); });
+                juce::Timer::callAfterDelay (700, [this, t] { window->main->themeForShot (t[0] != "journal", t[1] != "light", t[0] == "modular"); });
             }
             int wait = args.contains ("--wait") ? args[args.indexOf ("--wait") + 1].getIntValue() : 2800;
             juce::Timer::callAfterDelay (wait - 800, [this] { window->main->resized(); window->main->repaint(); });

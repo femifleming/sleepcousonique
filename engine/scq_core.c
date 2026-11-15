@@ -6,7 +6,7 @@
  *
  *   the hall is delay 7                 naming: a place with a fixed nature
  *   the route is seq 4: 0 3 7 12        a sequencer and its steps
- *   rain -> frogs ~> hall               passages: -> hall  ~> fog  => water  >| door
+ *   rain -> frogs ~> hall               passages: -> hall  ~> fog  => water  >| door  ?> maybe
  *   fader1 -60> hall.time               a number inside the arrow sets the amount
  *   value 40 -> bank.band3              a kept value (or just: 40 -> bank.band3)
  *   lucid fader2: peaks.fold 0..90, env.rise 20..5
@@ -182,12 +182,12 @@ static int tokenize(const char *s, int n, tok *t)
 		if (c == ':') { o->t = T_COLON; o->n = 1; i++; k++; continue; }
 		if (c == ',') { o->t = T_COMMA; o->n = 1; i++; k++; continue; }
 		if (c == '>' && i + 1 < n && s[i + 1] == '|') { o->t = T_ARROW; o->kind = K_DOOR; o->n = 2; i += 2; k++; continue; }
-		if (c == '-' || c == '~' || c == '=') {
+		if (c == '-' || c == '~' || c == '=' || c == '?') {
 			int j = i + 1;
 			while (j < n && (is_digit(s[j]) || s[j] == '.')) j++;
 			if (j < n && s[j] == '>') {
 				o->t = T_ARROW;
-				o->kind = c == '-' ? K_HALL : (c == '~' ? K_FOG : K_WATER);
+				o->kind = c == '-' ? K_HALL : (c == '~' ? K_FOG : (c == '?' ? K_MAYBE : K_WATER));
 				if (j > i + 1) { o->has_amt = 1; o->amt = parse_num(s + i + 1, j - i - 1); }
 				o->n = j + 1 - i; i = j + 1; k++;
 				continue;
@@ -550,6 +550,7 @@ static void add_cord(const endpoint *a, const endpoint *b, int kind, float amt, 
 	case K_DOOR:   c->a = 1.f; break;
 	case K_RANGE:  c->a = amt * 0.01f; c->b = amt2 * 0.01f; break;
 	case K_BOTTLE: c->a = a->val * 0.01f; break;
+	case K_MAYBE:  c->a = has_amt ? amt * 0.01f : 0.5f; c->b = 0.f; break;   /* a = the chance, b = open now */
 	}
 	if (a->is_bottle) { c->kind = K_BOTTLE; c->a = a->val * 0.01f; }
 }
@@ -1152,7 +1153,7 @@ void scq_set_amount(int index, float amount)
 		n->mixed |= (uint16_t)(1u << c->dport);
 	}
 	switch (c->kind) {
-	case K_HALL: case K_FOG: case K_BOTTLE: c->a = amount * 0.01f; break;
+	case K_HALL: case K_FOG: case K_BOTTLE: case K_MAYBE: c->a = amount * 0.01f; break;
 	case K_WATER: c->b = amount; c->a = scq_coef_time(amount * 0.001f, SR / (float)B); break;
 	case K_RANGE: c->a = amount * 0.01f; break;
 	default: break;
@@ -1247,6 +1248,16 @@ static void mix(node *n, int k, float scratch[MAX_IN][B])
 		} break;
 		case K_DOOR: LOOP dst[i] += src[i] > 0.f ? src[i] : 0.f; break;
 		case K_RANGE: { float lo = c->a, d = c->b - c->a; LOOP dst[i] += lo + d * src[i]; } break;
+		case K_MAYBE: {                         /* each rise through zero rolls the dice again */
+			float prev = c->s, open = c->b, chance = c->a;
+			LOOP {
+				float v = src[i];
+				if (prev <= 0.f && v > 0.f) open = scq_rand01(&G.rng) < chance ? 1.f : 0.f;
+				prev = v;
+				dst[i] += v * open;
+			}
+			c->s = prev; c->b = open;
+		} break;
 		}
 	}
 }
@@ -1319,6 +1330,16 @@ void scq_render(float *left, float *right, int frames)
 #endif
 		}
 	}
+}
+
+/* Interface mode (the SP-1 as a USB sound card): the dream stops and lends its memory pool.
+ * Nothing runs until scq_load() builds a dream again, which takes the pool back. */
+void *scq_sleep(uint32_t *len)
+{
+	G.nn = 0; G.nc = 0; G.used = 0;
+	G.pending = -1; G.waiting = 0; G.fading = 0; G.gain = 1.f;
+	if (len) *len = (uint32_t)POOL_BYTES;
+	return (void *)G.pool;
 }
 
 int scq_service(void)

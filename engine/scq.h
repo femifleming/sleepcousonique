@@ -51,6 +51,9 @@ const char *scq_describe(void);
 const char *scq_catalog(void);
 
 void  scq_control(int which, float value);
+/* MIDI bytes in (any mix of messages, running status, real time), for the midi, midicc and
+ * midiclock places. Call it from the thread that calls scq_render. */
+void  scq_midi(const uint8_t *bytes, int len);
 void  scq_render(float *left, float *right, int frames); /* frames: multiple of SCQ_BLOCK */
 void  scq_goto_scene(int index);
 int   scq_scene(void);
@@ -91,6 +94,10 @@ float scq_checked_load(int scene);
  * render fades out and waits in silence; call this from the main loop to finish the change.
  * Returns 1 if it changed scene. Elsewhere scenes change inside scq_render and this does nothing. */
 int   scq_service(void);
+
+/* Interface mode (the SP-1 as a USB sound card): stop the dream and lend its memory pool;
+ * returns the pool and its size. scq_load() wakes the engine and takes the pool back. */
+void *scq_sleep(uint32_t *len);
 
 #ifdef __cplusplus
 }

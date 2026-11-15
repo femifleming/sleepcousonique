@@ -146,6 +146,8 @@ config SP1_DRIVE
 config SP1_USB_BCD_DEVICE
 	hex "USB bcdDevice"
 	default 0x0500 if SP1_DRIVE
+	default 0x0602 if SP1_SCQ_IFACE
+	default 0x0601 if SP1_SCQ_MIDI
 	default 0x0403
 	help
 	  The device release number. 0x0403 is what Zephyr 4.3 put there by default
@@ -233,6 +235,25 @@ config SP1_SCQ
 	help
 	  Runs .dream patches sent from the Sleepcousonique editor over USB serial,
 	  in place of Wakes' Plaits/Marbles voice. Turn SP1_PLAITS off with it.
+
+config SP1_SCQ_IFACE
+	bool "Sleepcousonique: interface mode, the SP-1 as a 2-channel USB sound card"
+	default y
+	depends on SP1_SCQ && UDC_NRF_ISO_IN_FAST
+	help
+	  A USB Audio 1.0 output ("Sleepcousonique out", 48 kHz 16-bit stereo, adaptive).
+	  In interface mode (•• + PLAY held 1 s, or "SCQ MODE IFACE") the dream sleeps and
+	  the SP-1 plays what the computer sends; several SP-1s make one multichannel output.
+
+config SP1_SCQ_MIDI
+	bool "Sleepcousonique: USB-MIDI in for the midi / midicc / midiclock places"
+	default y
+	depends on SP1_SCQ && UDC_NRF_OUT_FAST
+	select RING_BUFFER
+	help
+	  A USB-MIDI 1.0 port next to the console (feldd's class, third_party/feldd).
+	  Notes, CCs, bend, aftertouch and clock reach the dream's MIDI places. From a
+	  computer, or from a TRS / DIN keyboard through a USB-MIDI host adapter.
 
 config SP1_PLAITS
 	bool "Plaits voice as the audio source (M3)"

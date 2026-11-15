@@ -8,9 +8,14 @@ its faders, track buttons, rocker and LEDs do whatever your dream says.
 
 ![sleepcousonique](docs/screenshot.png)
 
-| openprocess, dark | openprocess, light | journal, dark |
-|---|---|---|
-| ![](docs/themes/openprocess-dark.png) | ![](docs/themes/openprocess-light.png) | ![](docs/themes/journal-dark.png) |
+| faltung, dark | faltung, light | modular | journal, dark |
+|---|---|---|---|
+| ![](docs/themes/faltung-dark.png) | ![](docs/themes/faltung-light.png) | ![](docs/themes/modular.png) | ![](docs/themes/journal-dark.png) |
+
+**New in 1.2.0:** maybe-cords (`?>`), MIDI to CV places (`midi`, `midicc`, `midiclock`), the SP-1 as a
+USB-MIDI device and as a USB sound card (*interface mode*), **Sleepcousonique Array** (several
+SP-1s as one multichannel output), three looks (journal, faltung, modular), and *Legacy*
+versions of both apps for old computers (macOS 10.13 and later).
 
 Write a patch as a dated journal entry, or build it on the tapestry of boards and cords;
 every visual edit is a text edit, and every text edit redraws the tapestry. Hear it at once

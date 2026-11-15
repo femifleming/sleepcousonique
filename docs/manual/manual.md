@@ -62,17 +62,28 @@ an email.
 ## Looks
 
 `View ▸ Look` picks how the editor looks: **journal** (the original and the default: splatter
-canvas, cream boards, Dymo labels) or **openprocess** (after the openprocess bundle: the place
-browser grids along the top, a settings column for the selected place, checker rails and
-rings for the SP-1's hands, the bracket meters and the wordmark). `View ▸ Light or dark`
-picks **light** (the default), **dark**, or **follow the computer**, which changes with macOS's
-or Windows' own appearance setting. All of it is remembered.
+canvas, cream boards, Dymo labels) or **faltung** (the openprocess layout drawn after Mark
+Fell's and snd's sleeves and Partials: the place browser along the top as coloured tiles with
+codes, a settings column for the selected place, places as folded blocks in their family's
+colour, thin coloured cables, slanted controls, a wireframe and chevrons behind the tapestry).
+`View ▸ Light or dark` picks **light** (the default), **dark**, or **follow the computer**. In
+the faltung look, dark is Partials' blue-grey field and light is a flat mustard sleeve. All of
+it is remembered.
 
-![openprocess, dark](fig/look-openprocess-dark.png)
+![faltung, dark](fig/look-faltung-dark.png)
 
-![openprocess, light](fig/look-openprocess-light.png)
+![faltung, light](fig/look-faltung-light.png)
 
-In the openprocess look, click a square in the browser grids to put that place on the
+The third look, **modular**, is the faltung layout drawn the way the 2004 modular patch
+editors were: Windows-grey chrome with raised and sunken edges, a grey marble tapestry, places
+as coloured module strips with a triangle and a bold name, round inputs and square outputs
+(red for sound, blue for currents, yellow for pulses), fat cables with a dark edge, grey knobs,
+cyan "on" buttons, LED meters and Tahoma type. It has one appearance (light or dark doesn't
+change it). The **Legacy** editor starts in this look.
+
+![modular](fig/look-modular.png)
+
+In the faltung look, click a tile in the browser grids to put that place on the
 tapestry (hover to read what it is). Select a place and its settings appear in the column on
 the right: drag a bar (it plays as you drag), double-click to put it back, click a switch to
 step it. The undo and redo buttons sit beside the passages; the **?** squares open the
@@ -110,7 +121,7 @@ range, a quantizer's scale); the journal line changes with it.
 |---|---|
 | add a place | right-click the canvas ▸ sources / shapes / spaces / currents. Each entry says what the place does and, in brackets, what it comes from |
 | patch | drag from an outlet to an inlet (or from an inlet back to an outlet) |
-| choose the cord's part | the **-> hall / ~> fog / => water / >\| door** buttons choose the part for new cords |
+| choose the cord's part | the **-> hall / ~> fog / => water / >\| door / ?> maybe** buttons choose the part for new cords |
 | remove a cord | option-click it (option-click a loop to pull out every cord there) |
 | stack a cord | cmd-drag a cord: a new one leaves from the same outlet (or just drag from the outlet again) |
 | see code in the patch | select lines in the journal: their places and cords light up gold in the tapestry |

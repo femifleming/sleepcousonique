@@ -8,6 +8,10 @@
  * USB serial: "SCQ HELLO"  -> "SLEEPCOUSONIQUE <version>"
  *             "SCQ LOAD <bytes> <slot>" + bytes  -> "OK <errors>" / "ERR <why>"
  *             "SCQ SLOT <n>"  -> plays slot n
+ *             "SCQ MODE IFACE" / "SCQ MODE DREAM" -> interface mode (a USB sound card) or dreams
+ *             "SCQ UNIT <n>"  -> this SP-1 is unit n of an array (shown on the LEDs, kept)
+ *             "SCQ WHO"       -> "SCQ ME <usb serial> <unit> <IFACE|DREAM>"
+ *             "SCQ SHOW"      -> flashes the LEDs (which one is this?)
  *             "SCQ WATCH 1"   -> streams the hands ~30x a second until "SCQ WATCH 0" or the
  *                                port closes:  "SCQ HANDS f1 f2 f3 f4 buttons scene slot leds"
  *                                (faders 0-4095, buttons a bitmask, leds 8 hex bytes)
@@ -33,8 +37,17 @@
 #include <cmsis_core.h>
 #include "scq.h"
 #include "scq_default.h"     /* the first night, generated from examples/first-night.dream */
+#if defined(CONFIG_SP1_SCQ_MIDI)
+#include "sp1_midi_usb.h"
+#include "usb_rt_parse.h"
+#endif
+#if defined(CONFIG_SP1_SCQ_IFACE)
+#include "sp1_iface.h"
+#include "sp1_usbd.h"
+#include <zephyr/drivers/hwinfo.h>
+#endif
 
-#define SCQ_VERSION   "1.1.0"
+#define SCQ_VERSION   "1.2.0"
 #define SLOTS         5
 #define SLOT_BYTES    (16 * 1024)
 #define STATE_OFF     (SLOTS * SLOT_BYTES)       /* 0x14000: one page of state */
@@ -56,7 +69,10 @@ static bool     watching;          /* the editor wants the hands, live */
 static uint32_t watch_ms;
 
 struct slot_head  { uint32_t magic, len; };
-struct state_page { uint32_t magic, slot, nights, pad; };
+struct state_page { uint32_t magic, slot, nights, unit; };   /* unit: was pad (0) */
+static uint32_t unit;              /* this SP-1's number in an array, 0 = none yet */
+static bool     iface_mode;        /* interface mode: the SP-1 is a USB sound card */
+static uint32_t show_ms;           /* "SCQ SHOW": flash the LEDs this long */
 
 /* ------------------------------------------------------------------ flash */
 
@@ -138,7 +154,7 @@ static void audio_resume(void)
 static void state_write(void)
 {
 	const struct flash_area *fa = area();
-	struct state_page st = { STATE_MAGIC, (uint32_t)slot, nights, 0 };
+	struct state_page st = { STATE_MAGIC, (uint32_t)slot, nights, unit };
 	if (!fa) {
 		return;
 	}
@@ -155,8 +171,11 @@ static void state_save(void)
 
 /* ------------------------------------------------------------------ the engine */
 
+static void iface_leave(void);
+
 static int load_text(const char *text, int len)
 {
+	iface_leave();                 /* the dream takes its pool back from the sound card */
 	k_mutex_lock(&engine_lock, K_FOREVER);
 	int errors = scq_load(text, len, nights);
 	k_mutex_unlock(&engine_lock);
@@ -176,8 +195,72 @@ static void play_slot(int s)
 	}
 }
 
+#if defined(CONFIG_SP1_SCQ_MIDI)
+/* ---- USB-MIDI in: the dream's midi / midicc / midiclock places ----
+ * feldd's patched class calls sp1_midi_usb_rx() in the USB INTERRUPT with whole 4-byte
+ * USB-MIDI packets. Each valid message goes, as plain MIDI bytes, into a single-producer /
+ * single-consumer ring; the audio thread hands them to the engine (scq_midi) under the
+ * engine lock, just before it renders. A full ring drops bytes (counted), never blocks. */
+#define MIDI_RING 512u                       /* a power of two */
+static uint8_t midi_ring[MIDI_RING];
+static atomic_t midi_head, midi_tail;        /* head: the interrupt writes; tail: audio */
+static uint32_t midi_dropped;
+
+static void midi_put(const uint8_t *b, uint32_t n)
+{
+	const uint32_t h = (uint32_t)atomic_get(&midi_head), t = (uint32_t)atomic_get(&midi_tail);
+	if (MIDI_RING - (h - t) < n) { midi_dropped++; return; }
+	for (uint32_t i = 0; i < n; i++) midi_ring[(h + i) & (MIDI_RING - 1u)] = b[i];
+	atomic_set(&midi_head, (atomic_val_t)(h + n));
+}
+
+void sp1_midi_usb_rx(const uint8_t *data, size_t len)
+{
+	for (size_t i = 0; i + 4u <= len; i += 4u) {
+		uint8_t msg[3];
+		const uint8_t n = usb_midi_extract_voice(&data[i], msg);
+		if (n != 0u) { midi_put(msg, n); continue; }
+		uint8_t rt = usb_midi_extract_rt(&data[i]);
+		/* the same four real-time bytes under CIN 0x5, as some hosts send them (Wakes M5b) */
+		if (rt == 0u && (data[i] & 0x0Fu) == 0x5u &&
+		    (data[i + 1u] == 0xF8u || data[i + 1u] == 0xFAu || data[i + 1u] == 0xFBu || data[i + 1u] == 0xFCu)) {
+			rt = data[i + 1u];
+		}
+		if (rt != 0u) midi_put(&rt, 1u);
+	}
+}
+
+/* Port down (unplugged, suspended): let go of every held note, as a keyboard pulled out would. */
+void sp1_midi_usb_port(bool up)
+{
+	if (!up) {
+		static const uint8_t all_off[] = { 0xB0, 123, 0, 0xFC };
+		midi_put(all_off, sizeof(all_off));
+	}
+}
+
+static void midi_drain(void)                 /* audio thread, engine lock held */
+{
+	const uint32_t t = (uint32_t)atomic_get(&midi_tail), h = (uint32_t)atomic_get(&midi_head);
+	if (h == t) return;
+	const uint32_t a = t & (MIDI_RING - 1u), n = h - t;
+	const uint32_t first = n < MIDI_RING - a ? n : MIDI_RING - a;
+	scq_midi(&midi_ring[a], (int)first);
+	if (n > first) scq_midi(&midi_ring[0], (int)(n - first));
+	atomic_set(&midi_tail, (atomic_val_t)h);
+}
+#else
+static inline void midi_drain(void) {}
+#endif
+
 void sp1_scq_render(float *left, float *right, uint32_t frames)
 {
+#if defined(CONFIG_SP1_SCQ_IFACE)
+	if (sp1_iface_on()) {          /* interface mode: play what the computer sends */
+		sp1_iface_render(left, right, frames);
+		return;
+	}
+#endif
 	if (k_mutex_lock(&engine_lock, K_NO_WAIT) != 0) {
 		memset(left, 0, frames * sizeof(float));
 		memset(right, 0, frames * sizeof(float));
@@ -187,6 +270,7 @@ void sp1_scq_render(float *left, float *right, uint32_t frames)
 	 * I2S queue, and the stream errors out and never stays up (heard as near-silence). So
 	 * after a block that used more than 90% of its time, this one is silence: the stream
 	 * keeps running and the overload is heard as dropouts, not as a dead SP-1. */
+	midi_drain();                            /* even in a skipped block: a note-off must land */
 	static uint32_t last_c;
 	const uint32_t budget = 1333u * frames;
 	if (last_c > budget / 10u * 9u) {
@@ -216,6 +300,63 @@ void sp1_scq_render(float *left, float *right, uint32_t frames)
  * Reading less than is there, with receiving still on, would make the CDC driver re-run
  * this callback in a loop on the system work queue, above the audio. */
 static volatile bool rx_paused;
+/* ------------------------------------------------------------------ interface mode */
+
+static void iface_enter(void)
+{
+#if defined(CONFIG_SP1_SCQ_IFACE)
+	if (iface_mode) {
+		return;
+	}
+	k_mutex_lock(&engine_lock, K_FOREVER);
+	uint32_t bytes = 0u;
+	void *mem = scq_sleep(&bytes);
+	k_mutex_unlock(&engine_lock);
+	sp1_iface_start(mem, bytes);
+	sp1_usbd_threads_above_audio(true);   /* no ISO OUT packet may wait behind audio */
+	iface_mode = true;
+	printk("SCQ interface mode: a USB sound card%s (unit %u)\n",
+	       sp1_iface_streaming() ? ", the computer is sending" : "", (unsigned)unit);
+#endif
+}
+
+static void iface_leave(void)
+{
+#if defined(CONFIG_SP1_SCQ_IFACE)
+	if (!iface_mode) {
+		return;
+	}
+	iface_mode = false;
+	sp1_iface_stop();
+	sp1_usbd_threads_above_audio(false);  /* dreams: audio first again */
+	printk("SCQ dream mode\n");
+#endif
+}
+
+static void dream_again(void)
+{
+	iface_leave();
+	play_slot(slot);               /* the engine wakes with the dream that was playing */
+}
+
+static void usb_serial(char *out, size_t cap)
+{
+	out[0] = 0;
+#if defined(CONFIG_SP1_SCQ_IFACE) && defined(CONFIG_HWINFO)
+	static const char hex[] = "0123456789ABCDEF";
+	uint8_t id[CONFIG_USBD_HWINFO_DEVID_LENGTH];
+	ssize_t n = hwinfo_get_device_id(id, sizeof id);   /* the same string USB reports */
+	size_t k = 0;
+	for (ssize_t i = 0; i < n && k + 2 < cap; i++) {
+		out[k++] = hex[id[i] >> 4];
+		out[k++] = hex[id[i] & 0xF];
+	}
+	out[k] = 0;
+#else
+	ARG_UNUSED(cap);
+#endif
+}
+
 static void rx_isr(const struct device *dev, void *user)
 {
 	ARG_UNUSED(user);
@@ -271,6 +412,28 @@ static void handle_line(void)
 	} else if (strncmp(line, "SCQ WATCH ", 10) == 0) {
 		watching = line[10] == '1';
 		watch_ms = 0u;
+	} else if (strncmp(line, "SCQ MODE ", 9) == 0) {
+		if (line[9] == 'I') {
+			iface_enter();
+		} else {
+			dream_again();
+		}
+		reply(iface_mode ? "OK IFACE\n" : "OK DREAM\n");
+	} else if (strncmp(line, "SCQ UNIT ", 9) == 0) {
+		long u = strtol(line + 9, NULL, 10);
+		unit = (u >= 0 && u <= 16) ? (uint32_t)u : 0u;
+		show_ms = 1500u;
+		state_save();
+		reply("OK 0\n");
+	} else if (strncmp(line, "SCQ SHOW", 8) == 0) {
+		show_ms = 3000u;
+		reply("OK 0\n");
+	} else if (strncmp(line, "SCQ WHO", 7) == 0) {
+		char sn[40], out[80];
+		usb_serial(sn, sizeof sn);
+		snprintf(out, sizeof out, "SCQ ME %s %u %s\n", sn[0] ? sn : "-", (unsigned)unit,
+			 iface_mode ? "IFACE" : "DREAM");
+		reply(out);
 	} else if (strncmp(line, "SCQ SLOT ", 9) == 0) {
 		play_slot(atoi(line + 9) - 1);
 		state_save();
@@ -338,6 +501,7 @@ void sp1_scq_init(void)
 	if (fa && flash_area_read(fa, STATE_OFF, &st, sizeof st) == 0 && st.magic == STATE_MAGIC) {
 		slot = (int)(st.slot % SLOTS);
 		nights = st.nights + 1;
+		unit = st.unit <= 16u ? st.unit : 0u;
 	}
 	if (device_is_ready(cdc)) {
 		uart_irq_callback_set(cdc, rx_isr);
@@ -417,6 +581,15 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 		const uint32_t budget = 1333u * (uint32_t)CONFIG_SP1_AUDIO_BLOCK_FRAMES;
 		const uint32_t skipped = eng_skipped;
 		eng_skipped = 0u;
+#if defined(CONFIG_SP1_SCQ_IFACE)
+		if (iface_mode) {
+			struct sp1_iface_stats is;
+			sp1_iface_stats(&is);
+			printk("SCQ iface unit=%u %s packets=%u fill=%u under=%u over=%u follow=%dppm\n",
+			       (unsigned)unit, is.streaming ? "streaming" : "idle", (unsigned)is.packets,
+			       (unsigned)is.fill, (unsigned)is.under, (unsigned)is.over, (int)is.ratio_ppm);
+		}
+#endif
 		printk("SCQ engine avg=%u%% max=%u%%  places=%d scene=%d slot=%d%s\n",
 		       n ? (unsigned)((uint64_t)sum * 100u / ((uint64_t)n * budget)) : 0u,
 		       (unsigned)((uint64_t)mx * 100u / budget),
@@ -438,7 +611,7 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 	/* •• + the rocker: the next / previous scene. While •• is held the rocker belongs to the
 	 * scenes and never reaches `lift`, so lift stays free to patch. */
 	static bool rocker_taken;
-	if (fnc && (sp1_button_pressed(SP1_BTN_FFWD) || sp1_button_pressed(SP1_BTN_RWD))) {
+	if (fnc && !iface_mode && (sp1_button_pressed(SP1_BTN_FFWD) || sp1_button_pressed(SP1_BTN_RWD))) {
 		(void)sp1_shift_used();
 		rocker_taken = true;
 		k_mutex_lock(&engine_lock, K_FOREVER);
@@ -459,6 +632,32 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 	scq_control(SCQ_CTL_WAKE, sp1_button_held(SP1_BTN_PLAY) ? 1.f : 0.f);
 	scq_control(SCQ_CTL_LUCID, fnc ? 1.f : 0.f);
 
+	/* •• + PLAY held 1 s: interface mode (a USB sound card) <-> dream mode. A hold, so a quick
+	 * •• + PLAY still reaches the dream as `dots` and `play`. */
+	{
+		static uint32_t mode_ms;
+		static bool mode_done;
+		if (fnc && sp1_button_held(SP1_BTN_PLAY)) {
+			(void)sp1_shift_used();         /* touching PLAY: never the power-off */
+			mode_ms += elapsed_ms;
+			if (mode_ms >= 1000u && !mode_done) {
+				mode_done = true;
+				if (iface_mode) {
+					dream_again();
+				} else {
+					iface_enter();
+				}
+				show_ms = 1200u;
+			}
+		} else {
+			mode_ms = 0u;
+			mode_done = false;
+		}
+	}
+	if (show_ms) {
+		show_ms = show_ms > elapsed_ms ? show_ms - elapsed_ms : 0u;
+	}
+
 	/* •• + VOL: another dream slot (VOL alone stays the volume, in main.c) */
 	if (fnc && (sp1_button_pressed(SP1_BTN_VOL_UP) || sp1_button_pressed(SP1_BTN_VOL_DOWN))) {
 		(void)sp1_shift_used();
@@ -466,7 +665,11 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 		state_save();
 	}
 
-	/* a journey happened in the audio thread: compile the next scene here */
+	/* a journey happened in the audio thread: compile the next scene here (never while the
+	 * engine is asleep: its pool is the sound card's ring) */
+	if (iface_mode) {
+		return;
+	}
 	k_mutex_lock(&engine_lock, K_FOREVER);
 	scq_service();
 	k_mutex_unlock(&engine_lock);
@@ -474,6 +677,18 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 
 void sp1_scq_track_leds(uint8_t out[4])
 {
+	if (show_ms) {                 /* "which one is this?": all four blink */
+		const uint8_t v = ((show_ms / 150u) & 1u) ? 255u : 0u;
+		out[0] = out[1] = out[2] = out[3] = v;
+		return;
+	}
+	if (iface_mode) {              /* the unit number, in binary (1-15), T1 the lowest bit */
+		const uint32_t u = unit;
+		for (int i = 0; i < 4; i++) {
+			out[i] = (u >> i) & 1u ? 200u : (u == 0u ? 24u : 0u);
+		}
+		return;
+	}
 	for (int i = 0; i < 4; i++) {
 		out[i] = (uint8_t)(scq_lamp(i) * 255.f);
 	}
@@ -483,6 +698,17 @@ void sp1_scq_play_leds(uint32_t elapsed_ms)
 {
 	static uint32_t idle_ms, breath_ms;
 	sp1_meter_tick();              /* keeps the console's meter= honest */
+#if defined(CONFIG_SP1_SCQ_IFACE)
+	if (iface_mode) {              /* the level: left on the two LEDs nearest ••, right on the two by PLAY */
+		const float l = sp1_iface_level(0), r = sp1_iface_level(1);
+		const bool live = sp1_iface_streaming();
+		sp1_led_set(SP1_ROW_PLAY, 0, (uint8_t)(l > 0.5f ? 255 : (live ? 20 : 0)));
+		sp1_led_set(SP1_ROW_PLAY, 1, (uint8_t)(l * 255.f));
+		sp1_led_set(SP1_ROW_PLAY, 2, (uint8_t)(r * 255.f));
+		sp1_led_set(SP1_ROW_PLAY, 3, (uint8_t)(r > 0.5f ? 255 : (live ? 20 : 0)));
+		return;
+	}
+#endif
 	bool lit = false;
 	for (int i = 0; i < 4; i++) {
 		if (scq_lamp(4 + i) > 0.02f) {

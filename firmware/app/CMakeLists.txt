@@ -548,4 +548,26 @@ if(CONFIG_SP1_SCQ)
 	add_custom_target(scq_default_gen DEPENDS ${SCQ_DEFAULT_H})
 	add_dependencies(app scq_default_gen)
 	target_sources(app PRIVATE src/sp1_scq.c)
+	if(CONFIG_SP1_SCQ_IFACE)
+		target_sources(app PRIVATE src/sp1_iface.c)
+	endif()
+
+	# USB-MIDI in for the dream's MIDI places: feldd's class, patched as for Wakes (M5a)
+	if(CONFIG_SP1_SCQ_MIDI)
+		set(FELDD ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/feldd)
+		set(FELDD_OUT ${CMAKE_CURRENT_BINARY_DIR}/feldd/usb_midi1.c)
+		execute_process(
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/../tools/apply_patch.py
+				${FELDD}/src/usb_midi1.c ${FELDD}/patches/usb_midi1.patch ${FELDD_OUT}
+			RESULT_VARIABLE feldd_rc)
+		if(NOT feldd_rc EQUAL 0)
+			message(FATAL_ERROR "third_party/feldd/patches/usb_midi1.patch does not apply")
+		endif()
+		set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+			${FELDD}/src/usb_midi1.c ${FELDD}/patches/usb_midi1.patch
+			${CMAKE_CURRENT_SOURCE_DIR}/../tools/apply_patch.py)
+		target_sources(app PRIVATE ${FELDD_OUT} ${FELDD}/src/usb_rt_parse.c)
+		target_include_directories(app PRIVATE ${FELDD}/src src)
+	endif()
 endif()

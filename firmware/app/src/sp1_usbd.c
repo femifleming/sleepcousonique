@@ -138,6 +138,26 @@ static int usb_threads_below_audio(void)
 }
 #endif
 
+#if defined(CONFIG_SP1_USB_THREADS_BELOW_AUDIO)
+/* Interface mode (sp1_iface.c): the audio thread only copies, and the isochronous OUT packets
+ * must be re-queued every millisecond or they are lost -- so the two USB threads go back above
+ * audio while the SP-1 is a sound card, and below it again for dreams. */
+void sp1_usbd_threads_above_audio(bool above)
+{
+	k_tid_t found[3] = { NULL, NULL, NULL };
+
+	k_thread_foreach_unlocked(usb_thread_find, found);
+	for (int i = 0; i < 2; i++) {
+		if (found[i] != NULL) {
+			k_thread_priority_set(found[i], above ? K_PRIO_COOP(8)
+							      : K_PRIO_PREEMPT(CONFIG_MAIN_THREAD_PRIORITY));
+		}
+	}
+}
+#else
+void sp1_usbd_threads_above_audio(bool above) { ARG_UNUSED(above); }
+#endif
+
 static int threads_demoted;   /* for the boot log: how many of the two were moved */
 
 int sp1_usbd_threads_demoted(void)

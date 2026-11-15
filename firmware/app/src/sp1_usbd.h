@@ -34,4 +34,7 @@ bool sp1_usbd_host(void);
  * thread at init -- 2 with CONFIG_SP1_USB_THREADS_BELOW_AUDIO, 0 without. For the log. */
 int sp1_usbd_threads_demoted(void);
 
+/* Interface mode: the USB threads above audio (true), or back below it (false). */
+void sp1_usbd_threads_above_audio(bool above);
+
 #endif /* SP1_USBD_H */

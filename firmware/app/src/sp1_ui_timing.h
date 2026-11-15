@@ -11,11 +11,11 @@
 
 /* ---- "••" shutdown gesture ----
  * Total time to power off = HOLD + RAMP_UP + 4 x (FADE + GAP)
- *                         = 3000 + 500 + 4 x 200 = 4300 ms.
- * Long on purpose: "••" is also the shift for the whole UI, so shutdown must be
+ *                         = 500 + 200 + 4 x 200 = 1500 ms (was 4300; user found it too slow).
+ * Still deliberate: "••" is also the shift for the whole UI, so shutdown must be
  * deliberate and it must be cancellable right up to the last moment. */
-#define SP1_PWR_HOLD_MS       3000u   /* hold before the animation starts     */
-#define SP1_PWR_RAMP_UP_MS     500u   /* model row fades up together          */
+#define SP1_PWR_HOLD_MS        500u   /* hold before the animation starts     */
+#define SP1_PWR_RAMP_UP_MS     200u   /* model row fades up together          */
 #define SP1_PWR_FADE_MS        150u   /* per-LED fade to dark                 */
 #define SP1_PWR_GAP_MS          50u   /* pause between LEDs                   */
 #define SP1_PWR_CANCEL_FADE_MS 120u   /* fade back to dark when cancelled     */
@@ -103,8 +103,8 @@
  * write. With `nordic,invert` on those channels that idle level lights the LEDs.
  * The fix is to defer PWM device init until we have decided to boot -- see
  * sp1_led_init() and `zephyr,deferred-init` in the board DTS. */
-#define SP1_PWR_ON_DARK_MS     500u   /* silent, nothing drawn                */
-#define SP1_PWR_ON_FILL_MS    1000u   /* model row fills as progress          */
+#define SP1_PWR_ON_DARK_MS     150u   /* silent, nothing drawn                */
+#define SP1_PWR_ON_FILL_MS     350u   /* model row fills as progress          */
 #define SP1_PWR_ON_HOLD_MS    (SP1_PWR_ON_DARK_MS + SP1_PWR_ON_FILL_MS)
 
 /* ---- STANDBY (off, plugged in) ----

@@ -2,7 +2,7 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 
 // Runs the C engine on the computer's sound card, exactly as the SP-1 will run it.
-class Host : private juce::AudioIODeviceCallback
+class Host : private juce::AudioIODeviceCallback, private juce::MidiInputCallback
 {
 public:
     Host();
@@ -26,12 +26,22 @@ public:
 
     juce::AudioDeviceManager devices;
     float level = 0;   // output meter
+    juce::StringArray midiInputs() const;   // names of the MIDI inputs the dream hears
+
 
 private:
     void audioDeviceIOCallbackWithContext (const float* const*, int, float* const* out, int numOut, int frames,
                                            const juce::AudioIODeviceCallbackContext&) override;
     void audioDeviceAboutToStart (juce::AudioIODevice*) override;
     void audioDeviceStopped() override {}
+
+    // MIDI in: every input is heard (midi / midicc / midiclock places); bytes cross to the
+    // audio thread through a lock-free ring and reach the engine just before it renders
+    void handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage&) override;
+    void openMidiInputs();
+    juce::MidiDeviceListConnection midiList;
+    juce::AbstractFifo midiFifo { 4096 };
+    std::vector<juce::uint8> midiRing = std::vector<juce::uint8> (4096);
 
     juce::CriticalSection lock;
     double rate = 48000;

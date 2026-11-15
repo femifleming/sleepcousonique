@@ -180,6 +180,19 @@ static juce::String readLine (Port p, int timeoutMs, const juce::StringArray& wa
     return line.trim();
 }
 
+juce::String ask (const juce::String& port, const juce::String& line, const juce::StringArray& wanted, int timeoutMs)
+{
+    auto p = openPort (port);
+    if (p == NONE) return {};
+    flushInput (p);
+    auto out = line + "\n";
+    juce::String reply;
+    if (writeAll (p, out.toRawUTF8(), (size_t) out.getNumBytesAsUTF8()))
+        reply = readLine (p, timeoutMs, wanted);
+    closePort (p);
+    return reply;
+}
+
 juce::String send (const juce::String& text, int slot, juce::String& portUsed)
 {
     auto ports = candidates();

@@ -10,9 +10,45 @@ Host::Host()
     setup.sampleRate = 48000;
     devices.setAudioDeviceSetup (setup, true);
     devices.addAudioCallback (this);
+    openMidiInputs();
+    midiList = juce::MidiDeviceListConnection::make ([this] { openMidiInputs(); });
 }
 
-Host::~Host() { devices.removeAudioCallback (this); }
+Host::~Host()
+{
+    for (auto& d : juce::MidiInput::getAvailableDevices()) devices.removeMidiInputDeviceCallback (d.identifier, this);
+    devices.removeAudioCallback (this);
+}
+
+void Host::openMidiInputs()
+{
+    for (auto& d : juce::MidiInput::getAvailableDevices())
+    {
+        if (devices.isMidiInputDeviceEnabled (d.identifier)) continue;
+        devices.setMidiInputDeviceEnabled (d.identifier, true);
+        devices.addMidiInputDeviceCallback (d.identifier, this);
+    }
+}
+
+juce::StringArray Host::midiInputs() const
+{
+    juce::StringArray s;
+    for (auto& d : juce::MidiInput::getAvailableDevices())
+        if (devices.isMidiInputDeviceEnabled (d.identifier)) s.add (d.name);
+    return s;
+}
+
+void Host::handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage& m)
+{
+    if (m.isSysEx()) return;
+    auto n = m.getRawDataSize();
+    if (n <= 0 || n > 3) return;
+    const auto w = midiFifo.write (n);
+    if (w.blockSize1 + w.blockSize2 < n) return;              // full: drop it
+    auto* d = m.getRawData();
+    for (int i = 0; i < w.blockSize1; ++i) midiRing[(size_t) (w.startIndex1 + i)] = d[i];
+    for (int i = 0; i < w.blockSize2; ++i) midiRing[(size_t) (w.startIndex2 + i)] = d[w.blockSize1 + i];
+}
 
 void Host::audioDeviceAboutToStart (juce::AudioIODevice* d)
 {
@@ -29,6 +65,11 @@ void Host::audioDeviceIOCallbackWithContext (const float* const*, int, float* co
     const juce::ScopedTryLock sl (lock);
     if (! sl.isLocked() || numOut < 1) return;
 
+    {
+        const auto rd = midiFifo.read (midiFifo.getNumReady());
+        if (rd.blockSize1 > 0) scq_midi (midiRing.data() + rd.startIndex1, rd.blockSize1);
+        if (rd.blockSize2 > 0) scq_midi (midiRing.data() + rd.startIndex2, rd.blockSize2);
+    }
     const double ratio = 48000.0 / rate;
     const int need = (int) std::ceil (frames * ratio) + 8;
     float l[SCQ_BLOCK], r[SCQ_BLOCK];

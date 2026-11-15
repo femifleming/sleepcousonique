@@ -3,10 +3,21 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Universal binary")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS")
 
-project(Sleepcousonique VERSION 1.1.1 LANGUAGES C CXX)
+project(Sleepcousonique VERSION 1.2.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 99)
+
+# Legacy builds (-DSCQ_LEGACY=ON, with -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13): both apps as
+# "... Legacy", drawn flat and redrawn only where something moved, for old computers.
+option(SCQ_LEGACY "Build the light legacy versions of the apps" OFF)
+if(SCQ_LEGACY)
+    set(SCQ_SUFFIX " Legacy")
+    set(SCQ_ID_SUFFIX ".legacy")
+else()
+    set(SCQ_SUFFIX "")
+    set(SCQ_ID_SUFFIX "")
+endif()
 
 # JUCE: a local checkout in ./JUCE, or FETCHCONTENT_SOURCE_DIR_JUCE, or the pinned release.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/JUCE/CMakeLists.txt")
@@ -32,17 +43,18 @@ if(UNIX)
 endif()
 
 juce_add_gui_app(Sleepcousonique
-    PRODUCT_NAME "Sleepcousonique"
-    VERSION 1.1.1
+    PRODUCT_NAME "Sleepcousonique${SCQ_SUFFIX}"
+    VERSION 1.2.0
     COMPANY_NAME "Sleepcousonique"
-    BUNDLE_ID "com.sleepcousonique.editor"
+    BUNDLE_ID "com.sleepcousonique.editor${SCQ_ID_SUFFIX}"
     DOCUMENT_EXTENSIONS dream
     ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/app/icon/icon.png"
     MICROPHONE_PERMISSION_ENABLED FALSE)
 
 file(GLOB SCQ_SCALE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/scales/*.scl)
 juce_add_binary_data(ScqData HEADER_NAME ScqData.h NAMESPACE ScqData
-    SOURCES examples/first-night.dream examples/a-history.dream docs/places.md ${SCQ_SCALE_FILES})
+    SOURCES examples/first-night.dream examples/a-history.dream docs/places.md ${SCQ_SCALE_FILES}
+            app/fonts/Inter-Regular.ttf app/fonts/Inter-Medium.ttf app/fonts/IBMPlexMono-Regular.ttf)
 
 target_sources(Sleepcousonique PRIVATE
     app/Main.cpp
@@ -61,6 +73,7 @@ target_sources(Sleepcousonique PRIVATE
 
 target_compile_definitions(Sleepcousonique PRIVATE
     JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_DISPLAY_SPLASH_SCREEN=0
+    SCQ_LEGACY=$<BOOL:${SCQ_LEGACY}>
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:Sleepcousonique,JUCE_PRODUCT_NAME>"
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:Sleepcousonique,JUCE_VERSION>")
 
@@ -79,3 +92,24 @@ juce_add_console_app(ScqTests PRODUCT_NAME "ScqTests")
 target_sources(ScqTests PRIVATE tests/ModelTest.cpp app/Model.cpp app/Scales.cpp)
 target_compile_definitions(ScqTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
 target_link_libraries(ScqTests PRIVATE scq_engine ScqData juce::juce_core juce::juce_graphics PUBLIC juce::juce_recommended_config_flags)
+
+# Sleepcousonique Array: SP-1s in interface mode as one multichannel output (macOS)
+juce_add_gui_app(SleepcousoniqueArray
+    PRODUCT_NAME "Sleepcousonique Array${SCQ_SUFFIX}"
+    VERSION 1.2.0
+    COMPANY_NAME "Sleepcousonique"
+    BUNDLE_ID "com.sleepcousonique.array${SCQ_ID_SUFFIX}"
+    ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/array/icon/icon.png"
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "The Array reads a loopback input (BlackHole) to send it to your SP-1s.")
+juce_add_binary_data(ArrayFonts HEADER_NAME ArrayFonts.h NAMESPACE ArrayFonts
+    SOURCES array/fonts/Inter-Regular.ttf array/fonts/Inter-Medium.ttf array/fonts/IBMPlexMono-Regular.ttf array/icon/logo.png)
+target_sources(SleepcousoniqueArray PRIVATE array/Main.cpp array/Aggregate.cpp app/Serial.cpp)
+target_compile_definitions(SleepcousoniqueArray PRIVATE
+    JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_DISPLAY_SPLASH_SCREEN=0 SCQ_LEGACY=$<BOOL:${SCQ_LEGACY}>)
+target_link_libraries(SleepcousoniqueArray
+    PRIVATE ArrayFonts juce::juce_gui_extra juce::juce_audio_utils juce::juce_dsp
+    PUBLIC juce::juce_recommended_config_flags)
+if(APPLE)
+    target_link_libraries(SleepcousoniqueArray PRIVATE "-framework CoreAudio" "-framework CoreFoundation")
+endif()

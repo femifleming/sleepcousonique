@@ -28,3 +28,13 @@ plug in, and flash any `.bin` again: this one, Wakes, the tape looper or anythin
   to install. **macOS:** it appears as `/dev/cu.usbmodem…`.
 
 This firmware is unofficial and not affiliated with or endorsed by Teenage Engineering.
+
+## Going back to an older version
+
+Every firmware in `firmware/dist/` is named after its version (`sleepcousonique-sp1-v1.1.1.bin`,
+`sleepcousonique-sp1-v1.2.0-beta1.bin`, ...); the plain `sleepcousonique-sp1.bin` is always the
+last released one. Flashing an older .bin works exactly like flashing a new one (boot mode: hold
+T1 + T4 while plugging in). Your five dream slots live in their own part of the flash, away
+from the firmware, so they should survive; your .dream files on the computer are the real copy,
+so send them again if a slot comes back empty. The editor's status bar (or `SCQ HELLO` in a serial
+terminal) shows which version the SP-1 is running.

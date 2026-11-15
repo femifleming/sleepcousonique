@@ -61,8 +61,8 @@ so keep your `.dream` files on the computer.
 
 | to | do this |
 |---|---|
-| turn on | hold **••** for 1.5 s (the track row fills, then it starts) |
-| turn off | hold **••** for 3 s, touching nothing else |
+| turn on | hold **••** for half a second (the track row fills, then it starts) |
+| turn off | hold **••** for 1.5 s, touching nothing else |
 | check the battery | tap **••**: the play row shows the charge as a bar for 1.5 s |
 | see it charging (off) | plug in USB: the play row shows the charge bar, breathing while it charges, solid when full |
 | see it charging (on) | plugged in, the play row shows the same charge bar whenever your dream isn't lighting those four LEDs; tapping **••** shows it any time |
@@ -87,7 +87,7 @@ flashing back to another firmware brings its Bluetooth back exactly as it was.
 
 | SP-1 | Sleepcousonique |
 |---|---|
-| hold **••** 1.5 s / 3 s | on / off (see *Power and battery*) |
+| hold **••** 0.5 s / 1.5 s | on / off (see *Power and battery*) |
 | tap **••** | show the battery |
 | faders F1–F4 | `fader1`–`fader4` |
 | track buttons T1–T4 | `button1`–`button4` |
@@ -106,7 +106,7 @@ Some things to know:
   together, so don't build a dream that needs chords on the doors.
 - Holding a track button sags the rail the faders share, so the faders hold still while a
   button is down. Wakes corrects for this. You'll notice it only as a fader that waits.
-- Holding **••** alone for 3 seconds turns the SP-1 off. Touching any other control while
+- Holding **••** alone for 1.5 seconds turns the SP-1 off. Touching any other control while
   holding it keeps it on, so `dots` gestures with a fader or button are safe.
 - Tapping **••** shows the battery on the play row for a moment.
 
@@ -134,6 +134,64 @@ west build -p always -b stem_player ~/sleepcousonique/firmware/app \
 
 Apply the two patches in `firmware/zephyr-patches/` to the Zephyr tree first, as Wakes
 requires (`git apply` inside `zephyr/`).
+
+## Interface mode: the SP-1 as a sound card
+
+Hold **••** + **PLAY** for one second and the SP-1 stops dreaming and becomes a 2-channel USB
+sound card (*Sleepcousonique* in your computer's sound settings). Hold them again, or send it
+a dream, and it dreams again. The serial command `SCQ MODE IFACE` / `SCQ MODE DREAM` does the
+same.
+
+In interface mode the track LEDs show the unit's number in binary (T1 is 1, T2 is 2, T1 + T2 is
+3, ...) and the play row shows the level: left by **••**, right by PLAY. The outer two light
+when the computer is sending.
+
+**Several SP-1s:** plug them into a powered **multi-TT** USB 2.0 hub and open
+*Sleepcousonique Array*. It finds every SP-1, numbers them (#1 is outputs 1–2, #2 is 3–4, ...)
+and joins them into one Core Audio device, with a loopback input such as BlackHole if you have
+one. Then the grid sends any source to any output:
+
+- **input**: what a DAW plays into the loopback device (BlackHole 16ch: tracks routed to
+  outputs 1–16 of BlackHole arrive as inputs 1–16);
+- **file**: a multichannel WAV, AIFF or FLAC the Array plays itself (f1, f2, ... are its
+  channels);
+- **share with other apps** makes the joined device, *SP-1 Array*, visible to your DAW, so it
+  can play straight into the SP-1s without the grid.
+
+*show* blinks that unit's LEDs; *up* / *down* change the order (kept by serial number);
+*mode* switches one unit between interface and dream. The Array needs the units' serial ports
+to number them, so quit the Sleepcousonique editor while you set them up. macOS only for now.
+
+Each output also has a live **spectrogram** (40 Hz to 20 kHz, newest on the right), and the
+**master** fader on the left sets the volume of every output at once (double-click: 0 dB).
+
+The **look** button switches the Array between **faltung** (each SP-1 a block on a stage whose
+towers rise with its two outputs) and **modular** (each SP-1 a module strip with LED columns on
+grey marble, Windows controls). *Sleepcousonique Array Legacy* starts in the modular look.
+
+![the Array, faltung](fig/array-faltung.png)
+
+![the Array, modular](fig/array-modular.png)
+
+![the Array, legacy](fig/array-legacy.png)
+
+**Legacy versions** — *Sleepcousonique Legacy* and *Sleepcousonique Array Legacy* — are the same
+apps drawn flat and redrawn only where something moved, for old computers (macOS 10.13 and
+later, Intel or Apple Silicon). Both start in the **modular** look and keep their own settings,
+apart from the normal apps. The Array Legacy has plain bars instead of the stage, history and
+spectrograms. Build them with `cmake -B build-legacy -G Ninja -DSCQ_LEGACY=ON
+-DCMAKE_OSX_DEPLOYMENT_TARGET=10.13 -DCMAKE_BUILD_TYPE=Release`.
+
+The SP-1 follows the computer's clock (it resamples by a few hundred parts per million), so
+the units stay together. The delay is about 6 ms.
+
+## MIDI in
+
+The SP-1 is also a USB-MIDI device named *Sleepcousonique*. Notes, CCs, pitch bend,
+aftertouch and clock reach the dream's `midi`, `midicc` and `midiclock` places (see *MIDI to
+CV*). From a computer, send to it from any DAW or MIDI app. For a keyboard or sequencer with
+a TRS or DIN MIDI socket, put a **USB-MIDI host adapter** between them: TRS/DIN in, USB-C to
+the SP-1, which it also powers. Unplugging lets go of every held note.
 
 ## The USB link
 

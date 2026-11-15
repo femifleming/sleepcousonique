@@ -19,7 +19,7 @@ public:
     void lookForShot (float light, bool router, int hlFirst, int hlLast)   // screenshots only: nothing is saved
     { tapestry.setLight (light); tapestry.setRouting (router); tapestry.setHighlight (hlFirst, hlLast); hlShot = hlLast >= hlFirst; }
     bool hlShot = false;
-    void themeForShot (bool pop, bool dark);   // screenshots only: nothing is saved
+    void themeForShot (bool pop, bool dark, bool modular = false);   // screenshots only: nothing is saved
     MainComponent();
     ~MainComponent() override;
 
@@ -82,7 +82,7 @@ private:
     Inspector inspector { doc, host };
     Timeline timeline;
     juce::Rectangle<int> pillArea, marginArea, stripArea, contentArea, helpArea;
-    juce::TextButton kindBtn[4], viewBtn[3], addSceneBtn { "+ scene" };
+    juce::TextButton kindBtn[5], viewBtn[3], addSceneBtn { "+ scene" };
     juce::OwnedArray<juce::TextButton> sceneBtns;
     juce::Rectangle<int> meters, statusArea, sceneArea, linkArea;   // linkArea: is the SP-1 there
     juce::uint32 handsSeen = 0, handsAt = 0;                         // the last hands report, and when

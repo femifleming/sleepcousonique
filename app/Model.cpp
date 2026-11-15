@@ -339,6 +339,7 @@ juce::String Document::cordText (const CordInfo& c) const
         case Fog:   arrow = std::abs (c.amt - 50) < 0.01f ? "~>" : "~" + fmt (c.amt) + ">"; break;
         case Water: arrow = std::abs (c.amt - 60) < 0.01f ? "=>" : "=" + fmt (c.amt) + ">"; break;
         case Door:  arrow = ">|"; break;
+        case Maybe: arrow = std::abs (c.amt - 50) < 0.01f ? "?>" : "?" + fmt (c.amt) + ">"; break;
         default:    arrow = "->"; break;
     }
     return src + " " + arrow + " " + dst;

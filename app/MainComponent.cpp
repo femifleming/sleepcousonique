@@ -18,11 +18,11 @@ struct Look : LookAndFeel_V4
         setColour (TextButton::buttonColourId, t.button);
         setColour (TextButton::buttonOnColourId, art::ink);
         setColour (TextButton::textColourOffId, t.buttonText);
-        setColour (TextButton::textColourOnId, t.pop ? Colour (0xff1a1a1a) : t.window);
+        setColour (TextButton::textColourOnId, t.pop ? (t.dark ? t.window : t.chromeText) : t.window);
         setColour (PopupMenu::backgroundColourId, t.pop ? t.card : art::paper);
         setColour (PopupMenu::textColourId, art::ink);
         setColour (PopupMenu::highlightedBackgroundColourId, t.pop ? t.checkB : art::blue);
-        setColour (PopupMenu::highlightedTextColourId, t.pop ? Colour (0xff1a1a1a) : art::paper);
+        setColour (PopupMenu::highlightedTextColourId, t.pop ? art::boardInk : art::paper);
         setColour (PopupMenu::headerTextColourId, art::umber);
         setColour (AlertWindow::backgroundColourId, t.pop ? t.card : art::paper);
         setColour (AlertWindow::textColourId, art::ink);
@@ -41,25 +41,24 @@ struct Look : LookAndFeel_V4
     {
         auto& t = art::theme();
         auto r = b.getLocalBounds().toFloat().reduced (1.5f);
-        if (t.pop && (bool) b.getProperties()["round"])   // the passages: black rounds, ringed in yellow when chosen
+        if (t.modular)                // Windows: raised grey; on is cyan and sunken
         {
-            auto c = r.reduced (1.0f).withSizeKeepingCentre (jmin (r.getWidth(), r.getHeight()), jmin (r.getWidth(), r.getHeight()));
-            g.setColour (Colour (0xff1a1a1a)); g.fillEllipse (c);
-            if (b.getToggleState()) { g.setColour (t.checkA); g.drawEllipse (c.reduced (1.5f), 3.0f); }
-            else if (t.dark) { g.setColour (Colour (0xff6a6c80)); g.drawEllipse (c.reduced (0.8f), 1.5f); }
-            if (over) { g.setColour (Colours::white.withAlpha (0.12f)); g.fillEllipse (c); }
+            auto rr = b.getLocalBounds().toFloat().reduced (1.0f);
+            const bool on = b.getToggleState() || down;
+            g.setColour (on ? t.checkA : (over ? Colour (0xffe0ddd6) : t.button)); g.fillRect (rr);
+            g.setColour (Colours::black); g.drawRect (rr, 1.0f);
+            art::bevel (g, rr.reduced (1.0f), ! on);
+            ignoreUnused (bg);
             return;
         }
-        if (t.pop)                    // flat; on is checker
+        if (t.pop)                    // faltung: a slanted outline; on (or pressed) is filled
         {
-            if (b.getToggleState()) art::fillChecker (g, r, 7);
-            else
-            {
-                auto c = bg;
-                if (over) c = c.brighter (t.dark ? 0.15f : 0.06f);
-                if (down) c = c.darker (0.15f);
-                g.setColour (c); g.fillRect (r);
-            }
+            auto p = art::slant (r);
+            if (b.getToggleState() || down) { g.setColour (t.checkA); g.fillPath (p); }
+            else if (over) { g.setColour (t.rail); g.fillPath (p); }
+            g.setColour (b.getToggleState() ? t.checkA : t.chromeText.withAlpha (0.75f));
+            g.strokePath (p, PathStrokeType (1.0f));
+            ignoreUnused (bg);
             return;
         }
         auto c = b.getToggleState() ? art::ink : bg;
@@ -81,7 +80,11 @@ MainComponent::MainComponent()
     laf = std::make_unique<Look>();
     setLookAndFeel (laf.get());
     PropertiesFile::Options o;
+   #if SCQ_LEGACY
+    o.applicationName = "Sleepcousonique Legacy";   // its own settings: the modular look by default
+   #else
     o.applicationName = "Sleepcousonique";
+   #endif
     o.filenameSuffix = "settings";
     o.osxLibrarySubFolder = "Application Support";
     props.setStorageParameters (o);
@@ -95,15 +98,15 @@ MainComponent::MainComponent()
     split.setItemLayout (1, 6, 6, 6);
     split.setItemLayout (2, 300, -1.0, -0.62);
 
-    const char* kinds[] = { "->  hall", "~>  fog", "=>  water", ">|  door" };
-    const char* tips[] = { "a plain wire", "a resistor: half as loud, softened", "a capacitor: slow to fill, slow to drain", "a diode: only the positive half" };
-    for (int i = 0; i < 4; ++i)
+    const char* kinds[] = { "->  hall", "~>  fog", "=>  water", ">|  door", "?>  maybe" };
+    const char* tips[] = { "a plain wire", "a resistor: half as loud, softened", "a capacitor: slow to fill, slow to drain", "a diode: only the positive half", "maybe: each wave or pulse gets through by chance (50%; ?30> for 30%)" };
+    for (int i = 0; i < 5; ++i)
     {
         kindBtn[i].setButtonText (kinds[i]);
         kindBtn[i].setTooltip (tips[i]);
         kindBtn[i].setClickingTogglesState (true);
         kindBtn[i].setRadioGroupId (1);
-        kindBtn[i].onClick = [this, i] { tapestry.handKind = i; };
+        kindBtn[i].onClick = [this, i] { tapestry.handKind = i == 4 ? 6 : i; };   // 6 = maybe (4, 5 are lucid/value)
         addAndMakeVisible (kindBtn[i]);
     }
     kindBtn[0].setToggleState (true, dontSendNotification);
@@ -205,7 +208,11 @@ MainComponent::MainComponent()
     resetHistory();
     applyLook();
     updateTitle();
+   #if SCQ_LEGACY
+    startTimerHz (10);
+   #else
     startTimerHz (20);
+   #endif
     MessageManager::callAsync ([this] { tapestry.fitAll(); });
 }
 
@@ -315,16 +322,16 @@ void MainComponent::resized()
     bool pop = art::theme().pop;
     browser.setVisible (pop); inspector.setVisible (pop); undoBtn.setVisible (pop); redoBtn.setVisible (pop);
     {
-        const char* full[] = { "->  hall", "~>  fog", "=>  water", ">|  door" };
-        const char* arrow[] = { "->", "~>", "=>", ">|" };
-        const char* name[] = { "hall: a plain wire", "fog: a resistor, half as loud, softened", "water: a capacitor, slow to fill, slow to drain", "door: a diode, only the positive half" };
-        for (int i = 0; i < 4; ++i)
+        const char* full[] = { "->  hall", "~>  fog", "=>  water", ">|  door", "?>  maybe" };
+        const char* arrow[] = { "->", "~>", "=>", ">|", "?>" };
+        const char* name[] = { "hall: a plain wire", "fog: a resistor, half as loud, softened", "water: a capacitor, slow to fill, slow to drain", "door: a diode, only the positive half", "maybe: each wave or pulse gets through by chance" };
+        for (int i = 0; i < 5; ++i)
         {
             auto& k = kindBtn[i];
             k.getProperties().set ("round", pop);
             k.setButtonText (pop ? arrow[i] : full[i]);
             k.setTooltip (name[i]);
-            if (pop) { k.setColour (TextButton::textColourOffId, Colours::white); k.setColour (TextButton::textColourOnId, Colours::white); }
+            if (pop) { k.setColour (TextButton::textColourOffId, art::theme().chromeText); k.setColour (TextButton::textColourOnId, art::theme().dark ? art::theme().window : art::theme().chromeText); }
             else { k.removeColour (TextButton::textColourOffId); k.removeColour (TextButton::textColourOnId); }
         }
     }
@@ -439,18 +446,19 @@ void MainComponent::paintPop (Graphics& g)
     g.fillRect (Rectangle<int> (contentArea.getRight(), contentArea.getY(), 12, contentArea.getHeight() + 10));
     g.fillRect (Rectangle<int> (contentArea.getX() - 12, contentArea.getY() + 60, 10, 50));
 
-    // the status pill: navy stripes, cyan ends
+    // the status line: a slanted strip, as the faltung tracklists
     {
-        auto p = pillArea.toFloat();
-        g.setColour (Colour (0xff1d2f6f)); g.fillRoundedRectangle (p, p.getHeight() * 0.5f);
-        g.setColour (Colour (0xff2a4aa8));
-        for (float x = p.getX() + 6; x < p.getRight() - 6; x += 4) g.fillRect (x, p.getY() + 2, 2.0f, p.getHeight() - 4);
-        g.setColour (Colour (0xff1fb1e6));
-        g.fillRect (p.withWidth (7)); g.fillRect (p.withLeft (p.getRight() - 7));
-        g.setColour (Colours::white);
+        auto p = pillArea.toFloat().reduced (0, 3);
+        if (th.modular) { g.setColour (Colours::white); g.fillRect (p); art::bevel (g, p, false); }
+        else
+        {
+            g.setColour (th.chromeText.withAlpha (0.6f)); g.strokePath (art::slant (p, p.getHeight() * 0.5f), PathStrokeType (1.0f));
+            g.setColour (th.checkA); g.fillPath (art::slant (p.withWidth (18), p.getHeight() * 0.5f));
+        }
+        g.setColour (ink);
         g.setFont (art::label (11));
         auto t = statusText.isNotEmpty() ? statusText : (doc.file.existsAsFile() ? doc.file.getFileName() + " is loaded..." : String ("the first night is loaded..."));
-        g.drawText (t, pillArea.reduced (16, 0), Justification::centredLeft, true);
+        g.drawText (t, pillArea.reduced (16, 0).withTrimmedLeft (14), Justification::centredLeft, true);
     }
 
     // the SP-1 bar, gold
@@ -460,13 +468,18 @@ void MainComponent::paintPop (Graphics& g)
         auto now = Time::getMillisecondCounter();
         if (h.count != handsSeen) { handsSeen = h.count; handsAt = now; }
         bool live = open && handsAt != 0 && now - handsAt < 1500;
-        auto b = linkArea.toFloat();
-        g.setColour (Colour (0xffa88a1e)); g.fillRect (b);
-        auto sq = Rectangle<float> (20, 20).withCentre ({ b.getX() + 18, b.getCentreY() });
-        g.setColour (Colours::white); g.drawRect (sq, 2.2f);
-        if (live) { float pulse = 0.6f + 0.4f * std::sin ((float) now * 0.006f); g.setColour (Colour (0xfff2c400).withAlpha (pulse)); }
-        g.fillRect (sq.reduced (5));
-        g.setColour (Colours::white);
+        auto b = linkArea.toFloat().reduced (0, 2);
+        auto shape = art::slant (b, th.modular ? 0.0f : b.getHeight() * 0.45f);
+        if (th.modular) { g.setColour (th.button); g.fillRect (b); art::bevel (g, b, true); }
+        if (! th.modular)
+        {
+            if (live) { g.setColour (th.checkA); g.fillPath (shape); }
+            g.setColour (live ? th.checkA : ink.withAlpha (0.75f)); g.strokePath (shape, PathStrokeType (1.0f));
+        }
+        auto sq = Rectangle<float> (12, 12).withCentre ({ b.getX() + 24, b.getCentreY() });
+        if (th.modular) { g.setColour (Colours::black); g.fillRect (sq.reduced (2)); g.setColour (live ? Colour (0xff30ff30) : Colour (0xff0a4a0a)); g.fillRect (sq.reduced (3)); }
+        else { g.setColour (live ? th.window : (open ? th.checkA : th.chromeDim)); g.fillPath (art::slant (sq, 4)); }
+        g.setColour (live && th.dark ? th.window : ink);
         g.setFont (art::label (12.5f));
         String a = "sp-1 ", c = ! open ? "not connected" : (live ? "connected" : "waiting...");
         g.drawText (a + "/ " + c, b.withTrimmedLeft (36), Justification::centredLeft);
@@ -481,39 +494,59 @@ void MainComponent::paintPop (Graphics& g)
     {
         auto m = marginArea.toFloat();
         float x = m.getX() + 30, y = m.getY() + 30;
-        g.setColour (ink);
-        const float B = 8;
-        auto px = [&] (float a, float b, float w, float h) { g.fillRect (Rectangle<float> (x + a, y + b, w, h)); };
-        px (0, 0, 18, B); px (18, B, B, 26); px (26, 34, B, B); px (34, 42, B, B);
-        px (26, 50, B, B); px (18, 58, B, 26); px (0, 84, 18, B);
-        // ( and the left / right meters
-        float my = y + 130, mh = jmax (60.0f, m.getHeight() - 360);
-        Path paren; paren.startNewSubPath (x + 18, my); paren.quadraticTo (x - 22, my + mh * 0.5f, x + 18, my + mh);
-        g.setColour (Colour (0xff7b6fb8)); g.strokePath (paren, PathStrokeType (9.0f));
+        // the yellow cube, as on the faltung sleeves (the modular look: the app's "e" on a raised tile)
+        if (th.modular)
+        {
+            auto tile = Rectangle<float> (x - 4, y, 40, 40);
+            g.setColour (Colour (0xff1f2a5a)); g.fillRect (tile); art::bevel (g, tile, true);
+            g.setColour (Colour (0xfff4efe4)); g.setFont (art::tahoma (24.0f, true)); g.drawText ("e", tile, Justification::centred);
+        }
+        else art::drawCube (g, { x + 18, y + 22 }, 20);
+        // the left / right meters: two tall slanted columns
+        float my = y + 70, mh = jmax (60.0f, m.getHeight() - 300);
         for (int ch = 0; ch < 2; ++ch)
         {
-            auto bar = Rectangle<float> (x + 26 + (float) ch * 22, my + 6, 16, mh - 12);
-            g.setColour (th.dark ? Colour (0xff3a3c4c) : Colour (0xffa33a5a)); g.fillRect (bar);
-            g.setColour (Colour (0xff7b6fb8)); g.fillRect (bar.withTop (bar.getBottom() - bar.getHeight() * jlimit (0.0f, 1.0f, host.level)));
+            const float bx = x + (float) ch * 26, bw = 15, k = 6;
+            if (th.modular)            // an LED column: green, yellow, red
+            {
+                auto col = Rectangle<float> (bx, my, bw, mh);
+                g.setColour (Colours::black); g.fillRect (col);
+                const int n = (int) (mh / 5); const float v = jlimit (0.0f, 1.0f, host.level);
+                for (int q = 0; q < n; ++q)
+                {
+                    const float fr = (float) q / (float) n;
+                    g.setColour (fr < v ? (fr > 0.85f ? Colour (0xffff3030) : (fr > 0.7f ? Colour (0xffffe030) : Colour (0xff30e030))) : Colour (0xff0a3a0a));
+                    g.fillRect (bx + 2, my + mh - 5.0f * (float) (q + 1) + 1, bw - 4, 3.0f);
+                }
+                g.setColour (ink); g.setFont (art::label (9));
+                g.drawText (ch ? "r" : "l", Rectangle<float> (bx, my + mh + 4, bw, 12), Justification::centred);
+                continue;
+            }
+            Path track; track.startNewSubPath (bx + k, my); track.lineTo (bx + k + bw, my); track.lineTo (bx + bw, my + mh); track.lineTo (bx, my + mh); track.closeSubPath();
+            g.setColour (th.rail); g.strokePath (track, PathStrokeType (1.0f));
+            const float v = jlimit (0.0f, 1.0f, host.level), fh = v * mh, kk = k * v;
+            Path fillp; fillp.startNewSubPath (bx + kk, my + mh - fh); fillp.lineTo (bx + kk + bw, my + mh - fh); fillp.lineTo (bx + bw, my + mh); fillp.lineTo (bx, my + mh); fillp.closeSubPath();
+            g.setColour (v > 0.95f ? th.sound : th.checkA); g.fillPath (fillp);
             g.setColour (ink); g.setFont (art::label (9));
-            g.drawText (ch ? "r" : "l", Rectangle<float> (bar.getX(), bar.getBottom() + 2, bar.getWidth(), 12), Justification::centred);
+            g.drawText (ch ? "r" : "l", Rectangle<float> (bx, my + mh + 4, bw + k, 12), Justification::centred);
         }
         // the wordmark, in two lines
-        g.setFont (Font (FontOptions ("Times New Roman", 25.0f, Font::plain)));
-        auto wm = Rectangle<float> (m.getX() + 8, (float) helpArea.getY() - 64, m.getWidth() - 8, 26);
-        g.setColour (ink); g.drawText ("sleepcou", wm, Justification::left);
-        g.setColour (th.dark ? th.checkA : Colour (0xffc8102e)); g.drawText ("sonique", wm.translated (0, 26), Justification::left);
+        g.setFont (art::sans (17.0f, true));
+        auto wm = Rectangle<float> (m.getX() + 8, (float) helpArea.getY() - 52, m.getWidth() - 8, 20);
+        g.setColour (ink); g.drawText ("sleepcou-", wm, Justification::left);
+        g.drawText ("sonique", wm.translated (0, 20), Justification::left);
         // ? ? ?
-        const Colour qc[3] = { th.checkA, th.chromeDim, th.chromeDim };
         for (int k = 0; k < 3; ++k)
         {
-            auto q = Rectangle<float> ((float) helpArea.getX() + (float) k * 24, (float) helpArea.getY(), 20, 20);
-            if (k == 0) art::fillChecker (g, q, 5); else { g.setColour (qc[k]); g.fillRect (q); }
-            g.setColour (k == 0 ? Colour (0xff1a1a1a) : Colours::white);
-            g.setFont (art::label (12));
+            auto q = Rectangle<float> ((float) helpArea.getX() + (float) k * 26, (float) helpArea.getY(), 22, 18);
+            auto qp = art::slant (q, th.modular ? 0.0f : 6.0f);
+            if (k == 0) { g.setColour (th.checkA); g.fillPath (qp); }
+            g.setColour (k == 0 ? th.checkA : ink.withAlpha (0.6f)); g.strokePath (qp, PathStrokeType (1.0f));
+            g.setColour (k == 0 && th.dark ? th.window : ink);
+            g.setFont (art::label (11));
             g.drawText ("?", q, Justification::centred);
         }
-        g.setColour (th.checkA); g.setFont (art::label (12));
+        g.setColour (ink); g.setFont (art::label (11));
         g.drawText ("help", helpArea.translated (0, 24), Justification::left);
     }
 
@@ -523,12 +556,16 @@ void MainComponent::paintPop (Graphics& g)
     {
         auto s = stripArea.toFloat().reduced (0, 5);
         // the crescent, as the mark of the look
-        auto c = Rectangle<float> (s.getHeight() - 2, s.getHeight() - 2).withCentre ({ s.getX() + 34, s.getCentreY() });
-        Path moon; moon.addEllipse (c);
-        Path bite; bite.addEllipse (c.translated (c.getWidth() * 0.22f, 0).reduced (c.getWidth() * 0.06f));
-        moon.setUsingNonZeroWinding (false); moon.addPath (bite);
-        g.setGradientFill (ColourGradient (Colours::white, c.getX(), c.getCentreY(), th.checkB, c.getRight(), c.getCentreY(), false));
-        g.fillPath (moon);
+        if (! th.modular)
+        {   // a wireframe polyhedron with one white face, as the mark of the look
+            const float cx = s.getX() + 34, cy = s.getCentreY(), r = s.getHeight() * 0.42f;
+            Point<float> a (cx - r, cy + r * 0.3f), b (cx - r * 0.1f, cy - r), c2 (cx + r, cy - r * 0.2f), d (cx + r * 0.2f, cy + r * 0.8f);
+            Path face; face.startNewSubPath (a); face.lineTo (c2); face.lineTo (d); face.closeSubPath();
+            g.setColour (th.dark ? Colours::white.withAlpha (0.85f) : Colours::white); g.fillPath (face);
+            g.setColour (ink);
+            for (auto e : { std::pair (a, b), std::pair (b, c2), std::pair (c2, d), std::pair (d, a), std::pair (a, c2), std::pair (b, d) })
+                g.drawLine ({ e.first, e.second }, 0.9f);
+        }
 
         const Colour okC = th.dark ? Colour (0xff5fcf7a) : Colour (0xff1f8a3c), tightC (0xfff7931e), overC (0xffff4a3a);
         auto readout = [&] (Rectangle<float> r, const String& name, float v, bool known, const String& extra)
@@ -829,9 +866,9 @@ void MainComponent::addScene()
     updateTitle();
 }
 
-void MainComponent::themeForShot (bool pop, bool dark)
+void MainComponent::themeForShot (bool pop, bool dark, bool modular)
 {
-    art::setTheme (pop, dark);
+    art::setTheme (pop, dark, modular);
     hands.resized();
     resized();
     static_cast<Look*> (laf.get())->refresh();
@@ -946,10 +983,15 @@ void MainComponent::applyLook()
     // the look: openprocess (default) or the original journal; light, dark (default) or the computer's
     static bool listening = false;
     if (! listening) { Desktop::getInstance().addDarkModeSettingListener (this); listening = true; }
-    bool pop = st->getValue ("look", "journal") == "openprocess";
+   #if SCQ_LEGACY
+    const auto lookName = st->getValue ("look", "modular");      // legacy: the modular editor by default
+   #else
+    const auto lookName = st->getValue ("look", "journal");
+   #endif
+    bool pop = lookName == "openprocess" || lookName == "modular";
     auto appearance = st->getValue ("appearance", "light");
     bool dark = appearance == "system" ? Desktop::getInstance().isDarkModeActive() : appearance == "dark";
-    art::setTheme (pop, dark);
+    art::setTheme (pop, dark, lookName == "modular");
     static_cast<Look*> (laf.get())->refresh();
     journal.applyTheme();
     tapestry.themeChanged();
@@ -960,7 +1002,11 @@ void MainComponent::applyLook()
     art::cableStyle().opacity = jlimit (0.1f, 1.0f, (float) st->getIntValue ("cableOpacity", 100) / 100.0f);
     art::cableStyle().slack = slacks[jlimit (0, 4, st->getIntValue ("cableSlack", 2))];
     tapestry.setLight ((float) st->getIntValue ("roomLight", 100) / 100.0f);
+   #if SCQ_LEGACY
+    tapestry.setRouting (false);     // legacy: hanging curves only (the router searches a grid)
+   #else
     tapestry.setRouting (st->getBoolValue ("cableRouter", false));
+   #endif
     showTimeline = st->getBoolValue ("showTimeline", true);
     tapestry.repaint();
     hands.resized();
@@ -1066,10 +1112,15 @@ PopupMenu MainComponent::getMenuForIndex (int idx, const String&)
         route.addItem (70, "hanging curves", true, ! st->getBoolValue ("cableRouter", false));
         route.addItem (71, "around the boards (like Max)", true, st->getBoolValue ("cableRouter", false));
         PopupMenu look, mode;
-        bool pop = st->getValue ("look", "journal") == "openprocess";
+       #if SCQ_LEGACY
+        const auto lk = st->getValue ("look", "modular");
+       #else
+        const auto lk = st->getValue ("look", "journal");
+       #endif
         auto ap = st->getValue ("appearance", "light");
-        look.addItem (80, "openprocess", true, pop);
-        look.addItem (81, "journal (the original)", true, ! pop);
+        look.addItem (81, "journal (the original)", true, lk == "journal");
+        look.addItem (80, "faltung (dark: partials field, light: mustard sleeve)", true, lk == "openprocess");
+        look.addItem (82, "modular (the 2004 patch editor)", true, lk == "modular");
         mode.addItem (85, "dark", true, ap == "dark");
         mode.addItem (86, "light", true, ap == "light");
         mode.addItem (87, "follow the computer", true, ap == "system");
@@ -1127,7 +1178,7 @@ void MainComponent::menuItemSelected (int id, int)
         case 60: case 61: case 62: case 63: case 64: props.getUserSettings()->setValue ("cableSlack", id - 60); applyLook(); break;
         case 70: case 71: props.getUserSettings()->setValue ("cableRouter", id == 71); applyLook(); break;
         case 16: showTimeline = ! showTimeline; props.getUserSettings()->setValue ("showTimeline", showTimeline); resized(); break;
-        case 80: case 81: props.getUserSettings()->setValue ("look", id == 80 ? "openprocess" : "journal"); applyLook(); break;
+        case 80: case 81: case 82: props.getUserSettings()->setValue ("look", id == 80 ? "openprocess" : (id == 82 ? "modular" : "journal")); applyLook(); break;
         case 85: case 86: case 87: props.getUserSettings()->setValue ("appearance", id == 85 ? "dark" : (id == 86 ? "light" : "system")); applyLook(); break;
         case 31: undoRedo (false); break;
         case 32: undoRedo (true); break;

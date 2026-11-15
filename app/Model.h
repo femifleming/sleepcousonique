@@ -8,7 +8,7 @@
 namespace scq
 {
 enum Family { Source, Shape, Space, Current, Hands, Ears };
-enum Kind { Hall, Fog, Water, Door, Range, Bottle };
+enum Kind { Hall, Fog, Water, Door, Range, Bottle, Maybe };
 enum Signal { Sound, Flow, Pulse };   // umber, deep blue, gold
 
 struct OptSpec          // a switch (its positions; the first is the default) or a numeric param

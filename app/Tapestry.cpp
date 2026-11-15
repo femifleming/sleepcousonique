@@ -22,7 +22,11 @@ Tapestry::Tapestry (Document& d, Host& h) : doc (d), host (h)
 {
     setWantsKeyboardFocus (true);
     themeChanged();
+   #if SCQ_LEGACY
+    startTimerHz (4);                // legacy: lamps and probes four times a second
+   #else
     startTimerHz (15);
+   #endif
 }
 
 int Tapestry::selectedNode() const
@@ -62,7 +66,7 @@ void Tapestry::edited (bool recompile)
 
 String Tapestry::arrow (int kind) const
 {
-    switch (kind) { case 1: return "~>"; case 2: return "=>"; case 3: return ">|"; default: return "->"; }
+    switch (kind) { case 1: return "~>"; case 2: return "=>"; case 3: return ">|"; case 6: return "?>"; default: return "->"; }
 }
 
 // ------------------------------------------------------------------------------------------ layout
@@ -215,9 +219,24 @@ void Tapestry::drawKnob (Graphics& g, Point<float> c, float rad, float value, fl
     g.setColour (Colour (0x30000000));
     g.fillEllipse (Rectangle<float> (rad * 2, rad * 2).withCentre (c).translated (0.8f, 1.5f));
     const bool pop = art::theme().pop;
-    g.setColour (hot ? art::gold.brighter (0.4f) : (pop ? Colour (0xff141418) : (art::theme().dark ? Colour (0xff6a6254) : Colour (0xfff4efe2))));
+    if (art::theme().modular)
+    {
+        auto kr = Rectangle<float> (rad * 2, rad * 2).withCentre (c);
+        g.setColour (Colour (0xff3a3a3a)); g.fillEllipse (kr.expanded (1));
+        g.setColour (hot ? Colour (0xffffffa0) : Colour (0xffd8d8d8)); g.fillEllipse (kr);
+        Path hi; hi.addCentredArc (c.x, c.y, rad - 1, rad - 1, 0, -2.36f, 0.79f, true);
+        g.setColour (Colours::white); g.strokePath (hi, PathStrokeType (1.5f));
+        Path lo; lo.addCentredArc (c.x, c.y, rad - 1, rad - 1, 0, 0.79f, 3.93f, true);
+        g.setColour (Colour (0xff909090)); g.strokePath (lo, PathStrokeType (1.5f));
+        float vv = jlimit (-1.0f, 1.0f, value / range), aa = vv * MathConstants<float>::pi * 0.75f;
+        g.setColour (Colours::black);
+        g.drawLine ({ c, c.getPointOnCircumference (rad - 1, aa) }, 2.0f);
+        ignoreUnused (bipolar);
+        return;
+    }
+    g.setColour (hot ? art::gold.brighter (0.4f) : (pop ? art::boardInk : (art::theme().dark ? Colour (0xff6a6254) : Colour (0xfff4efe2))));
     g.fillEllipse (Rectangle<float> (rad * 2, rad * 2).withCentre (c));
-    g.setColour (pop ? art::theme().cardHead : art::ink.withAlpha (0.7f));
+    g.setColour (pop ? art::boardInk : art::ink.withAlpha (0.7f));
     g.drawEllipse (Rectangle<float> (rad * 2, rad * 2).withCentre (c), 1.0f);
     if (std::abs (a - a0) > 0.01f)
     {
@@ -379,10 +398,15 @@ void Tapestry::paint (Graphics& g)
         Graphics::ScopedSaveState ss (g);
         g.addTransform (AffineTransform::translation (-pan.x, -pan.y).scaled (zoom));
         auto vis = Rectangle<float> (pan.x, pan.y, (float) getWidth() / zoom, (float) getHeight() / zoom);
+       #if SCQ_LEGACY
+        g.setColour (canvasImg.getPixelAt (8, 8));   // legacy: the canvas's colour, flat (no texture to scale every frame)
+        g.fillRect (vis);
+       #else
         const float tw = (float) canvasImg.getWidth(), th = (float) canvasImg.getHeight();
         for (float y = std::floor (vis.getY() / th) * th; y < vis.getBottom(); y += th)
             for (float x = std::floor (vis.getX() / tw) * tw; x < vis.getRight(); x += tw)
                 g.drawImageAt (canvasImg, (int) x, (int) y);
+       #endif
         if (light < 0.999f)                    // the lights are down
         {
             g.setColour (Colours::black.withAlpha ((1.0f - light) * 0.85f));
@@ -436,28 +460,36 @@ void Tapestry::paint (Graphics& g)
         std::vector<int> order;
         for (int i = 0; i < (int) boards.size(); ++i) if (! selected.count (i)) order.push_back (i);
         for (int i : selected) if (i < (int) boards.size()) order.push_back (i);
+        const auto bink = art::theme().pop ? art::boardInk : art::ink;   // text on a board
         for (int i : order)
         {
             auto& b = boards[(size_t) i];
             auto r = b.r;
             bool sp1 = b.node < 0;
             auto& th = art::theme();
-            if (th.pop)                       // a flat card with a grey head; the head goes checker when selected
+            if (th.modular)                   // the modular editor: a coloured strip, a triangle, a bold name
             {
-                g.setColour (sp1 ? th.cardSp1 : th.card);
-                g.fillRect (r);
+                const bool sound = b.family == 0 || b.family == 1 || b.family == 2;
+                art::drawModule (g, r, sp1 ? th.cardSp1 : art::familyColour (b.family), selected.count (i) > 0,
+                                 sound ? Colour (0xffffa000) : Colour (0xff4060ff));
+                g.setColour (Colours::black);
+                g.setFont (art::tahoma (11.5f, true));
+                g.drawText (b.title.substring (0, 1).toUpperCase() + b.title.substring (1), r.withHeight (20).withTrimmedLeft (18), Justification::centredLeft);
+                g.setFont (art::tahoma (10.0f));
+            }
+            else if (th.pop)                  // faltung: a folded block in its family's colour, white when selected
+            {
+                art::drawBlock (g, r, sp1 ? th.cardSp1 : art::familyColour (b.family), 9.0f, selected.count (i) > 0);
                 auto head = r.withHeight (22);
-                if (selected.count (i)) art::fillChecker (g, head);
-                else { g.setColour (th.cardHead); g.fillRect (head); }
-                g.setColour (art::familyColour (b.family));
-                g.fillRect (head.withWidth (5));
-                g.setColour (selected.count (i) ? th.checkB : th.cardHead);
-                g.drawRect (r, selected.count (i) ? 2.0f : 1.2f);
-                g.setColour (selected.count (i) ? Colour (0xff1a1a1a) : th.cardHeadText);
-                g.setFont (art::label (12));
-                g.drawText (b.title.toLowerCase(), head.reduced (11, 0), Justification::centredLeft);
-                g.setColour (th.chromeDim.interpolatedWith (art::ink, 0.3f));
-                g.setFont (art::label (9.5f));
+                g.setColour (art::boardInk);
+                g.setFont (art::sans (12.5f, true));
+                g.drawText (b.title.toLowerCase(), head.reduced (8, 0), Justification::centredLeft);
+                // a code, as on the snd sleeves: the place's first letters and its number in the dream
+                g.setFont (art::label (8.5f));
+                g.setColour (art::boardInk.withAlpha (0.6f));
+                g.drawText (b.key.substring (0, 2).toLowerCase() + String (i + 1), head.reduced (8, 0), Justification::centredRight);
+                g.setColour (art::boardInk.withAlpha (0.7f));
+                g.setFont (art::label (9.0f));
             }
             else
             {
@@ -481,7 +513,7 @@ void Tapestry::paint (Graphics& g)
                 bool hot = (knob.board == i && knob.param == j) || (hoverKnob.board == i && hoverKnob.param == j);
                 // unipolar from lo: the arc shows how far up its range it is
                 drawKnob (g, paramPos (b, j), 9, (pr.value - pr.lo) / (pr.hi - pr.lo) * 2 - 1, 1, false, hot);
-                g.setColour (art::ink.withAlpha (0.6f));
+                g.setColour (bink.withAlpha (0.6f));
                 g.setFont (art::mono (8.5f));
                 g.drawText (pr.name, Rectangle<float> (44, 10).withCentre (paramPos (b, j).translated (0, 16)), Justification::centred);
             }
@@ -489,7 +521,7 @@ void Tapestry::paint (Graphics& g)
             {
                 bool hot = (knob.board == i && knob.inlet == -1) || (hoverKnob.board == i && hoverKnob.inlet == -1);
                 drawKnob (g, tunePos (b), 10, b.tune, TUNE_RANGE, true, hot);
-                g.setColour (art::ink.withAlpha (0.6f));
+                g.setColour (bink.withAlpha (0.6f));
                 g.setFont (art::mono (8.5f));
                 g.drawText ("tune", Rectangle<float> (40, 10).withCentre (tunePos (b).translated (0, 16)), Justification::centred);
             }
@@ -497,8 +529,14 @@ void Tapestry::paint (Graphics& g)
             for (int k = 0; k < (int) b.ins.size(); ++k)
             {
                 auto p = inletPos (b, k);
-                art::drawLoop (g, p, hoverPort.board == i && ! hoverPort.out && hoverPort.port == k, art::ink);
-                g.setColour (art::ink);
+                if (art::theme().modular)      // round inputs: red for sound inlets, blue for the rest
+                {
+                    auto nm = b.ins[(size_t) k].label.toLowerCase();
+                    art::drawJack (g, p, false, hoverPort.board == i && ! hoverPort.out && hoverPort.port == k,
+                                   (nm == "in" || nm.startsWith ("in") || nm == "l" || nm == "r") ? art::theme().sound : art::theme().current);
+                }
+                else art::drawLoop (g, p, hoverPort.board == i && ! hoverPort.out && hoverPort.port == k, bink);
+                g.setColour (bink);
                 g.drawText (b.ins[(size_t) k].label, Rectangle<float> (p.x + 9, p.y - 7, (b.hasAtt || b.anyPanel) ? 58.0f : r.getWidth() * 0.55f, 14), Justification::left);
                 if (k < (int) b.hasPanel.size() && b.hasPanel[(size_t) k])      // the inlet's own knob
                 {
@@ -516,8 +554,9 @@ void Tapestry::paint (Graphics& g)
             for (int k = 0; k < (int) b.outs.size(); ++k)
             {
                 auto p = outletPos (b, k);
-                art::drawLoop (g, p, hoverPort.board == i && hoverPort.out && hoverPort.port == k, art::signalColour (b.outs[(size_t) k].signal));
-                g.setColour (art::ink);
+                if (art::theme().modular) art::drawJack (g, p, true, hoverPort.board == i && hoverPort.out && hoverPort.port == k, art::signalColour (b.outs[(size_t) k].signal));
+                else art::drawLoop (g, p, hoverPort.board == i && hoverPort.out && hoverPort.port == k, art::signalColour (b.outs[(size_t) k].signal));
+                g.setColour (bink);
                 g.drawText (b.outs[(size_t) k].label, Rectangle<float> (p.x - 9 - r.getWidth() * 0.5f, p.y - 7, r.getWidth() * 0.5f, 14), Justification::right);
             }
             if (light < 0.999f)                // lights down: the boards go dark, what's lit stays lit

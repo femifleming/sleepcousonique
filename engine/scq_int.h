@@ -75,7 +75,7 @@ struct node {
 };
 
 /* passage kinds */
-enum { K_HALL, K_FOG, K_WATER, K_DOOR, K_RANGE, K_BOTTLE };
+enum { K_HALL, K_FOG, K_WATER, K_DOOR, K_RANGE, K_BOTTLE, K_MAYBE };   /* ?> maybe: each wave/pulse passes by chance */
 
 typedef struct {
 	int8_t  src, dst;

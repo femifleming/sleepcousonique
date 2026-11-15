@@ -13,6 +13,10 @@ namespace serial
 juce::StringArray candidates();                      // ports that might be an SP-1
 juce::String send (const juce::String& text, int slot, juce::String& portUsed);   // "" on success, else why not
 
+// One command, one reply line: opens the port, writes `line` + newline, returns the first line
+// that starts with one of `wanted` (or "" after timeoutMs, or if the port is busy).
+juce::String ask (const juce::String& port, const juce::String& line, const juce::StringArray& wanted, int timeoutMs = 600);
+
 // The live link: holds the SP-1's port open while it's plugged in, follows its hands
 // ("SCQ HANDS ..." lines, about 30 a second) and sends dreams over the same connection.
 class Link : private juce::Thread

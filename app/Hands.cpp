@@ -118,14 +118,29 @@ void Hands::paint (Graphics& g)
             if (th.pop)                   // a rail: checker up to the value, grey after, a black thumb
             {
                 float x = it.r.getX() + it.value * it.r.getWidth();
-                art::fillChecker (g, it.r.withRight (x), 7);
-                g.setColour (th.rail); g.fillRect (it.r.withLeft (x));
-                g.setColour (Colour (0xff1a1a1a)); g.fillRect (Rectangle<float> (5, it.r.getHeight() + 6).withCentre ({ x, it.r.getCentreY() }));
-                g.setColour (th.chromeDim); g.fillRect (Rectangle<float> (3, it.r.getHeight() + 6).withCentre ({ x + 4, it.r.getCentreY() }));
+                if (th.modular)           // a Windows trackbar: a sunken groove, a raised thumb
+                {
+                    auto groove = it.r.withSizeKeepingCentre (it.r.getWidth(), 4.0f);
+                    g.setColour (Colours::white); g.fillRect (groove); art::bevel (g, groove, false);
+                    auto thumb = Rectangle<float> (11, jmin (20.0f, it.r.getHeight() + 6)).withCentre ({ x, it.r.getCentreY() });
+                    g.setColour (th.button); g.fillRect (thumb); art::bevel (g, thumb, true);
+                    g.setColour (th.chromeText); g.setFont (art::label (11));
+                    g.drawText (it.name, it.r.withY (it.r.getY() - 17).withHeight (14), Justification::left);
+                    g.setColour (th.chromeDim);
+                    g.drawText (String (it.value, 2).replaceCharacter ('.', ','), it.r.withY (it.r.getY() - 17).withHeight (14), Justification::right);
+                    art::drawLoop (g, it.loop.getCentre(), false, art::blue);
+                    continue;
+                }
+                // Partials' bar: a slanted track, filled to the value, an ink edge
+                auto bar = it.r.withSizeKeepingCentre (it.r.getWidth(), jmin (12.0f, it.r.getHeight()));
+                const float k = bar.getHeight() * 0.6f;
+                g.setColour (th.rail); g.strokePath (art::slant (bar, k), PathStrokeType (1.0f));
+                if (it.value > 0.002f) { g.setColour (th.checkA); g.fillPath (art::slant (bar.withRight (jmax (bar.getX() + k + 1, x)), k)); }
+                g.setColour (th.chromeText); g.drawLine (x, bar.getY() - 4, x, bar.getBottom() + 4, 1.8f);
                 g.setColour (th.chromeText);
                 g.setFont (art::label (11));
                 g.drawText (it.name, it.r.withY (it.r.getY() - 17).withHeight (14), Justification::left);
-                g.setColour (th.checkB);
+                g.setColour (th.chromeDim);
                 g.drawText (String (it.value, 2).replaceCharacter ('.', ','), it.r.withY (it.r.getY() - 17).withHeight (14), Justification::right);
                 art::drawLoop (g, it.loop.getCentre(), false, art::blue);
                 continue;
@@ -148,18 +163,18 @@ void Hands::paint (Graphics& g)
             static const int hwBit[] = { 0, 1, 2, 3, 6, 7, 4, 5 };   // buttons, rocker up/down, play, dots
             bool down = it.mouse || keyHeld[i - 4] || (live && ((hwButtons >> hwBit[i - 4]) & 1u));
             auto r = it.r;
-            if (th.pop)               // a band ring with a tab above; pressed glows red
+            if (th.pop)               // faltung: a small folded block per button; pressed = white face
             {
-                static const uint32 tabs[] = { 0xfff2c400, 0xff1f8a3c, 0xffe58fbf, 0xff48a8c8, 0xffd8646a, 0xffd8646a, 0xfff2c400, 0xff7b6fb8 };
+                static const int famOf[] = { 0, 1, 2, 3, 4, 4, 5, 3 };
                 auto c = r.getCentre();
-                float rad = r.getWidth() * 0.5f;
-                g.setColour (Colour (tabs[(i - 4) & 7]).withAlpha (down ? 1.0f : 0.75f));
-                g.fillRect (Rectangle<float> (rad * 1.7f, 7).withCentre ({ c.x, r.getY() - 8 }));
-                g.setColour (down ? Colour (0xffd22a26) : (th.dark ? Colour (0xff2c2d3a) : Colour (0xff7b2d4a)));
-                g.fillEllipse (r);
-                g.setColour (down ? Colours::white : (th.dark ? Colour (0xff4a4c60) : Colour (0xffa33a5a)));
-                g.drawEllipse (r.reduced (rad * 0.36f), rad * 0.16f);
-                g.fillEllipse (Rectangle<float> (rad * 0.42f, rad * 0.42f).withCentre (c));
+                auto front = r.withSizeKeepingCentre (r.getWidth() * 0.86f, r.getHeight() * 0.62f).translated (-3, 4);
+                if (th.modular)       // a Windows push button; pressed = cyan and sunken
+                {
+                    g.setColour (down ? th.checkA : th.button); g.fillRect (front);
+                    g.setColour (Colours::black); g.drawRect (front, 1.0f);
+                    art::bevel (g, front.reduced (1.0f), ! down);
+                }
+                else art::drawBlock (g, front, art::familyColour (famOf[(i - 4) & 7]), 7.0f, down);
                 g.setColour (th.chromeText);
                 g.setFont (art::label (10));
                 String nm = it.name == "rocker.up" ? String ("up") : it.name == "rocker.down" ? String ("down") : it.name;
@@ -180,8 +195,8 @@ void Hands::paint (Graphics& g)
     // the map: every control, and where this scene sends it
     mapRows.clear();
     auto area = mapArea;
-    g.setColour (th.pop ? th.checkB : art::umber);
-    g.setFont (th.pop ? art::label (11) : art::hand (13));
+    g.setColour (th.pop ? th.chromeText : art::umber);
+    g.setFont (th.pop ? art::sans (12.5f, true) : art::hand (13));
     auto head = area.removeFromTop (18);
     g.drawText ("what your hands do in this scene", head, Justification::left);
     if (live)
@@ -190,8 +205,8 @@ void Hands::paint (Graphics& g)
         g.fillEllipse (Rectangle<float> (8, 8).withCentre ({ head.getRight() - 140, head.getCentreY() }));
         g.setFont (art::mono (11));
         g.drawText ("SP-1 live", head.withTrimmedLeft (head.getWidth() - 130), Justification::left);
-        g.setFont (th.pop ? art::label (11) : art::hand (13));
-        g.setColour (th.pop ? th.checkB : art::umber);
+        g.setFont (th.pop ? art::sans (12.5f, true) : art::hand (13));
+        g.setColour (th.pop ? th.chromeText : art::umber);
     }
     static const char* controls[] = { "fader1", "fader2", "fader3", "fader4", "button1", "button2", "button3", "button4",
                                       "rocker", "rocker.up", "rocker.down", "play", "dots" };
@@ -333,5 +348,15 @@ void Hands::timerCallback()
         else if (k == 6) set (SCQ_CTL_WAKE, down ? 1.0f : 0.0f);
         else set (SCQ_CTL_LUCID, down ? 1.0f : 0.0f);
     }
+   #if SCQ_LEGACY
+    {   // legacy: redraw only when a value, a key or a lamp has changed
+        juce::int64 sig = live ? 1 : 0;
+        for (auto& it : items) sig = sig * 31 + (juce::int64) (it.value * 1000.0f) + (it.mouse ? 7 : 0);
+        for (int k = 0; k < 8; ++k) sig = sig * 31 + (keyHeld[k] ? 1 : 0) + (juce::int64) (host.lamp (k) * 64.0f) + (juce::int64) (hwLamp[k] * 64.0f);
+        static juce::int64 lastSig = -1;
+        if (sig == lastSig) return;
+        lastSig = sig;
+    }
+   #endif
     repaint();
 }

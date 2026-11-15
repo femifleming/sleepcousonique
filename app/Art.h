@@ -10,6 +10,7 @@ namespace art
 struct Theme
 {
     bool pop = true, dark = true;
+    bool modular = false;   // the 2004 modular editor look (the faltung layout, drawn as GDI)
     juce::Colour window, bar, chromeText, chromeDim, line;   // the frame around everything
     juce::Colour surface, card, cardSp1, cardHead, cardHeadText;
     juce::Colour button, buttonText, rail;
@@ -20,7 +21,7 @@ struct Theme
     juce::Colour note, date, word, place, passage, number, map, hand, gutter, gutterText;
 };
 Theme& theme();
-void setTheme (bool openprocessStyle, bool dark);
+void setTheme (bool openprocessStyle, bool dark, bool modular = false);
 
 // colours everything reads; setTheme() rewrites them
 inline juce::Colour canvas   { 0xffe9e3d4 };   // the tapestry's ground
@@ -32,6 +33,19 @@ inline juce::Colour gold     { 0xffd2a531 };   // pulse, selection
 inline juce::Colour copper   { 0xffb8733b };
 inline juce::Colour paper    { 0xfffbf8f0 };   // the journal's page
 inline juce::Colour night    { 0xff15161c };
+inline juce::Colour boardInk { 0xff13222c };   // text on a board (the faltung look's pastel blocks)
+
+// the faltung look (openprocess layout): Inter for names, IBM Plex Mono for everything else
+juce::Font sans (float h, bool medium = false);
+// a slanted parallelogram (the faltung control), and an isometric folded block
+juce::Path slant (juce::Rectangle<float> r, float k = -1.0f);
+void drawBlock (juce::Graphics&, juce::Rectangle<float> front, juce::Colour face, float depth, bool selected);
+void drawCube (juce::Graphics&, juce::Point<float> c, float r);
+// the modular look: Windows 3D edges, a module strip, a jack (round in, square out), Tahoma
+void bevel (juce::Graphics&, juce::Rectangle<float> r, bool raised);
+void drawModule (juce::Graphics&, juce::Rectangle<float> r, juce::Colour, bool selected, juce::Colour icon);
+void drawJack (juce::Graphics&, juce::Point<float> c, bool out, bool hot, juce::Colour signal);
+juce::Font tahoma (float h, bool bold = false);
 
 juce::Font label (float h);                      // titles and buttons: Verdana bold (openprocess) or mono
 void fillChecker (juce::Graphics&, juce::Rectangle<float>, float cell = 6.0f);   // the "on" checker

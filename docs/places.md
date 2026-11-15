@@ -56,6 +56,7 @@ sine with nature 3.
     a ~> b        fog:   a resistor, half as loud and softened
     a => b        water: a capacitor, slow to fill and slow to drain (60 ms)
     a >| b        door:  a diode, which lets only the positive half through
+    a ?> b        maybe: each wave or pulse gets through by chance (50%; a ?30> b for 30%)
     a -40> b      a number inside the arrow sets the amount: 40%, or 40 ms for water
     a -> b c d    one to many
     a b -> c      many to one (several cords into one inlet add up, like stacked bananas)
@@ -215,6 +216,35 @@ One fader leans on many inlets at once, each with its own range (in hundredths).
 
 On the computer, keys 1–4 are the buttons, ↑ and ↓ are the rocker, space is PLAY and `.` is
 the dots (while you are not typing in the journal). `.` + ↑ / ↓ changes scene, as on the SP-1.
+
+## MIDI to CV
+
+Three places hear MIDI, like a MIDI-to-CV module. On the SP-1 they hear its USB-MIDI port
+(*Sleepcousonique*): from a computer, or from a keyboard with a TRS or DIN socket through a
+USB-MIDI host adapter. In the editor they hear every MIDI input the computer has.
+
+| place | outlets | switches and params |
+|---|---|---|
+| `midi` | pitch, gate, velocity, trig | `channel=0` (0 = any, 1–16), `voice=0` (0 = mono, the last note held; 1–4 = one voice of a chord) |
+| `midicc` | out | `channel=0`, `cc=1` (0–127; 128 = pitch bend, −1 to 1; 129 = aftertouch) |
+| `midiclock` | clock, reset, run | `div=6` (MIDI clock ticks per pulse: 24 = quarter notes, 6 = sixteenths) |
+
+Pitch is octaves from middle C (note 60 is 0, note 72 is 1), so it goes straight into any
+pitch inlet; `tune=` or a quantizer does the rest. `trig` pulses on every new note, even
+legato; `reset` pulses on Start, and `run` is 1 while the clock plays.
+
+    the keys is midi channel=1
+    the wheel is midicc cc=1
+    the beat is midiclock div=6
+    the voice is saw
+    the gate is lpg
+    keys.pitch -> voice
+    keys.gate -> gate.level
+    wheel ~> gate.level
+    beat ?40> rain.density
+    voice -> gate -> out
+
+A chord: four `midi` places with `voice=1` to `voice=4`, each into its own oscillator.
 
 ## Outputs
 
@@ -397,6 +427,9 @@ Every place has a fixed *nature* (the number after its name), and some have swit
 
 | place | nature | in | out | switches | what it is |
 |---|---|---|---|---|---|
+| **midi** | 0 | — | pitch, gate, velocity, trig | channel=0, voice=0, samplerate=full / half / quarter / eighth | MIDI to CV: pitch (octaves from middle C), gate, velocity, trig on each note; channel=0 is any, voice=1-4 picks one voice of a chord (0 = mono, last note) |
+| **midicc** | 0 | — | out | channel=0, cc=1, samplerate=full / half / quarter / eighth | one MIDI controller, 0 to 1: cc=0-127, 128 = pitch bend (-1 to 1), 129 = aftertouch; channel=0 is any |
+| **midiclock** | 0 | — | clock, reset, run | div=6, samplerate=full / half / quarter / eighth | MIDI clock: clock pulses every div ticks (24 = quarter notes, 6 = sixteenths), reset on start, run is 1 while playing |
 | **fader** | 1 | — | out | — | faders: fader1 - fader4, 0 to 1 |
 | **button** | 1 | — | out | — | track buttons: button1 - button4, 1 while held |
 | **rocker** | 0 | — | out, up, down | — | the rocker: out is -1, 0 or 1; up and down pulse |

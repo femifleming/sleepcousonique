@@ -6,16 +6,17 @@ using namespace scq;
 
 // ------------------------------------------------------------------------------------------ browser
 
-static const uint32 CELL_COLS[8] = { 0xffd22a26, 0xff2a7fd0, 0xfff2c400, 0xfff7931e, 0xff1f8a3c, 0xffa88a1e, 0xff7b6fb8, 0xffe58fbf };
 
 PlaceBrowser::PlaceBrowser()
 {
     int counts[4] = { 0, 0, 0, 0 };
     for (auto& p : catalog())
     {
-        if (p.family >= Hands) continue;
+        const bool midi = p.name.startsWith ("midi");          // MIDI to CV: placed like any module
+        if (p.family >= Hands && ! midi) continue;
         auto what = p.help.upToFirstOccurrenceOf (" (after", false, false);
-        cells.push_back ({ p.name, what, (int) p.family, counts[(int) p.family]++, {} });
+        const int col = midi ? (int) Current : (int) p.family;
+        cells.push_back ({ p.name, what, col, counts[col]++, {} });
     }
 }
 
@@ -52,8 +53,8 @@ void PlaceBrowser::paint (Graphics& g)
     const char* names[] = { "sources", "shapes", "spaces", "currents" };
     for (int f = 0; f < 4; ++f)
     {
-        g.setColour (t.dark ? t.surface : Colours::white);
-        g.fillRect (grids[f].expanded (3));
+        g.setColour (t.chromeDim.withAlpha (0.5f));
+        g.drawHorizontalLine ((int) grids[f].getBottom() + 2, grids[f].getX(), grids[f].getRight());
         g.setColour (t.chromeDim);
         g.setFont (art::label (8.5f));
         g.drawText (names[f], grids[f].withTop (grids[f].getBottom() + 3).withHeight (11), Justification::right);
@@ -61,29 +62,27 @@ void PlaceBrowser::paint (Graphics& g)
     for (int i = 0; i < (int) cells.size(); ++i)
     {
         auto& c = cells[(size_t) i];
-        auto col = Colour (CELL_COLS[(c.index + c.family * 3 + c.index / 4 * 3) % 8]);
+        // faltung: a slanted tile in the family's colour, carrying a code (the place's first
+        // letters), as the folded strips on the snd sleeves carry te1 / rlo3
+        auto col = art::familyColour (c.family);
         bool lit = i == hover;
-        auto r = c.r.reduced (c.r.getWidth() * 0.12f);
-        g.setColour (col.withAlpha (lit ? 1.0f : 0.42f));
-        g.drawRect (r, jmax (1.5f, r.getWidth() * 0.12f));
-        auto m = r.reduced (r.getWidth() * 0.3f);
-        auto cc = m.getCentre();
-        auto ink = t.dark ? Colour (0xffe6e6ee) : Colour (0xff1a1a1a);
-        switch (c.family)                 // a mark per family: square, slash, diamond, cross
+        if (t.modular)                    // a raised icon button with a coloured strip and the place's code
         {
-            case 0: g.setColour (col.withAlpha (lit ? 1.0f : 0.45f)); g.fillRect (m); break;
-            case 1: g.setColour (ink.withAlpha (lit ? 1.0f : 0.4f)); g.drawLine (m.getX(), m.getBottom(), m.getRight(), m.getY(), 2.0f); break;
-            case 2:
-            {
-                Path d; d.addQuadrilateral (cc.x, m.getY(), m.getRight(), cc.y, cc.x, m.getBottom(), m.getX(), cc.y);
-                g.setColour (col.withAlpha (lit ? 1.0f : 0.45f)); g.fillPath (d); break;
-            }
-            default:
-                g.setColour (ink.withAlpha (lit ? 1.0f : 0.4f));
-                g.drawLine (m.getX(), m.getY(), m.getRight(), m.getBottom(), 1.8f);
-                g.drawLine (m.getRight(), m.getY(), m.getX(), m.getBottom(), 1.8f);
+            auto r = c.r.reduced (1.0f);
+            g.setColour (lit ? Colour (0xffe8e6e0) : t.button); g.fillRect (r); art::bevel (g, r, ! lit);
+            auto strip = r.reduced (3.0f).withHeight (r.getHeight() * 0.48f);
+            g.setColour (col); g.fillRect (strip); art::bevel (g, strip, true);
+            g.setColour (Colours::black); g.setFont (art::tahoma (jmin (9.0f, r.getHeight() * 0.36f)));
+            g.drawText (c.name.substring (0, 6), r.withTop (strip.getBottom()), Justification::centred);
+            continue;
         }
-        if (lit) { g.setColour (ink); g.drawRect (c.r, 2.0f); }
+        auto r = c.r.reduced (1.5f, c.r.getHeight() * 0.14f);
+        auto p = art::slant (r, r.getHeight() * 0.35f);
+        g.setColour (lit ? col : col.withMultipliedSaturation (0.85f).withMultipliedBrightness (t.dark ? 0.85f : 1.0f)); g.fillPath (p);
+        if (lit) { g.setColour (t.chromeText); g.strokePath (p, PathStrokeType (1.2f)); }
+        g.setColour (art::boardInk.withAlpha (lit ? 1.0f : 0.8f));
+        g.setFont (art::label (jmin (9.0f, r.getHeight() * 0.55f)));
+        g.drawText (c.name.substring (0, 3), r, Justification::centred);
     }
 }
 
@@ -127,7 +126,7 @@ void Inspector::refresh()
     rows.clear();
     auto* nd = doc.node (node);
     auto* p = nd ? findPlace (nd->place) : nullptr;
-    if (! p || p->family >= Hands) { node = -1; repaint(); return; }
+    if (! p || (p->family >= Hands && ! p->name.startsWith ("midi"))) { node = -1; repaint(); return; }
     auto opt = [&] (const String& k, const String& def) { return nd->opts.count (k) ? nd->opts.at (k) : def; };
     if (p->tune) rows.push_back ({ Tune, "tune", "tune", -1, opt ("tune", "0").getFloatValue(), -12, 12, 0 });
     for (int k = 0; k < (int) p->opts.size(); ++k)
@@ -194,15 +193,27 @@ void Inspector::paint (Graphics& g)
         return;
     }
     auto head = r.withHeight (30);
-    auto tab1 = head.removeFromLeft (head.getWidth() * 0.45f);
-    art::fillChecker (g, tab1, 7);
-    g.setColour (Colour (0xff1a1a1a));
-    g.setFont (art::label (11.5f));
-    g.drawText (nd->name, tab1, Justification::centred);
-    head.removeFromLeft (6);
-    g.setColour (t.button); g.fillRect (head);
-    g.setColour (t.buttonText);
-    g.drawText (nd->place, head, Justification::centred);
+    auto* pl = findPlace (nd->place);
+    if (t.modular)                        // a module strip: the triangle, the bold name, the place
+    {
+        art::drawModule (g, head, art::familyColour (pl ? (int) pl->family : 0), false, Colour (0xff4060ff));
+        g.setColour (Colours::black); g.setFont (art::tahoma (12.0f, true));
+        g.drawText (nd->name, head.withTrimmedLeft (20), Justification::centredLeft);
+        g.setFont (art::tahoma (10.0f)); g.drawText (nd->place, head.reduced (6, 0), Justification::centredRight);
+    }
+    else
+    {
+    // faltung: the name large, the place small, a rule under them (Partials' section head)
+    art::drawBlock (g, Rectangle<float> (head.getX(), head.getY() + 10, 16, 16), art::familyColour (pl ? (int) pl->family : 0), 4, false);
+    g.setColour (t.chromeText);
+    g.setFont (art::sans (16.0f, true));
+    g.drawText (nd->name, head.withTrimmedLeft (26), Justification::centredLeft);
+    g.setColour (t.chromeDim);
+    g.setFont (art::label (10.0f));
+    g.drawText (nd->place, head, Justification::centredRight);
+    g.setColour (t.checkA);
+    g.drawHorizontalLine ((int) head.getBottom() + 4, head.getX(), head.getRight());
+    }
 
     for (int i = 0; i < (int) rows.size(); ++i)
     {
@@ -221,19 +232,28 @@ void Inspector::paint (Graphics& g)
             for (int k = 0; k < row.positions.size(); ++k)
             {
                 auto s = Rectangle<float> (b.getX() + w * (float) k, b.getY(), w - 2, b.getHeight());
-                if (k == row.pos) art::fillChecker (g, s, 5);
-                else { g.setColour (t.rail); g.fillRect (s); }
+                auto sp = art::slant (s, t.modular ? 0.0f : s.getHeight() * 0.45f);
+                if (k == row.pos) { g.setColour (t.checkA); g.fillPath (sp); }
+                g.setColour (k == row.pos ? t.checkA : t.chromeText.withAlpha (0.6f)); g.strokePath (sp, PathStrokeType (1.0f));
             }
             continue;
         }
-        ColourGradient grad (i % 2 ? Colour (0xff1a1a1a) : Colours::white, b.getX(), 0, i % 2 ? Colours::white : Colour (0xff1a1a1a), b.getRight(), 0, false);
-        if (t.dark) { grad.setColour (i % 2 ? 1 : 0, Colour (0xffb8b8c8)); }
-        g.setGradientFill (grad);
-        g.fillRect (b);
-        float x = b.getX() + (row.value - row.lo) / (row.hi - row.lo) * b.getWidth();
-        Path tri; tri.addTriangle (x - 6, b.getY() - 8, x + 6, b.getY() - 8, x, b.getY() - 1);
-        g.setColour (Colour (0xffd22a26).withAlpha (i == dragging ? 1.0f : 0.85f));
-        g.fillPath (tri);
+        if (t.modular)                    // a dark value box beside a sunken track with a raised thumb
+        {
+            auto bb = b.withSizeKeepingCentre (b.getWidth(), 6.0f);
+            g.setColour (Colours::white); g.fillRect (bb); art::bevel (g, bb, false);
+            const float fr = jlimit (0.0f, 1.0f, (row.value - row.lo) / (row.hi - row.lo));
+            auto th = Rectangle<float> (10, 16).withCentre ({ bb.getX() + fr * bb.getWidth(), bb.getCentreY() });
+            g.setColour (t.button); g.fillRect (th); art::bevel (g, th, true);
+            continue;
+        }
+        // Partials' bar: a slanted track, filled up to the value, an ink edge at the value
+        auto bb = b.withSizeKeepingCentre (b.getWidth(), jmin (9.0f, b.getHeight()));
+        const float k = bb.getHeight() * 0.6f, frac = jlimit (0.0f, 1.0f, (row.value - row.lo) / (row.hi - row.lo));
+        g.setColour (t.rail); g.strokePath (art::slant (bb, k), PathStrokeType (1.0f));
+        if (frac > 0.002f) { g.setColour (t.checkA.withAlpha (i == dragging ? 1.0f : 0.9f)); g.fillPath (art::slant (bb.withWidth (k + frac * (bb.getWidth() - k)), k)); }
+        const float x = bb.getX() + k * 0.5f + frac * (bb.getWidth() - k);
+        g.setColour (t.chromeText); g.drawLine (x, bb.getY() - 3, x, bb.getBottom() + 3, 1.6f);
     }
 }
 
