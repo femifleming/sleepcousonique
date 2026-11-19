@@ -413,7 +413,7 @@ static void run_lorenz(node *n, const float *const in[MAX_IN])
 	float x = n->s[0], y = n->s[1], z = n->s[2];
 	if (x == 0.f && y == 0.f && z == 0.f) { x = 0.1f; y = 0.f; z = 0.f; }
 	LOOP {
-		float dt = 0.00002f * n->nature * scq_exp2(scq_clamp(in[0][i], 0.f, 1.f) * 10.f);
+		float dt = scq_min(0.00002f * n->nature * scq_exp2(scq_clamp(in[0][i], 0.f, 1.f) * 10.f), 0.02f);   /* a longer step and the water leaves the bowl */
 		float rho = 20.f + 40.f * scq_clamp(in[1][i], 0.f, 1.f);
 		float dx = 10.f * (y - x), dy = x * (rho - z) - y, dz = x * y - 2.6667f * z;
 		x += dx * dt; y += dy * dt; z += dz * dt;
@@ -431,27 +431,21 @@ static void init_lorenz(node *n) { n->s[0] = 0.1f; n->s[1] = 0.f; n->s[2] = 1.f;
 static const float BAR_R[3] = { 1.f, 3.99f, 10.65f };
 static void run_marimba(node *n, const float *const in[MAX_IN])
 {
+	/* s: 0..2 height, 3..5 the other half of each point (see mode_make), 6 prev strike */
 	float f0 = 60.f * n->nature * scq_exp2(in[1][0]);
 	float T = 0.15f + 2.f * scq_clamp(in[2][0], 0.f, 1.f);
 	float bright = scq_clamp(in[3][0], 0.f, 1.f);
-	float c1[3], c2[3], g[3];
+	mode_c m[3];
 	for (int k = 0; k < 3; k++) {
 		float f = scq_min(f0 * BAR_R[k], 18000.f);
 		float r = scq_exp2(-1.442695f / (T / (1.f + (float)k * 2.f) * SR));
-		c1[k] = 2.f * r * scq_sin2pi(f * INV_SR + 0.25f);
-		c2[k] = -r * r;
-		g[k] = scq_sin2pi(f * INV_SR) * (k == 0 ? 0.5f : 0.3f * bright);
+		m[k] = mode_make(f, r, k == 0 ? 0.5f : 0.3f * bright);
 	}
 	LOOP {
 		float x = in[0][i] - n->s[6];
 		n->s[6] = in[0][i];
 		float sum = 0.f;
-		for (int k = 0; k < 3; k++) {
-			float y = g[k] * x + c1[k] * n->s[k] + c2[k] * n->s[3 + k];
-			n->s[3 + k] = n->s[k];
-			n->s[k] = y;
-			sum += y;
-		}
+		for (int k = 0; k < 3; k++) sum += mode_run(&m[k], &n->s[3 + k], &n->s[k], x);
 		n->out[0][i] = sum;
 	}
 }

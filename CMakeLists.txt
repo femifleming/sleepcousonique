@@ -42,6 +42,14 @@ if(UNIX)
     target_link_libraries(scqtool PRIVATE m)
 endif()
 
+# every place, every inlet, a fader patched in and its attenuverter at both ends: nothing may
+# go silent, stick or stop being a number, and everything comes back with no restart
+add_executable(ScqSweep tests/sweep.c)
+target_link_libraries(ScqSweep PRIVATE scq_engine)
+if(UNIX)
+    target_link_libraries(ScqSweep PRIVATE m)
+endif()
+
 juce_add_gui_app(Sleepcousonique
     PRODUCT_NAME "Sleepcousonique${SCQ_SUFFIX}"
     VERSION 1.2.0

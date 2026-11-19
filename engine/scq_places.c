@@ -35,6 +35,13 @@ static inline int16_t to16(float x)
 }
 #define FROM16(v) ((float)(v) * (1.f / 32767.f))
 
+/* A sample count that runs to 2^30 (the reverbs' write position), kept in two state floats.
+ * One float holds whole numbers only to 2^24: past that the count lost its low bits, and at
+ * 2^29 (about three hours of sound) adding a block rounded back to where it was, so the place
+ * wrote the same 32 samples for ever. */
+static inline uint32_t count_get(const float *lo, const float *hi) { return (uint32_t)*lo | ((uint32_t)*hi << 16); }
+static inline void count_put(uint32_t w, float *lo, float *hi) { *lo = (float)(w & 0xffffu); *hi = (float)(w >> 16); }
+
 static inline int natural(float nature, int lo, int hi)
 {
 	int n = (int)(nature + 0.5f);
@@ -355,7 +362,7 @@ static void run_reverb(node *n, const float *const in[MAX_IN])
 	uint32_t len[4], off = 0;
 	for (int k = 0; k < 4; k++) { len[k] = wh_len(n->nature, k); line[k] = base + off; off += len[k]; }
 	float g = 0.5f * (0.55f + 0.44f * scq_clamp(in[1][0], 0.f, 1.f));
-	uint32_t w = (uint32_t)n->s[0];
+	uint32_t w = count_get(&n->s[0], &n->s[5]);
 	float *damp = &n->s[1];
 	LOOP {
 		float o[4];
@@ -378,7 +385,40 @@ static void run_reverb(node *n, const float *const in[MAX_IN])
 		n->out[2][i] = o[1] + o[3];
 		n->out[0][i] = 0.5f * (n->out[1][i] + n->out[2][i]);
 	}
-	n->s[0] = (float)w;
+	count_put(w, &n->s[0], &n->s[5]);
+}
+
+/* One mode of a struck thing (the bell, the marimba): a point that turns by the mode's
+ * frequency and shrinks by its decay every sample; what you hear is how high it stands.
+ *
+ * It used to be the textbook two-pole resonator, y = g x + c1 y1 + c2 y2. That one keeps the
+ * last two heights, and what two heights mean depends on the frequency: the same pair that is a
+ * quiet ripple at a high pitch is the start of an enormous swing at a low one (by 1 / sin of the
+ * angle, tens of thousands at a few hertz). So a pitch thrown down over many octaves while the
+ * mode still rang (a fader through att.pitch=10) multiplied what was ringing, every time, until
+ * the outlet was thousands of times full scale: the output stage clipped it flat (silence), it
+ * took minutes to die away, and past the largest float it became not-a-number for good. A turn
+ * keeps its size whatever the angle becomes, so here nothing can grow but what is struck in.
+ * Left alone (a pitch that doesn't move) the two are the same filter: the same poles (the angle
+ * is taken from the same cosine) and the same response to a strike. */
+typedef struct { float rc, rs, gc, gs; } mode_c;
+static inline mode_c mode_make(float f, float r, float amp)
+{
+	mode_c m;
+	const float w = f * INV_SR;
+	const float c = scq_sin2pi(w + 0.25f), sn = scq_sin2pi(w);
+	float s = scq_sqrt_from(1.f - c * c, scq_abs(sn));    /* the sine that belongs to that cosine */
+	if (s < 1e-4f) s = 1e-4f;                              /* (below a hertz or so: still a turn) */
+	const float g = sn * amp / s;                          /* a strike of 1 rings to amp, as before */
+	m.rc = r * c; m.rs = r * s; m.gc = g * c; m.gs = g * s;
+	return m;
+}
+/* re, im: the point; x: the strike. Returns the height. */
+static inline float mode_run(const mode_c *m, float *re, float *im, float x)
+{
+	const float a = *re, b = *im;
+	*re = m->rc * a - m->rs * b + m->gc * x;
+	return *im = m->rs * a + m->rc * b + m->gs * x;
 }
 
 /* bell — the cargo train's deep bell: four struck modes */
@@ -386,27 +426,20 @@ static const float BELL_R[4] = { 1.f, 2.76f, 5.40f, 8.93f };
 static const float BELL_A[4] = { 1.f, 0.6f, 0.4f, 0.25f };
 static void run_bell(node *n, const float *const in[MAX_IN])
 {
-	/* s: 0..3 y1, 4..7 y2, 8 prev strike */
+	/* s: 0..3 height, 4..7 the other half of each point, 8 prev strike */
 	float f0 = 120.f * n->nature * scq_exp2(in[1][0]);
 	float T = 0.3f + 4.f * scq_clamp(in[2][0], 0.f, 1.f);
-	float c1[4], c2[4], g[4];
+	mode_c m[4];
 	for (int k = 0; k < 4; k++) {
 		float f = scq_min(f0 * BELL_R[k], 18000.f);
 		float r = scq_exp2(-1.442695f / (T / (1.f + (float)k * 0.7f) * SR));
-		c1[k] = 2.f * r * scq_sin2pi(f * INV_SR + 0.25f);
-		c2[k] = -r * r;
-		g[k] = scq_sin2pi(f * INV_SR) * 0.3f * BELL_A[k];   /* impulse peak is 1/sin(w) */
+		m[k] = mode_make(f, r, 0.3f * BELL_A[k]);
 	}
 	LOOP {
 		float x = in[0][i] - n->s[8];
 		n->s[8] = in[0][i];
 		float sum = 0.f;
-		for (int k = 0; k < 4; k++) {
-			float y = g[k] * x + c1[k] * n->s[k] + c2[k] * n->s[4 + k];
-			n->s[4 + k] = n->s[k];
-			n->s[k] = y;
-			sum += y;
-		}
+		for (int k = 0; k < 4; k++) sum += mode_run(&m[k], &n->s[4 + k], &n->s[k], x);
 		n->out[0][i] = sum;
 	}
 }
@@ -418,7 +451,7 @@ static void run_shepard(node *n, const float *const in[MAX_IN])
 	 * octave of the lowest, so one sine and cosine give them all by doubling the angle:
 	 * sin 2x = 2 sin x cos x, cos 2x = cos^2 x - sin^2 x */
 	float pos = n->s[8], ph = n->s[0];
-	pos += in[0][0] * (float)B * INV_SR;
+	pos += scq_clamp(in[0][0] * (float)B * INV_SR, -1.f, 1.f);   /* an octave a block at most: one step of the ladder */
 	if (pos >= 1.f) { pos -= 1.f; ph = 2.f * ph; ph -= scq_floor(ph); }   /* the ladder steps down an octave */
 	if (pos < 0.f)  { pos += 1.f; ph = 0.5f * ph; }
 	n->s[8] = pos;
@@ -875,7 +908,7 @@ P("steprandom", FAM_CURRENT, PF_DRIFT, 47, 1, "clock", "0", "out pulse", run_ste
   "stepped random, a new value on each clock pulse (or nature / 2 times a second on its own)"),
 P("glide",   FAM_CURRENT, 0, 47, 1, "in clock time", "0 0 0.2", "out", run_glide, 0, 0,
   "sample & hold with glide: holds in on each clock pulse and slides to it (after Serge Smooth & Stepped)"),
-P("seq",     FAM_CURRENT, 0, 127, 8, "next back reset", "0 0 0", "out pulse step", run_seq, init_seq, mem_seq,
+P("seq",     FAM_CURRENT, PF_KEEPMEM, 127, 8, "next back reset", "0 0 0", "out pulse step", run_seq, init_seq, mem_seq,
   "step sequencer of semitones: seq 8: 0 3 7 10"),
 P("quantizer", FAM_CURRENT, 0, 60, 1, "in root", "0 0", "out pulse", run_quantizer, 0, 0,
   "pitch quantizer (octaves in, root transposes); the scale is the nature or scale=: 1 just major, 2 just minor, 3 just pentatonic, 4 otonal 8-15, 5 utonal, 6 chromatic, 7 major, 8 minor, 9 dorian, 10 phrygian, 11 lydian, 12 mixolydian, 13 locrian, 14 harmonic minor, 15 melodic minor, 16 major pentatonic, 17 minor pentatonic, 18 blues, 19 whole tone, 20 diminished, 21 quarter tones (24-TET), 22 19-TET, 23 22-TET, 24 31-TET, 25 53-TET, 26 Bohlen-Pierce, 27-29 Carlos alpha / beta / gamma, 30 slendro, 31 pelog, 32 maqam rast, 33 maqam bayati, 34 Partch 43, 35 just chromatic, 36 Pythagorean, 37 quarter-comma meantone, 38 Werckmeister III"),

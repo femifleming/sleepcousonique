@@ -62,6 +62,10 @@ int   scq_scene_count(void);
 float scq_scene_load(int scene);        /* the SP-1's processor, 1.0 = all of it (measured costs) */
 float scq_lamp(int led);                /* 0..1 */
 float scq_probe(int node, int port);    /* last value of any outlet, for scopes */
+/* How many times a place has been started again because it ran away (an outlet or a memory
+ * that was not a number, or beyond anything a dream holds). It costs a dropout in that place,
+ * never the rest of the dream; a dream that behaves leaves this at 0. */
+uint32_t scq_healed(void);
 
 /* Change one passage's amount while it plays (index as listed by scq_describe).
  * Same units as the text: percent, or milliseconds for water. */
@@ -89,6 +93,7 @@ void  scq_set_knob(int node, int inlet, float value);
 int   scq_check(const char *text, int len, uint32_t nights, char *msgs, int cap);
 int   scq_checked_scenes(void);         /* after scq_check: each scene's load on the SP-1 */
 float scq_checked_load(int scene);
+const char *scq_cost_terms(int scene);  /* what the load estimate counted, for tools/calibrate.py */
 
 /* On the SP-1 (built with SCQ_DEVICE) a scene change is compiled outside the audio thread:
  * render fades out and waits in silence; call this from the main loop to finish the change.

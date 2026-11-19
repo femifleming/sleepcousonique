@@ -159,7 +159,7 @@ static void run_freqshift(node *n, const float *const in[MAX_IN])
 	float *m = (float *)n->mem;          /* 8 stages x (x1 x2 y1 y2), then delay, phase */
 	float ph = m[33];
 	LOOP {
-		float shift = 20.f * n->nature * in[1][i] * 25.f;   /* -1..1 -> -500..500 Hz at nature 1 */
+		float shift = scq_clamp(20.f * n->nature * in[1][i] * 25.f, -24000.f, 24000.f);   /* -1..1 -> -500..500 Hz at nature 1 */
 		float xa = in[0][i], xb = in[0][i];
 		for (int k = 0; k < 4; k++) {
 			float *s = m + k * 4;

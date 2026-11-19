@@ -56,7 +56,7 @@ static void run_plate(node *n, const float *const in[MAX_IN])
 	int16_t *line[12];
 	uint32_t off = 0;
 	for (int k = 0; k < 12; k++) { line[k] = base + off; off += HOTEL_LEN[k]; }
-	uint32_t w = (uint32_t)n->s[0];
+	uint32_t w = count_get(&n->s[0], &n->s[6]);
 	float bw = n->s[1], dl = n->s[2], dr = n->s[3], feedL = n->s[4], feedR = n->s[5];
 	float decay = 0.4f + 0.55f * scq_clamp(in[1][0], 0.f, 1.f);
 	float damp = 0.1f + 0.6f * scq_clamp(in[2][0], 0.f, 1.f);
@@ -98,7 +98,8 @@ static void run_plate(node *n, const float *const in[MAX_IN])
 	}
 #undef TAP
 #undef PUT
-	n->s[0] = (float)w; n->s[1] = bw; n->s[2] = dl; n->s[3] = dr; n->s[4] = feedL; n->s[5] = feedR;
+	count_put(w, &n->s[0], &n->s[6]);
+	n->s[1] = bw; n->s[2] = dl; n->s[3] = dr; n->s[4] = feedL; n->s[5] = feedR;
 }
 
 /* pingpong — a party on the balcony: echoes that cross from ear to ear (after ping-pong delays) */
@@ -249,7 +250,7 @@ static uint32_t mem_diffuser(float nature) { (void)nature; return (229 + 172 + 6
 static void run_diffuser(node *n, const float *const in[MAX_IN])
 {
 	float *base = (float *)n->mem;
-	uint32_t w = (uint32_t)n->s[0];
+	uint32_t w = count_get(&n->s[0], &n->s[1]);
 	float g = 0.3f + 0.45f * scq_clamp(in[1][0], 0.f, 1.f);
 	LOOP {
 		float x = in[0][i];
@@ -266,5 +267,5 @@ static void run_diffuser(node *n, const float *const in[MAX_IN])
 		if (w >= 1u << 30) w = 0;
 		n->out[0][i] = x;
 	}
-	n->s[0] = (float)w;
+	count_put(w, &n->s[0], &n->s[1]);
 }

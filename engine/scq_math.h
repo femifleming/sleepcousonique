@@ -7,10 +7,18 @@
 
 #define SCQ_PI 3.14159265f
 
+/* Every one of these gives a number back for anything put in, not-a-number included: a control
+ * that has gone bad upstream is clamped like any other, so it never reaches a place's memory
+ * (min and max give b, clamp gives lo). */
 static inline float scq_abs(float x) { return x < 0.f ? -x : x; }
 static inline float scq_min(float a, float b) { return a < b ? a : b; }
 static inline float scq_max(float a, float b) { return a > b ? a : b; }
-static inline float scq_clamp(float x, float lo, float hi) { return x < lo ? lo : (x > hi ? hi : x); }
+static inline float scq_clamp(float x, float lo, float hi) { return x > lo ? (x < hi ? x : hi) : lo; }
+
+/* the largest value anything in a dream should ever hold: beyond it (or not a number at all)
+ * a place has run away, and the engine starts it again (see heal() in scq_core.c) */
+#define SCQ_SANE 1.0e9f
+static inline int scq_sane(float x) { return scq_abs(x) < SCQ_SANE; }
 
 static inline float scq_floor(float x)
 {
@@ -31,8 +39,8 @@ static inline float scq_sin2pi(float p)
 /* 2^x */
 static inline float scq_exp2(float x)
 {
-	if (x < -60.f) return 0.f;
-	if (x > 60.f) x = 60.f;
+	if (!(x > -60.f)) return 0.f;            /* (and not-a-number) */
+	if (x > 24.f) x = 24.f;                  /* 24 octaves up is far past hearing, and keeps every phase countable */
 	float fl = scq_floor(x);
 	float f = x - fl;
 	float p = 1.f + f * (0.6960656f + f * (0.2244943f + f * 0.0794402f));
@@ -61,6 +69,17 @@ static inline float scq_tanh(float x)
 	if (x < -3.f) return -1.f;
 	float x2 = x * x;
 	return x * (27.f + x2) / (27.f + 9.f * x2);
+}
+
+/* square root, for x >= 0: Newton from a guess y (any y > 0; two steps bring a guess within a
+ * few percent to float precision) */
+static inline float scq_sqrt_from(float x, float y)
+{
+	if (!(x > 0.f)) return 0.f;
+	if (!(y > 0.f)) y = 1.f;
+	y = 0.5f * (y + x / y);
+	y = 0.5f * (y + x / y);
+	return y;
 }
 
 /* a gentle soft clip with no division: cubic, flat beyond +-1.5 (the output stage) */

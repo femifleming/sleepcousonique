@@ -57,6 +57,9 @@ typedef struct {
 	int      quiet;              /* don't report (already reported) */
 	int      waiting;            /* SCQ_DEVICE: faded out, waiting for scq_service() */
 	uint32_t rng;
+	uint32_t healed;             /* places started again after running away */
+	uint8_t  fever;              /* blocks left in which every place's memory is looked at */
+	uint8_t  ward;               /* the place whose memory is looked at this block */
 	struct { char name[NAME_LEN]; float *d; } tun[MAX_TUNINGS];   /* tunings, in the pool */
 	int      ntun;
 } engine;
@@ -196,7 +199,13 @@ static int tokenize(const char *s, int n, tok *t)
 		if (c == '=') { o->t = T_EQ; o->n = 1; i++; k++; continue; }
 		if (is_digit(c) || ((c == '-' || c == '.') && i + 1 < n && (is_digit(s[i + 1]) || s[i + 1] == '.'))) {
 			int j = i + 1, dots = 0;
-			while (j < n && (is_digit(s[j]) || s[j] == '.')) { if (s[j] == '.' && j + 1 < n && s[j + 1] == '.') dots = 1; j++; }
+			while (j < n && (is_digit(s[j]) || s[j] == '.'
+			                 /* a range may end below zero: 0..-50 */
+			                 || (s[j] == '-' && dots && j >= 2 && s[j - 1] == '.' && s[j - 2] == '.'
+			                     && j + 1 < n && (is_digit(s[j + 1]) || s[j + 1] == '.')))) {
+				if (s[j] == '.' && j + 1 < n && s[j + 1] == '.') dots = 1;
+				j++;
+			}
 			if (j < n && s[j] == '-' && dots == 0) { /* 20-5 is not a thing; stop here */ }
 			o->t = dots ? T_RANGE : T_NUM;
 			o->n = j - i; i = j; k++;
@@ -367,6 +376,7 @@ static int knob_set(node *n, const tok *name, const tok *val)
 	return 1;
 }
 
+#define ATT_MAX 1000.f   /* far past the knob's ends (10 for pitch, 2 for the rest), but a number */
 /* att.INLET=amount: the attenuverter on a source's inlet. Returns 1 if the word was one. */
 static int att_set(node *n, const tok *name, const tok *val)
 {
@@ -376,7 +386,7 @@ static int att_set(node *n, const tok *name, const tok *val)
 	int p = place_port(pl, 0, name->s + 4, name->n - 4);
 	if (p < 0) { say('E', "no inlet called ", name->s + 4, name->n - 4, " to attenuate"); return 1; }
 	if (!val || val->t != T_NUM) { say('E', "", name->s, name->n, " wants a number, like att.fm=-0.5"); return 1; }
-	n->att[p] = parse_num(val->s, val->n);
+	n->att[p] = scq_clamp(parse_num(val->s, val->n), -ATT_MAX, ATT_MAX);
 	if (n->att[p] != 1.f) n->attset |= (uint16_t)(1u << p);
 	else n->attset &= (uint16_t)~(1u << p);
 	return 1;
@@ -787,6 +797,82 @@ static void compile_range(int a, int b, int line0)
 	}
 }
 
+/* ------------------------------------------------------------- the load estimate
+ *
+ * What a scene asks of the SP-1's processor, in cycles per sample (the chip has 1333 at 48 kHz).
+ * It is counted the way run_block() spends it: each place's own work (measured on SP-1s, one
+ * place at a time), and everything gather() and mix() do to bring it its inlets: zeroing and
+ * summing a mixed inlet, each cord by its kind, an attenuverter or a panel knob on a patched
+ * inlet, the tune knob, a default that found no constant block, and the decimate / hold of a
+ * place at a lower samplerate. Every figure is in scq_costs.h, fitted by tools/calibrate.py
+ * from whole patches measured on SP-1s (tools/sp1fleet.py). */
+enum { CT_FIXED, CT_MIXED, CT_HALL, CT_FOG, CT_WATER, CT_DOOR, CT_RANGE, CT_BOTTLE, CT_MAYBE,
+       CT_ATT, CT_KNOB, CT_TUNE, CT_FILL, CT_SLOW, CT_SLOW_IN, CT_SLOW_OUT, CT_N };
+static const float COST_TERM[CT_N] = {
+	SCQ_COST_FIXED, SCQ_COST_MIXED, SCQ_COST_HALL, SCQ_COST_FOG, SCQ_COST_WATER, SCQ_COST_DOOR,
+	SCQ_COST_RANGE, SCQ_COST_BOTTLE, SCQ_COST_MAYBE, SCQ_COST_ATT, SCQ_COST_KNOB, SCQ_COST_TUNE,
+	SCQ_COST_FILL, SCQ_COST_SLOW_FIXED, SCQ_COST_SLOW_INLET, SCQ_COST_SLOW_OUTLET };
+
+static float place_cycles(int type)
+{
+	static uint16_t known[256];           /* 0: not looked up yet */
+	if (!known[type]) {
+		const char *name = SCQ_PLACES[type].name;
+		uint16_t c = SCQ_PLACES[type].cost;       /* a place not measured yet: its author's guess */
+		for (unsigned i = 0; i < sizeof SCQ_MEASURED / sizeof SCQ_MEASURED[0]; i++)
+			if (str_eq(name, str_len(name), SCQ_MEASURED[i].name)) { c = SCQ_MEASURED[i].cycles; break; }
+		known[type] = c ? c : 1;
+	}
+	return (float)known[type];
+}
+
+/* how much of each kind of work the compiled scene has: t[CT_N], and per place w[type] (how many
+ * of it run, a slow one counting 1/divisor); either may be 0 */
+static void cost_count(float *t, float *w)
+{
+	static int frogs = -2;
+	if (frogs == -2) frogs = find_place("frogs", 5);
+	if (t) { for (int i = 0; i < CT_N; i++) t[i] = 0.f; t[CT_FIXED] = 1.f; }
+	for (int k = 0; k < G.nn; k++) {
+		const node *n = &G.n[k];
+		const place *pl = &SCQ_PLACES[n->type];
+		const float inv = 1.f / (float)n->rdiv;
+		float runs = inv;
+		if (frogs >= 0 && pl->run == SCQ_PLACES[frogs].run)          /* measured with 3 frogs */
+			runs *= scq_clamp(n->nature, 1.f, 8.f) / 3.f;
+		if (w) w[n->type] += runs;
+		if (!t) continue;
+		int live = 0;                         /* inlets that carry something (not the shared zeros) */
+		for (int p = 0; p < n->nin; p++) {
+			const uint16_t bit = (uint16_t)(1u << p);
+			if (n->mixed & bit) { t[CT_MIXED] += 1.f; live++; }
+			else if (n->direct[p]) live++;
+			else if (n->def[p] != 0.f) { t[CT_FILL] += 1.f; live++; }
+			if (n->attset & n->patched & bit) t[CT_ATT] += 1.f;
+			if (n->knobset & n->patched & bit) t[CT_KNOB] += 1.f;
+		}
+		if (n->pitchin >= 0 && n->tune != 0.f) t[CT_TUNE] += 1.f;
+		if (n->rdiv > 1) {
+			t[CT_SLOW] += 1.f;
+			t[CT_SLOW_IN] += (float)live * inv;      /* the decimate: a shorter block per inlet */
+			t[CT_SLOW_OUT] += (float)n->nout;        /* the hold: a whole block per outlet */
+		}
+	}
+	if (t) for (int k = 0; k < G.nc; k++)
+		if (!G.c[k].direct) t[CT_HALL + G.c[k].kind] += 1.f;        /* a plain wire costs nothing */
+}
+
+static float cost_estimate(void)
+{
+	static float w[256];
+	float t[CT_N], cyc = 0.f;
+	for (int i = 0; i < SCQ_NPLACES && i < 256; i++) w[i] = 0.f;
+	cost_count(t, w);
+	for (int i = 0; i < CT_N; i++) cyc += t[i] * COST_TERM[i];
+	for (int i = 0; i < SCQ_NPLACES && i < 256; i++) if (w[i] != 0.f) cyc += w[i] * place_cycles(i);
+	return cyc / (float)SCQ_CYCLES_PER_SAMPLE;
+}
+
 /* a block that holds v forever, shared by every inlet that wants it (0 if the table is full) */
 static const float *konst(float v)
 {
@@ -933,37 +1019,7 @@ static void compile_scene(int idx, int report)
 	int pos = 0;
 	for (int k = 0; k < G.nn; k++) visit(k, mark, &pos);
 
-	/* load, from costs measured on an SP-1 (tools/bench_places.sh + tools/calibrate.py):
-	 * cycles per sample, against the 1333 a 64 MHz chip has at 48 kHz */
-	float cyc = (float)SCQ_COST_FIXED;
-	for (int k = 0; k < G.nn; k++) {
-		const place *pl = &SCQ_PLACES[G.n[k].type];
-		float cost = (float)pl->cost;
-		if (pl->run == SCQ_PLACES[find_place("frogs", 5)].run)       /* measured with 3 frogs */
-			cost *= scq_clamp(G.n[k].nature, 1.f, 8.f) / 3.f;
-		if (G.n[k].rdiv > 1) {          /* the decimate and the hold, measured */
-			int patched = 0;
-			for (uint16_t b = G.n[k].patched; b; b &= (uint16_t)(b - 1)) patched++;
-			cost = cost / (float)G.n[k].rdiv + (float)SCQ_COST_SLOW_FIXED + (float)SCQ_COST_SLOW_OUTLET * (float)G.n[k].nout
-			     + (float)SCQ_COST_SLOW_INLET * (float)patched;
-		}
-		cyc += scq_max(cost - (float)SCQ_COST_BLOCK_SAVING, 8.f);
-	}
-	/* every different kind of place is more code for the chip's small instruction cache to hold:
-	 * measured on whole patches, it costs about this much each, beyond what the places cost alone */
-	{
-		int kinds = 0;
-		for (int k = 0; k < G.nn; k++) {
-			if (SCQ_PLACES[G.n[k].type].flags & PF_SINGLE) continue;
-			int seen = 0;
-			for (int j = 0; j < k; j++) if (G.n[j].type == G.n[k].type) seen = 1;
-			if (!seen) kinds++;
-		}
-		cyc += (float)SCQ_COST_PER_KIND * (float)kinds;
-	}
-	for (int k = 0; k < G.nc; k++)
-		if (!G.c[k].direct) cyc += (float)SCQ_COST_CORD;           /* a plain wire costs nothing */
-	G.load = cyc / 1333.f;
+	G.load = cost_estimate();
 }
 
 /* ------------------------------------------------------------- the public face */
@@ -1063,6 +1119,32 @@ int scq_load(const char *text, int len, uint32_t nights)
 const char *scq_messages(void) { return G.msg; }
 
 #ifdef SCQ_HOST
+/* For tools/calibrate.py: what the load estimate counted in a scene, one line:
+ *   "fixed=1 mixed=3 hall=2 ... | sine=1 saw=0.25 ..."   (the dream must be loaded) */
+const char *scq_cost_terms(int scene)
+{
+	static const char *const NAMES[CT_N] = { "fixed", "mixed", "hall", "fog", "water", "door", "range", "bottle",
+		"maybe", "att", "knob", "tune", "fill", "slow", "slow_in", "slow_out" };
+	static char out[4096];
+	static float w[256];
+	float t[CT_N];
+	sb s = { out, 0, (int)sizeof out };
+	out[0] = 0;
+	if (scene < 0 || scene >= G.nsc) return out;
+	const int was = G.cur;
+	compile_scene(scene, 0);
+	for (int i = 0; i < SCQ_NPLACES && i < 256; i++) w[i] = 0.f;
+	cost_count(t, w);
+	for (int i = 0; i < CT_N; i++) { sb_s(&s, NAMES[i]); sb_c(&s, '='); sb_f(&s, t[i]); sb_c(&s, ' '); }
+	sb_c(&s, '|');
+	for (int i = 0; i < SCQ_NPLACES && i < 256; i++)
+		if (w[i] != 0.f) { sb_c(&s, ' '); sb_s(&s, SCQ_PLACES[i].name); sb_c(&s, '='); sb_f(&s, w[i]); }
+	compile_scene(was, 0);
+	return out;
+}
+#endif
+
+#ifdef SCQ_HOST
 /* Check a text without touching what is playing (the desktop editor only: it costs a
  * second engine's worth of memory, which the SP-1 doesn't have). */
 static engine G1;
@@ -1137,6 +1219,7 @@ void scq_set_att(int index, int inlet, float amount)
 {
 	if (index < 0 || index >= G.nn || inlet < 0 || inlet >= G.n[index].nin) return;
 	node *n = &G.n[index];
+	amount = scq_clamp(amount, -ATT_MAX, ATT_MAX);
 	n->att[inlet] = amount;
 	if (amount != 1.f) n->attset |= (uint16_t)(1u << inlet);
 	else n->attset &= (uint16_t)~(1u << inlet);
@@ -1177,6 +1260,7 @@ void scq_control(int which, float value)
 }
 
 float scq_lamp(int led) { return (led >= 0 && led < SCQ_LEDS) ? W.lamp[led] : 0.f; }
+uint32_t scq_healed(void) { return G.healed; }
 
 float scq_probe(int node, int port)
 {
@@ -1238,13 +1322,13 @@ static void mix(node *n, int k, float scratch[MAX_IN][B])
 			float s = c->s, a = c->a;
 			const float f = 0.18f;               /* ~1.5 kHz: a softening */
 			LOOP { s += f * (src[i] * a - s); dst[i] += s; }
-			c->s = s;
+			c->s = scq_sane(s) ? s : 0.f;         /* what ran away upstream doesn't stay in the fog */
 		} break;
 		case K_WATER: {                         /* a capacitor: slow to fill, slow to drain */
 			float s = c->s, step = (src[B - 1] - s) * c->a, s0 = s;
 			s += step;
 			LOOP dst[i] += s0 + step * (float)(i + 1) * (1.f / (float)B);
-			c->s = s;
+			c->s = scq_sane(s) ? s : 0.f;
 		} break;
 		case K_DOOR: LOOP dst[i] += src[i] > 0.f ? src[i] : 0.f; break;
 		case K_RANGE: { float lo = c->a, d = c->b - c->a; LOOP dst[i] += lo + d * src[i]; } break;
@@ -1283,18 +1367,52 @@ static void run_slow(node *n, const float *in[MAX_IN])
 	}
 }
 
+/* A place that ran away is started again: its state, its memory and its block are cleared, as
+ * when the scene was built. Nothing a place can be sent (a fader at the top through an
+ * attenuverter at the top, its own sound fed back, a number too large to count) may leave it
+ * broken until the program is restarted: whatever goes wrong inside lasts one block. */
+static void heal(node *n)
+{
+	const place *pl = &SCQ_PLACES[n->type];
+	for (int i = 0; i < MAX_STATE; i++) n->s[i] = 0.f;
+	for (int o = 0; o < MAX_OUT; o++) LOOP n->out[o][i] = 0.f;
+	if (n->mem && !(pl->flags & PF_KEEPMEM)) {
+		uint32_t *m = (uint32_t *)n->mem;
+		for (uint32_t i = 0; i < (n->memlen + 3u) / 4u; i++) m[i] = 0;
+	}
+	if (pl->init) pl->init(n);
+	G.healed++;
+	G.fever = 3;                             /* and look at its neighbours for a few blocks */
+}
+
+/* Is this place well? Every block: the last sample of each outlet (one compare each). Its
+ * memory is looked at when its turn comes round (one place a block), and in every place for
+ * a few blocks after any of them was healed, since what ran away has been heard downstream. */
+static void nurse(node *n, int k)
+{
+	int ill = 0;
+	for (int o = 0; o < n->nout; o++) ill |= !scq_sane(n->out[o][B - 1]);
+	if (!ill && (G.fever || k == G.ward))
+		for (int i = 0; i < MAX_STATE; i++) ill |= !(scq_abs(n->s[i]) < 2147483648.f);   /* a count or a phase past counting */
+	if (ill) heal(n);
+}
+
 static void run_block(void)
 {
 	static float scratch[MAX_IN][B];        /* static: off the audio thread's small stack */
 	const float *in[MAX_IN];
 	LOOP { W.outL[i] = 0.f; W.outR[i] = 0.f; }
+	const int fever = G.fever;
 	for (int o = 0; o < G.nn; o++) {
 		int k = G.order[o];
 		node *n = &G.n[k];
 		gather(n, k, in, scratch);
 		if (n->rdiv > 1) run_slow(n, in);
 		else SCQ_PLACES[n->type].run(n, in);
+		nurse(n, k);
 	}
+	if (fever && G.fever == fever) G.fever--;
+	if (++G.ward >= G.nn) G.ward = 0;
 	if ((W.want_next || W.want_back) && G.nsc > 1 && G.pending < 0) {
 		int to = G.cur + (W.want_next ? 1 : -1);
 		if (scq_rand01(&G.rng) < W.miss) {          /* you missed your stop */
@@ -1305,6 +1423,10 @@ static void run_block(void)
 	W.want_next = W.want_back = 0;
 }
 
+/* the output stage: the soft clip, and silence for a sample that isn't a number (a place that
+ * ran away is healed at the end of its block; until then nothing of it reaches the converter) */
+static inline float out_clip(float x) { return x == x ? scq_softclip(x) : 0.f; }
+
 void scq_render(float *left, float *right, int frames)
 {
 	for (int f = 0; f + B <= frames; f += B) {
@@ -1312,12 +1434,12 @@ void scq_render(float *left, float *right, int frames)
 		if (G.nn > 0 && !G.waiting) run_block();
 		else LOOP { W.outL[i] = W.outR[i] = 0.f; }
 		if (G.fading == 0) {
-			LOOP { left[f + i] = scq_softclip(W.outL[i]); right[f + i] = scq_softclip(W.outR[i]); }
+			LOOP { left[f + i] = out_clip(W.outL[i]); right[f + i] = out_clip(W.outR[i]); }
 		} else LOOP {
 			if (G.fading < 0) { G.gain -= 1.f / 480.f; if (G.gain < 0.f) G.gain = 0.f; }
 			else { G.gain += 1.f / 480.f; if (G.gain >= 1.f) { G.gain = 1.f; G.fading = 0; } }
-			left[f + i] = scq_softclip(W.outL[i]) * G.gain;
-			right[f + i] = scq_softclip(W.outR[i]) * G.gain;
+			left[f + i] = out_clip(W.outL[i]) * G.gain;
+			right[f + i] = out_clip(W.outR[i]) * G.gain;
 		}
 		if (G.fading < 0 && G.gain <= 0.f) {
 #ifdef SCQ_DEVICE
@@ -1453,7 +1575,7 @@ const char *scq_catalog(void)
 		const place *pl = &SCQ_PLACES[p];
 		sb_s(&s, "P "); sb_s(&s, pl->name); sb_c(&s, ' ');
 		sb_s(&s, fam[pl->family]); sb_c(&s, ' ');
-		sb_i(&s, pl->cost); sb_c(&s, ' ');
+		sb_i(&s, (int)place_cycles((int)(pl - SCQ_PLACES))); sb_c(&s, ' ');
 		sb_f(&s, pl->nature); sb_c(&s, ' ');
 		for (const char *q = pl->ins; *q; q++) sb_c(&s, *q == ' ' ? ',' : *q);
 		sb_s(&s, " | ");

@@ -209,7 +209,7 @@ static void run_logistic(node *n, const float *const in[MAX_IN])
 {
 	float x = n->s[0], ph = n->s[1], pt = n->s[3];
 	int clocked = n->patched & 1;
-	if (x <= 0.f || x >= 1.f) x = 0.37f;
+	if (!(x > 0.f && x < 1.f)) x = 0.37f;
 	LOOP {
 		int step;
 		if (clocked) step = edge(in[0][i], &n->s[2]);

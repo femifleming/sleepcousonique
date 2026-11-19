@@ -37,7 +37,7 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          cmake --build build --config Release --parallel 4 --target Sleepcousonique ScqTests scqtool
+          cmake --build build --config Release --parallel 4 --target Sleepcousonique ScqTests scqtool ScqSweep
           if [ "$RUNNER_OS" = "macOS" ]; then cmake --build build --config Release --parallel 4 --target SleepcousoniqueArray; fi
 
       - name: Legacy versions (light, for old computers)
@@ -58,6 +58,18 @@ jobs:
           echo "== $exe"; "$exe"
           tool="$(find build -type f \( -name scqtool -o -name scqtool.exe \) | head -n 1)"
           for f in examples/*.dream; do "$tool" check "$f" > /dev/null; done
+
+      - name: Sweep (every place, every inlet, fader and attenuverter at their ends)
+        shell: bash
+        run: |
+          sweep="$(find build -type f \( -name ScqSweep -o -name ScqSweep.exe \) | head -n 1)"
+          echo "== $sweep"
+          pids=""
+          for k in 1 2 3 4; do "$sweep" -j $k/4 > "sweep$k.txt" 2>&1 & pids="$pids $!"; done
+          bad=0
+          for p in $pids; do wait $p || bad=1; done
+          cat sweep?.txt
+          exit $bad
 
       - name: Package
         shell: bash

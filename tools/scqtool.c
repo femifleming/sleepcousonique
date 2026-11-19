@@ -1,5 +1,6 @@
 /* scqtool — check and render .dream files from the command line.
  *   scqtool check file.dream            messages + description
+ *   scqtool terms file.dream            what the load estimate counts in every scene (for calibrate.py)
  *   scqtool stats file.dream            render 4 s of every scene, report level / NaN
  */
 #include <stdio.h>
@@ -34,7 +35,7 @@ static int scene_count(void)
 int main(int argc, char **argv)
 {
 	if (argc == 2 && !strcmp(argv[1], "catalog")) { printf("%s", scq_catalog()); return 0; }
-	if (argc < 3) { fprintf(stderr, "usage: scqtool check|stats file.dream  |  scqtool catalog\n"); return 2; }
+	if (argc < 3) { fprintf(stderr, "usage: scqtool check|stats|terms file.dream  |  scqtool catalog\n"); return 2; }
 	int len;
 	char *text = slurp(argv[2], &len);
 	int errors = scq_load(text, len, 0);
@@ -77,6 +78,13 @@ int main(int argc, char **argv)
 			printf("\n");
 		}
 		return fails ? 1 : 0;
+	}
+	if (!strcmp(argv[1], "terms")) {      /* what the load estimate counts in each scene, and the estimate */
+		int e = scq_load(text, len, 0);
+		if (e) { fprintf(stderr, "%s", scq_messages()); return 1; }
+		int ns = scene_count();
+		for (int s = 0; s < ns; s++) printf("scene %d load %.4f | %s\n", s, scq_scene_load(s), scq_cost_terms(s));
+		return 0;
 	}
 	if (!strcmp(argv[1], "stats")) {
 		int ns = scene_count(), bad = 0;

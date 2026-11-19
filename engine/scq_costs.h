@@ -1,22 +1,167 @@
-/* measured on an SP-1 (2026-11-14): tools/bench_places.sh, then tools/calibrate.py; every place
- * re-benched at the 32-sample block, and the model checked against 9 whole patches measured on
- * the SP-1. Cycles per sample; the chip has 1333 at 48 kHz. */
-#define SCQ_COST_FIXED 93
-#define SCQ_COST_CORD 30
-#define SCQ_COST_BLOCK_SAVING 0   /* measured at the current block size: nothing to take off */
+/* What things cost on the SP-1, in processor cycles per sample (written by tools/calibrate.py from
+ * whole patches measured on SP-1s with tools/sp1fleet.py; don't edit by hand, re-measure).
+ * The chip runs 64 MHz and the codec clocks 48 kHz, so a sample has 1333 cycles. */
+#define SCQ_CYCLES_PER_SAMPLE 1333
 
-/* samplerate=half/quarter/eighth, measured (difftone, sine, lfo, frogs, follower, quantizer at each
- * rate): a place costs cost / divisor, plus the decimate and the hold, about 16 cycles, 12 more per
- * outlet and 3 per patched inlet. So a slow place saves less than its divisor, and a cheap one with
- * several outlets almost nothing. */
-#define SCQ_COST_SLOW_FIXED  16
-#define SCQ_COST_SLOW_OUTLET 12
-#define SCQ_COST_SLOW_INLET  3
+#define SCQ_COST_FIXED       93   /* an empty dream: the output stage and the block loop */
+#define SCQ_COST_MIXED       0    /* an inlet that is summed (cleared first) */
+#define SCQ_COST_HALL        30   /* cords into a summed inlet, by kind (a lone plain wire is free) */
+#define SCQ_COST_FOG         30
+#define SCQ_COST_WATER       30
+#define SCQ_COST_DOOR        30
+#define SCQ_COST_RANGE       30
+#define SCQ_COST_BOTTLE      30
+#define SCQ_COST_MAYBE       30
+#define SCQ_COST_ATT         0    /* an attenuverter on a patched inlet */
+#define SCQ_COST_KNOB        0    /* a turned panel knob on a patched inlet */
+#define SCQ_COST_TUNE        0    /* the tune knob */
+#define SCQ_COST_FILL        0    /* an unpatched inlet whose default found no constant block */
+#define SCQ_COST_SLOW_FIXED  16   /* samplerate=half/quarter/eighth: the place costs cost / divisor, plus */
+#define SCQ_COST_SLOW_INLET  3    /*   the decimate, per live inlet / divisor */
+#define SCQ_COST_SLOW_OUTLET 12   /*   and the hold, per outlet */
 
-/* each different kind of place in a scene (the instruction cache): tried 0-38 against the 9
- * measured patches, no help, so off */
-#define SCQ_COST_PER_KIND    0
-
-/* frogs (and froglet) are costed busy, all voices chirping, as when an LFO or PLAY keeps waking
- * them (measured: about 35 % busy against 10 % idle), so patches with frogs are estimated near
- * their peaks, the safe side. */
+/* each place alone, at full rate (frogs and froglet: three of them, busy) */
+static const struct { const char *name; unsigned short cycles; } SCQ_MEASURED[] = {
+	{ "sine", 87 },
+	{ "crossfm", 207 },
+	{ "rain", 60 },
+	{ "thunder", 113 },
+	{ "noisesweep", 73 },
+	{ "wind", 73 },
+	{ "frogs", 460 },
+	{ "shepard", 247 },
+	{ "bell", 180 },
+	{ "folder", 87 },
+	{ "lpg", 73 },
+	{ "lowpass", 87 },
+	{ "filterbank", 47 },
+	{ "saturator", 100 },
+	{ "dcblock", 33 },
+	{ "vca", 33 },
+	{ "matrix", 87 },
+	{ "comb", 113 },
+	{ "delay", 180 },
+	{ "reverb", 327 },
+	{ "granular", 220 },
+	{ "slope", 87 },
+	{ "smoothrandom", 100 },
+	{ "steprandom", 47 },
+	{ "glide", 47 },
+	{ "seq", 127 },
+	{ "quantizer", 60 },
+	{ "gesture", 33 },
+	{ "ducker", 140 },
+	{ "value", 20 },
+	{ "vco", 247 },
+	{ "xorsquares", 113 },
+	{ "rungler", 100 },
+	{ "additive", 353 },
+	{ "pulsar", 113 },
+	{ "fm", 207 },
+	{ "phasedist", 113 },
+	{ "wavetable", 260 },
+	{ "chord", 300 },
+	{ "supersaw", 380 },
+	{ "formant", 167 },
+	{ "hum", 260 },
+	{ "noise", 87 },
+	{ "crackle", 167 },
+	{ "lorenz", 153 },
+	{ "marimba", 153 },
+	{ "string", 87 },
+	{ "kick", 140 },
+	{ "snare", 233 },
+	{ "hihat", 140 },
+	{ "ladder", 300 },
+	{ "svf", 60 },
+	{ "vowelfilter", 180 },
+	{ "phaser", 140 },
+	{ "flanger", 180 },
+	{ "chorus", 540 },
+	{ "ringmod", 100 },
+	{ "freqshift", 340 },
+	{ "bitcrush", 87 },
+	{ "tube", 207 },
+	{ "compressor", 73 },
+	{ "crossfade", 60 },
+	{ "vocoder", 673 },
+	{ "follower", 73 },
+	{ "samplehold", 60 },
+	{ "logic", 73 },
+	{ "comparator", 47 },
+	{ "rectify", 60 },
+	{ "pan", 140 },
+	{ "suboctave", 73 },
+	{ "spring", 273 },
+	{ "plate", 620 },
+	{ "pingpong", 287 },
+	{ "tapeecho", 353 },
+	{ "freeze", 73 },
+	{ "sympathetic", 353 },
+	{ "pitchshift", 353 },
+	{ "diffuser", 153 },
+	{ "adsr", 87 },
+	{ "lfo", 127 },
+	{ "clock", 113 },
+	{ "divider", 113 },
+	{ "euclid", 87 },
+	{ "bernoulli", 60 },
+	{ "turing", 47 },
+	{ "drummap", 127 },
+	{ "burst", 47 },
+	{ "logistic", 47 },
+	{ "phasor", 60 },
+	{ "trigdelay", 47 },
+	{ "switch", 73 },
+	{ "automaton", 220 },
+	{ "randomwalk", 47 },
+	{ "sinesaw", 127 },
+	{ "square", 127 },
+	{ "harmonics", 100 },
+	{ "pulser", 60 },
+	{ "mixer", 33 },
+	{ "vcmix", 33 },
+	{ "vcgate", 47 },
+	{ "quadvca", 60 },
+	{ "duallpg", 127 },
+	{ "highpass", 60 },
+	{ "attenuverter", 47 },
+	{ "sineshaper", 73 },
+	{ "minmax", 47 },
+	{ "cvprocessor", 60 },
+	{ "slew", 60 },
+	{ "dualprocessor", 60 },
+	{ "dusg", 167 },
+	{ "ad", 60 },
+	{ "ar", 47 },
+	{ "decay", 47 },
+	{ "stepseq", 100 },
+	{ "flipflop", 60 },
+	{ "trigger", 47 },
+	{ "saw", 60 },
+	{ "tri", 47 },
+	{ "pulse", 100 },
+	{ "white", 33 },
+	{ "follow", 47 },
+	{ "onepole", 33 },
+	{ "reverblite", 113 },
+	{ "choruslite", 127 },
+	{ "delaylite", 73 },
+	{ "fmlite", 153 },
+	{ "supersawlite", 73 },
+	{ "froglet", 160 },
+	{ "difftone", 140 },
+	{ "midi", 30 },
+	{ "midicc", 22 },
+	{ "midiclock", 22 },
+	{ "fader", 20 },
+	{ "button", 20 },
+	{ "rocker", 20 },
+	{ "play", 20 },
+	{ "dots", 20 },
+	{ "left", 20 },
+	{ "right", 20 },
+	{ "out", 20 },
+	{ "leds", 40 },
+	{ "scene", 20 },
+};
