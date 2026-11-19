@@ -39,8 +39,17 @@ def check(ok, what, detail=""):
 
 
 def zephyr_dir(p):
+    """The build's zephyr/ directory; also takes the image's name from its .config
+    (CONFIG_KERNEL_BIN_NAME: wakes-sp1 for Wakes, sleepcousonique-sp1 for Sleepcousonique)."""
+    global NAME
     p = Path(p)
-    return p / "zephyr" if (p / "zephyr" / f"{NAME}.elf").exists() else p
+    zd = p / "zephyr" if (p / "zephyr" / ".config").exists() else p
+    cfg = zd / ".config"
+    if cfg.exists():
+        m = re.search(r'^CONFIG_KERNEL_BIN_NAME="([^"]+)"', cfg.read_text(errors="replace"), re.M)
+        if m:
+            NAME = m.group(1)
+    return zd
 
 
 def check_elf(zd):
@@ -74,7 +83,9 @@ def check_map(zd):
     origin, length = (int(m.group(1), 16), int(m.group(2), 16)) if m else (None, None)
     check(origin == APP_START, ".map: FLASH region origin 0x20000",
           f"{origin:#x}" if m else "no FLASH line")
-    check(m is not None and origin + length == APP_END, ".map: FLASH region ends at 0xFF000",
+    # Wakes' code partition runs to 0xFF000; Sleepcousonique's ends at 0xE7000, where its
+    # dream slots (scq_partition) begin. Either way it must stop before the storage page.
+    check(m is not None and origin + length <= APP_END, ".map: FLASH region ends at or before 0xFF000",
           f"{origin + length:#x}" if m else "")
     m = re.search(r"^\s+(0x[0-9a-f]+)\s+_vector_table\s*$", text, re.M)
     check(m is not None and int(m.group(1), 16) == APP_START, ".map: _vector_table at 0x20000",
@@ -296,7 +307,10 @@ def check_storage(zd, cfg):
 def check_source(repo):
     # A header constant, not a build flag, so nothing else would catch a leftover 1:
     # the device would boot into the calibration wizard.
-    hdr = (Path(repo) / "firmware" / "src" / "sp1_calib.h").read_text(encoding="utf-8")
+    src = Path(repo) / "app" / "src"                    # Sleepcousonique: firmware/app/src
+    if not src.exists():
+        src = Path(repo) / "firmware" / "src"           # Wakes' own layout
+    hdr = (src / "sp1_calib.h").read_text(encoding="utf-8")
     m = re.search(r"^#define\s+SP1_FORCE_CALIB\s+(\d+)", hdr, re.M)
     check(m is not None and m.group(1) == "0", "SP1_FORCE_CALIB is 0",
           f"got {m.group(1)}" if m else "define not found")

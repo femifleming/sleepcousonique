@@ -13,8 +13,17 @@ You need: the SP-1, a USB-C data cable, and **Chrome or Edge** (the updater uses
 3. Open **[solderless.engineering](https://solderless.engineering)** in Chrome or Edge.
 4. Choose **custom firmware / .bin**, pick `sleepcousonique-sp1.bin`, connect to the SP-1
    when the browser asks, and flash.
-5. The SP-1 restarts into Sleepcousonique and plays the first night. Open the editor: the
-   scene bar says **SP-1 connected** when it hears it.
+5. When the updater says it's done, the SP-1 restarts into Sleepcousonique **switched off
+   (standby)**: it was started by the USB cable, so it sits there charging, dark or showing
+   the charge bar, and makes no sound. That is normal, not a failed flash. **Hold •• for
+   about a second** to turn it on: it plays the first night.
+6. Open the editor: the scene bar says **SP-1 connected** when it hears it. Now **send to
+   SP-1** works. (While the SP-1 is off the scene bar says *SP-1 is off (standby)*, and a send
+   tells you to turn it on: the firmware only listens while it plays.)
+
+The editor never flashes anything itself: flashing is only ever done by the updater in the
+browser, with the SP-1 in boot mode. The editor's **send to SP-1** sends a *dream* (your patch)
+to an SP-1 that already runs this firmware.
 
 ## If something goes wrong
 
@@ -25,8 +34,28 @@ plug in, and flash any `.bin` again: this one, Wakes, the tape looper or anythin
   the SP-1 can play, so it leaves out a block now and then to keep the sound running (since
   1.4 only as many as it must). Send a lighter one (lite places, `samplerate=half`).
 - Reflashing may clear the five dream slots on the SP-1: keep your `.dream` files.
-- **Windows:** the SP-1 shows up as a USB serial (COM) port with Windows' own driver; nothing
-  to install. **macOS:** it appears as `/dev/cu.usbmodem…`.
+- **send to SP-1 says "switched off (standby)"**: hold **••** about a second to turn it on
+  and send again. Every time the SP-1 is plugged in while off (and right after flashing) it
+  waits in standby.
+- **send to SP-1 says "not as Sleepcousonique" / "Flash sleepcousonique-sp1.bin"**: the SP-1
+  answers, but runs other firmware (Wakes, the tape looper, the stock one). Flash it as above.
+- **send to SP-1 says "No SP-1 is plugged in"**: use a USB-C *data* cable (some are charge
+  only), plug straight into the computer rather than a hub, and turn the SP-1 on.
+- **send to SP-1 says "in use by another program"**: only one program at a time can hold the
+  SP-1's port. Quit the other one: a second Sleepcousonique, a serial monitor (Arduino, PuTTY,
+  screen), `tools/sp1fleet.py`, or a browser tab using Web Serial.
+- **send to SP-1 says the SP-1 "found N mistakes" and runs older firmware**: flash the
+  `sleepcousonique-sp1.bin` that came with your editor; newer dreams use places and room the
+  older firmware doesn't have.
+- **Windows:** the SP-1 (running Sleepcousonique) shows up as a USB serial (COM) port with
+  Windows' own driver (usbser, built into Windows 10 and 11): nothing to install, and **don't**
+  install Zadig/WinUSB on its serial port (that removes the COM port; if it happened, Device
+  Manager ▸ the SP-1 ▸ Uninstall device ▸ tick "delete the driver", then plug it in again).
+  Boot mode (T1 + T4) is a different USB device that the browser reaches through WebUSB; Chrome
+  and Edge need no driver for it either. **macOS:** the SP-1 appears as `/dev/cu.usbmodem…`.
+- **Windows: Sleepcousonique.exe doesn't start, saying VCRUNTIME140.dll or MSVCP140.dll is
+  missing**: that was 1.4.0 and earlier; 1.4.1 has the runtime built in. (Or install
+  Microsoft's "Visual C++ Redistributable for Visual Studio 2015–2022", x64.)
 
 This firmware is unofficial and not affiliated with or endorsed by Teenage Engineering.
 

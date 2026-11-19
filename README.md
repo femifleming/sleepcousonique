@@ -12,6 +12,13 @@ its faders, track buttons, rocker and LEDs do whatever your dream says.
 |---|---|---|---|
 | ![](docs/themes/faltung-dark.png) | ![](docs/themes/faltung-light.png) | ![](docs/themes/modular.png) | ![](docs/themes/journal-dark.png) |
 
+**New in 1.4.1:** fixes for sending and installing. After flashing (or plugging it in while off)
+the SP-1 waits switched off, and the editor used to say "Flash the firmware first", which sent
+people round in circles: it now says the SP-1 is off and to hold ••. Sending no longer freezes the
+window, never hangs on an SP-1 that stops reading, and says plainly what's wrong (busy port, other
+firmware, older firmware). The Windows editor starts on a PC without the Visual C++ runtime. The
+SP-1 firmware is unchanged (1.4.0): no need to reflash.
+
 **New in 1.4.0:** room for bigger patches. The SP-1 plays the same dreams with about a third less of
 its processor (the dance scenes measured 91–95 % on 1.2, 51–66 % now, the same sound to the bit),
 with 124 KB of memory, 96 places and 320 passages; the load meter is refitted to 390 patches measured
@@ -74,7 +81,9 @@ Each zip holds the editor, the SP-1 firmware `sleepcousonique-sp1.bin`, the manu
 
 Once: turn the SP-1 off, hold **T1 + T4** and plug in USB (boot mode), open
 [solderless.engineering](https://solderless.engineering) in Chrome or Edge and flash
-`sleepcousonique-sp1.bin`. Details and recovery: [FLASHING.md](FLASHING.md). The bootloader
+`sleepcousonique-sp1.bin`. It restarts switched off (standby, charging): hold **••** for about a
+second to turn it on, then send dreams from the editor. Details, troubleshooting and recovery:
+[FLASHING.md](FLASHING.md); with an SP-1 in hand, [docs/HARDWARE-CHECK.md](docs/HARDWARE-CHECK.md). The bootloader
 is never touched, so T1 + T4 always brings the SP-1 back. Unofficial firmware, not affiliated
 with Teenage Engineering.
 
@@ -86,14 +95,16 @@ with Teenage Engineering.
 | `examples/` | dreams |
 | `docs/` | the language, the places, the manual |
 | `tools/` | `scqtool` (check / stats / catalog), doc and embed scripts |
-| `tests/` | the editor's text-edit tests |
+| `tests/` | the editor's text-edit tests, the place sweep, and the USB link against a pretend SP-1 (`fakesp1`) |
 
 ## Build the editor
 
 ```
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release   # fetches JUCE 9.0.5 (or -DFETCHCONTENT_SOURCE_DIR_JUCE=...)
-cmake --build build --target Sleepcousonique ScqTests scqtool
+cmake --build build --target Sleepcousonique ScqTests ScqSerialTest fakesp1 scqtool
 ./build/ScqTests_artefacts/Release/ScqTests
+./build/ScqSerialTest_artefacts/Release/ScqSerialTest     # the USB link, against a pretend SP-1
+./tools/test_send.sh                                       # the editor's own send, headless (macOS/Linux)
 ./build/scqtool stats examples/first-night.dream
 ```
 

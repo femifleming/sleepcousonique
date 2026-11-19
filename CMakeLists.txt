@@ -3,7 +3,14 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Universal binary")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS")
 
-project(Sleepcousonique VERSION 1.4.0 LANGUAGES C CXX)
+project(Sleepcousonique VERSION 1.4.1 LANGUAGES C CXX)
+# the SP-1 firmware that ships with this editor (firmware/dist/sleepcousonique-sp1.bin, SCQ_VERSION
+# in firmware/app/src/sp1_scq.c): the editor tells an SP-1 running an older one to update
+set(SCQ_FIRMWARE_VERSION "1.4.0")
+
+# Windows: the C runtime linked into the .exe, so it starts on a PC without the Visual C++
+# Redistributable (no VCRUNTIME140.dll / MSVCP140.dll to install)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 99)
@@ -50,9 +57,11 @@ if(UNIX)
     target_link_libraries(ScqSweep PRIVATE m)
 endif()
 
+set_property(SOURCE app/Serial.cpp APPEND PROPERTY COMPILE_DEFINITIONS "SCQ_FIRMWARE_VERSION=\"${SCQ_FIRMWARE_VERSION}\"")
+
 juce_add_gui_app(Sleepcousonique
     PRODUCT_NAME "Sleepcousonique${SCQ_SUFFIX}"
-    VERSION 1.4.0
+    VERSION 1.4.1
     COMPANY_NAME "Sleepcousonique"
     BUNDLE_ID "com.sleepcousonique.editor${SCQ_ID_SUFFIX}"
     DOCUMENT_EXTENSIONS dream
@@ -114,10 +123,22 @@ endif()
 target_compile_definitions(ScqTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
 target_link_libraries(ScqTests PRIVATE scq_engine ScqData juce::juce_core juce::juce_graphics PUBLIC juce::juce_recommended_config_flags)
 
+# the USB link against a pretend SP-1 (tests/fakesp1.c: the firmware's protocol, the real engine)
+juce_add_console_app(ScqSerialTest PRODUCT_NAME "ScqSerialTest")
+target_sources(ScqSerialTest PRIVATE tests/SerialTest.cpp app/Serial.cpp tests/fakesp1.c)
+target_compile_definitions(ScqSerialTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+target_link_libraries(ScqSerialTest PRIVATE scq_engine juce::juce_core PUBLIC juce::juce_recommended_config_flags)
+
+# the same pretend SP-1 behind a pseudo-terminal, for the real app (tools/test_send.sh; not Windows)
+if(UNIX)
+    add_executable(fakesp1 tests/fakesp1_pty.c tests/fakesp1.c)
+    target_link_libraries(fakesp1 PRIVATE scq_engine m)
+endif()
+
 # Sleepcousonique Array: SP-1s in interface mode as one multichannel output (macOS)
 juce_add_gui_app(SleepcousoniqueArray
     PRODUCT_NAME "Sleepcousonique Array${SCQ_SUFFIX}"
-    VERSION 1.4.0
+    VERSION 1.4.1
     COMPANY_NAME "Sleepcousonique"
     BUNDLE_ID "com.sleepcousonique.array${SCQ_ID_SUFFIX}"
     ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/array/icon/icon.png"

@@ -649,7 +649,12 @@ void MainComponent::paint (Graphics& g)
         auto now = Time::getMillisecondCounter();
         if (h.count != handsSeen) { handsSeen = h.count; handsAt = now; }
         bool live = open && handsAt != 0 && now - handsAt < 1500;
-        String text = ! open ? String ("SP-1 not connected")
+        auto why = open ? String() : link.note();
+        String text = ! open ? (! serial::Link::enabled ? String ("SP-1 link off (--no-link)")
+                                : why.contains ("standby") ? String::fromUTF8 ("SP-1 is off (standby): hold \xe2\x80\xa2\xe2\x80\xa2 to turn it on")
+                                : why.contains ("not as Sleepcousonique") ? String ("an SP-1 without Sleepcousonique on it")
+                                : why.contains ("in use") ? String ("SP-1 port in use by another program")
+                                : String ("SP-1 not connected"))
                     : live ? "SP-1 connected  " + link.port().fromLastOccurrenceOf ("/", false, false)
                              + "  slot " + String (h.slot) + "  scene " + String (h.scene)
                     : "SP-1 found, waiting for it to answer...";
@@ -864,9 +869,6 @@ void MainComponent::sendToSP1()
             ModalCallbackFunction::create ([this] (int r) { if (r == 1) { sendAnyway = true; sendToSP1(); sendAnyway = false; } }));
         return;
     }
-    status ("looking for the SP-1...");
-    String port;
-    String err;
     auto sent = scales::withTunings (doc.text);       // the SP-1 has no scales folder: the tunings go with the dream
     if ((int) sent.getNumBytesAsUTF8() > doc.textMost)   // a slot keeps 16 KB: the SP-1 would play it and lose it at power-off
     {
@@ -875,10 +877,35 @@ void MainComponent::sendToSP1()
             + ". Notes after a ; and the positions at the end count too: a shorter journal, or fewer scenes, will fit.");
         return;
     }
-    if (link.connected()) { err = link.send (sent, -1); port = link.port(); }   // -1: the slot that is playing
-    else err = serial::send (sent, -1, port);
+    if (sendJob != nullptr && sendJob->isThreadRunning()) { status ("still sending the last one to the SP-1..."); return; }
+    status (link.connected() ? "sending to the SP-1..." : "looking for the SP-1...");
+    sendBtn.setEnabled (false);
+    sendJob = std::make_unique<SendJob>();
+    auto* l = &link;
+    sendJob->work = [l, sent] (String& port) -> String
+    {
+        if (! serial::Link::enabled)                       // --no-link: nobody holds the port, open it just for this
+            return serial::send (sent, -1, port);
+        auto err = l->send (sent, -1, 8000);              // -1: the slot that is playing
+        port = l->port();
+        return err;
+    };
+    sendJob->done = [safe = Component::SafePointer<MainComponent> (this)] (const String& err, const String& port)
+    {
+        MessageManager::callAsync ([safe, err, port] { if (safe != nullptr) safe->sendFinished (err, port); });
+    };
+    sendJob->startThread();
+}
+
+void MainComponent::sendFinished (const String& err, const String& port)
+{
+    sendBtn.setEnabled (true);
     if (err.isEmpty()) status ("sent to the SP-1 on " + port);
-    else AlertWindow::showMessageBoxAsync (MessageBoxIconType::InfoIcon, "send to SP-1", err);
+    else
+    {
+        status ("not sent to the SP-1");
+        AlertWindow::showMessageBoxAsync (MessageBoxIconType::InfoIcon, "send to SP-1", err);
+    }
 }
 
 void MainComponent::addScene()

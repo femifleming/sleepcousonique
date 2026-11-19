@@ -67,6 +67,7 @@ private:
     void openDialog();
     void save (bool as);
     void sendToSP1();
+    void sendFinished (const juce::String& err, const juce::String& port);
     void addScene();
     void status (const juce::String&);
     void updateTitle();
@@ -75,6 +76,18 @@ private:
     scq::Document doc;
     Host host;
     serial::Link link;
+    // a send runs on its own thread (it can take seconds): the window stays live meanwhile.
+    // Declared after the link, so it is finished (and gone) before the link is.
+    struct SendJob : juce::Thread
+    {
+        SendJob() : juce::Thread ("send to SP-1") {}
+        ~SendJob() override { stopThread (40000); }
+        void run() override { err = work (port); if (done) done (err, port); }
+        std::function<juce::String (juce::String&)> work;
+        std::function<void (const juce::String&, const juce::String&)> done;
+        juce::String err, port;
+    };
+    std::unique_ptr<SendJob> sendJob;
     Journal journal;
     Tapestry tapestry { doc, host };
     Hands hands { host };

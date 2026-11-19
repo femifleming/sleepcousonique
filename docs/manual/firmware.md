@@ -28,11 +28,20 @@ You need the SP-1, a USB-C data cable and **Chrome or Edge** (the updater uses W
 3. **Boot mode:** hold **T1 + T4** and plug in USB. Let go when T1 lights.
 4. Open **solderless.engineering** in Chrome or Edge, choose the custom firmware (.bin),
    pick `sleepcousonique-sp1.bin`, connect to the SP-1 when the browser asks, and flash.
-5. The SP-1 restarts into Sleepcousonique and plays the first night. In the editor the scene
-   bar now says **SP-1 connected**, with its slot and scene.
+5. The SP-1 restarts into Sleepcousonique **switched off (standby)**: the USB cable started
+   it, so it charges, quietly. That's normal. **Hold ••** for about a second to turn it on: it
+   plays the first night, and in the editor the scene bar says **SP-1 connected**, with its slot
+   and scene.
 
-On Windows the SP-1 appears as a USB serial (COM) port using Windows' own driver; on macOS as
-`/dev/cu.usbmodem…`. Nothing to install on either.
+The editor doesn't flash anything: only the updater in the browser does, with the SP-1 in boot
+mode. **send to SP-1** sends a dream to an SP-1 that already runs this firmware, and only while
+it is on. If it is off the scene bar says *SP-1 is off (standby)* and a send tells you to turn it
+on; if it runs other firmware the editor says so and asks you to flash it.
+
+On Windows the SP-1 appears as a USB serial (COM) port using Windows' own driver (usbser); on
+macOS as `/dev/cu.usbmodem…`. Nothing to install on either; on Windows don't put Zadig/WinUSB on
+its serial port, which takes the COM port away. Only one program at a time can hold the port:
+quit a serial monitor or a second editor before sending.
 
 This firmware is unofficial: not affiliated with or endorsed by Teenage Engineering.
 
@@ -194,7 +203,7 @@ The SP-1 shows up as a USB serial port named *Sleepcousonique*. The editor speak
 protocol to it, which you can also type in a serial terminal:
 
 ```
-SCQ HELLO                    -> SLEEPCOUSONIQUE 0.1.0
+SCQ HELLO                    -> SLEEPCOUSONIQUE 1.4.0
 SCQ LOAD <bytes> <slot>      then exactly <bytes> of the .dream text
                              -> OK 0      or  ERR <why>
 SCQ SLOT <1-5>               -> plays that slot
@@ -205,7 +214,9 @@ SCQ WATCH 1                  -> about 30 times a second, until WATCH 0 or the po
 The editor keeps this link open while the SP-1 is plugged in, so its hands panel follows the
 SP-1 live, and **send to SP-1** goes over the same connection.
 
-The same port also carries Wakes' diagnostic console (battery, audio load and so on).
+The same port also carries Wakes' diagnostic console (battery, audio load and so on): a
+status line every few seconds, `[ON] batt ...` while playing and `[STANDBY] batt ...` while
+off. The SCQ commands are only answered while the SP-1 is on.
 
 ---
 

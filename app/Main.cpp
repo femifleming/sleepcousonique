@@ -89,9 +89,15 @@ public:
             // --send file.dream: the editor's own "send to SP-1", from the command line
             auto f = juce::File::getCurrentWorkingDirectory().getChildFile (args[send + 1].unquoted());
             // through the live link, exactly as the window's "send to SP-1" does
+            if (! f.existsAsFile())
+            {
+                std::printf ("no such dream: %s\n", f.getFullPathName().toRawUTF8());
+                setApplicationReturnValue (2);
+                quit();
+                return;
+            }
             serial::Link link;
-            for (int i = 0; i < 100 && ! link.connected(); ++i) juce::Thread::sleep (100);
-            juce::String err = link.connected() ? link.send (scales::withTunings (f.loadFileAsString()), -1) : juce::String ("no SP-1 found");
+            juce::String err = link.send (scales::withTunings (f.loadFileAsString()), -1, 12000);
             std::printf ("%s\n", err.isEmpty() ? ("sent to " + link.port()).toRawUTF8() : err.toRawUTF8());
             std::fflush (stdout);
             setApplicationReturnValue (err.isEmpty() ? 0 : 1);

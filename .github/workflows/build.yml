@@ -37,8 +37,8 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          cmake --build build --config Release --parallel 4 --target Sleepcousonique ScqTests scqtool ScqSweep
-          if [ "$RUNNER_OS" = "macOS" ]; then cmake --build build --config Release --parallel 4 --target SleepcousoniqueArray; fi
+          cmake --build build --config Release --parallel 4 --target Sleepcousonique ScqTests ScqSerialTest scqtool ScqSweep
+          if [ "$RUNNER_OS" = "macOS" ]; then cmake --build build --config Release --parallel 4 --target SleepcousoniqueArray fakesp1; fi
 
       - name: Test
         shell: bash
@@ -47,6 +47,14 @@ jobs:
           echo "== $exe"; "$exe"
           tool="$(find build -type f \( -name scqtool -o -name scqtool.exe \) | head -n 1)"
           for f in examples/*.dream; do "$tool" check "$f" > /dev/null; done
+
+      - name: The USB link against a pretend SP-1 (send to SP-1, standby, busy, stuck, older firmware)
+        shell: bash
+        run: |
+          st="$(find build -type f \( -name ScqSerialTest -o -name ScqSerialTest.exe \) -path '*_artefacts*' | head -n 1)"
+          echo "== $st"; "$st"
+          echo "== the ports this runner would try (none expected)"; "$st" --ports
+          if [ "$RUNNER_OS" = "macOS" ]; then tools/test_send.sh build; fi
 
       - name: Sweep (every place, every inlet, fader and attenuverter at their ends)
         shell: bash
@@ -62,7 +70,10 @@ jobs:
 
       - name: Package
         shell: bash
-        run: ci/package.sh "${{ matrix.name }}" build
+        run: |
+          ci/package.sh "${{ matrix.name }}" build
+          if [ "$RUNNER_OS" = "Windows" ]; then PY=python; else PY=python3; fi
+          "$PY" tools/check_package.py "dist/sleepcousonique-${{ matrix.name }}.zip"
 
       - uses: actions/upload-artifact@v4
         with:
