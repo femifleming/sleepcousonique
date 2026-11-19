@@ -196,7 +196,9 @@ Every source, and every place with a `pitch` inlet, also has an **attenuverter**
 A fader at its top through an attenuverter at its top is always safe: every place keeps
 working whatever its inlets are sent. If a patch does run away (a place fed its own sound
 until it howls, say), the engine starts that one place again by itself: you hear a gap in
-it, the rest of the dream plays on, and nothing needs restarting.
+it, the rest of the dream plays on, and nothing needs restarting. (This is the editor from
+1.3.0 on. The SP-1 gets the same engine with the first firmware after 1.2.0; until then,
+keep `att.pitch` on a bell or a marimba modest when you perform on the SP-1 itself.)
 
 On the tapestry the tune knob sits in the board's top corner and the attenuverters next to the
 inlets. Drag them up and down (shift for fine; tune moves in semitones, or cents with shift);

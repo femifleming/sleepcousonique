@@ -7,12 +7,25 @@
 | `sleepcousonique-sp1.bin` | the SP-1 firmware on its own |
 | `Sleepcousonique-Manual.pdf` | the manual |
 
-**New in 1.2.0:** maybe-cords (`?>`); MIDI to CV places (`midi`, `midicc`, `midiclock`); the SP-1 as a
-USB-MIDI device and, in **interface mode** (hold •• + PLAY for 1 s), as a 2-channel USB sound card;
-**Sleepcousonique Array** (several SP-1s as one multichannel output: routing, WAV player, master,
-spectrograms); three looks (journal, faltung, modular); light **Legacy** versions of both apps for
-old computers; faster power on (0.5 s) and off (1.5 s). Older firmware stays available on earlier
-releases (and in `firmware/dist/` by version), so you can always flash back.
+**New in 1.3.0:** the room: two places, `crowd` and `visitors`, hear the Bluetooth devices near the
+computer: how many there are (any number, against `max=`), how strong the nearest and all of them
+are, and a pulse when one arrives, when one leaves and on every call heard. The editor on macOS
+listens with the Mac's Bluetooth while a dream has one of them (macOS asks once); on Windows and on
+the SP-1 alone `crowd` holds its `rest=` count. See *The room* in the manual.
+
+**Fixed:** with a fader patched into an inlet and that inlet's attenuverter turned all the way up,
+moving the fader could cut the sound and leave the place dead until the editor was restarted (the
+bell and the marimba, through `att.pitch`). Their modes no longer grow when the pitch is thrown
+about; the engine now starts any place that runs away again by itself, within a block; an Intel
+or Windows crash on a bad control value is closed; and the reverbs no longer change after three
+hours of playing. Every place and inlet is swept at both ends of its attenuverter on every build.
+
+**The SP-1 firmware in this release is still 1.2.0's.** It does not yet contain the bell and marimba
+fix or the engine's self-healing, so on the SP-1 itself the same move (a fader through
+`att.pitch` at the top, thrown about while a bell or a marimba rings) can still upset that dream
+until you change scene or send it again. A firmware with the fix, tested on the hardware, follows.
+Older firmware stays available on earlier releases (and in `firmware/dist/` by version), so you
+can always flash back.
 
 **macOS with Homebrew:** `brew tap femifleming/tap && brew install --cask femifleming/tap/sleepcousonique`
 

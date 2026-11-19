@@ -12,10 +12,12 @@ its faders, track buttons, rocker and LEDs do whatever your dream says.
 |---|---|---|---|
 | ![](docs/themes/faltung-dark.png) | ![](docs/themes/faltung-light.png) | ![](docs/themes/modular.png) | ![](docs/themes/journal-dark.png) |
 
-**New in 1.2.0:** maybe-cords (`?>`), MIDI to CV places (`midi`, `midicc`, `midiclock`), the SP-1 as a
-USB-MIDI device and as a USB sound card (*interface mode*), **Sleepcousonique Array** (several
-SP-1s as one multichannel output), three looks (journal, faltung, modular), and *Legacy*
-versions of both apps for old computers (macOS 10.13 and later).
+**New in 1.3.0:** the room: `crowd` and `visitors` hear the Bluetooth devices near the computer
+(how many, how strong, each one coming and going), so a dream changes with whoever is in the
+room. **Fixed:** a fader through an attenuverter turned all the way up could silence a place
+until the editor was restarted (the bell and the marimba); nothing you can patch stops a place
+for good any more, and the reverbs no longer drift after three hours. (The SP-1 firmware is still
+1.2.0's: the fix reaches the SP-1 itself with its next firmware.)
 
 Write a patch as a dated journal entry, or build it on the tapestry of boards and cords;
 every visual edit is a text edit, and every text edit redraws the tapestry. Hear it at once

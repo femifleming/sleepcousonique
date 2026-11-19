@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Universal binary")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS")
 
-project(Sleepcousonique VERSION 1.2.0 LANGUAGES C CXX)
+project(Sleepcousonique VERSION 1.3.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 99)
@@ -52,7 +52,7 @@ endif()
 
 juce_add_gui_app(Sleepcousonique
     PRODUCT_NAME "Sleepcousonique${SCQ_SUFFIX}"
-    VERSION 1.2.0
+    VERSION 1.3.0
     COMPANY_NAME "Sleepcousonique"
     BUNDLE_ID "com.sleepcousonique.editor${SCQ_ID_SUFFIX}"
     DOCUMENT_EXTENSIONS dream
@@ -117,7 +117,7 @@ target_link_libraries(ScqTests PRIVATE scq_engine ScqData juce::juce_core juce::
 # Sleepcousonique Array: SP-1s in interface mode as one multichannel output (macOS)
 juce_add_gui_app(SleepcousoniqueArray
     PRODUCT_NAME "Sleepcousonique Array${SCQ_SUFFIX}"
-    VERSION 1.2.0
+    VERSION 1.3.0
     COMPANY_NAME "Sleepcousonique"
     BUNDLE_ID "com.sleepcousonique.array${SCQ_ID_SUFFIX}"
     ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/array/icon/icon.png"
