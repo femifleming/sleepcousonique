@@ -15,6 +15,7 @@ for h in ["Shapes", "Spaces", "Currents", "Hands (the SP-1's controls)", "Ears (
     lang = lang.replace("\n## " + h, "\n### " + h)
 src = read("docs/manual/manual.md") + "\n\n" + lang + "\n\n---\n\n" + read("docs/manual/firmware.md")
 body = markdown.markdown(src, extensions=["tables", "fenced_code"])
+body = re.sub(r'<hr />\s*(<h1)', r'\1', body)   # a chapter starts a page anyway: a rule before it can land alone on a page of its own
 body = re.sub(r'<p><img alt="([^"]*)" src="([^"]*)" /></p>',
               r'<figure><img src="\2"><figcaption>\1</figcaption></figure>', body)
 css = """
@@ -46,6 +47,12 @@ out_html = os.path.join(here, "Sleepcousonique-Manual.html")
 open(out_html, "w", encoding="utf-8").write(html)
 pdf = os.path.join(here, "Sleepcousonique-Manual.pdf")
 chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-subprocess.run([chrome, "--headless=new", "--disable-gpu", "--no-pdf-header-footer",
-                f"--print-to-pdf={pdf}", "file://" + out_html], check=True, capture_output=True)
+import tempfile
+for attempt in range(4):      # headless Chrome gives up now and then on a busy machine: its own profile, and try again
+    with tempfile.TemporaryDirectory() as profile:
+        done = subprocess.run([chrome, "--headless=new", "--disable-gpu", "--no-pdf-header-footer", f"--user-data-dir={profile}",
+                               f"--print-to-pdf={pdf}", "file://" + out_html], capture_output=True)
+    if done.returncode == 0: break
+else:
+    sys.exit("Chrome could not print the manual: " + done.stderr.decode(errors="replace")[-400:])
 print("wrote", pdf)

@@ -83,6 +83,10 @@ an SP-1 Bluetooth SDK is in development. When it's out, Bluetooth output can be 
 Sleepcousonique never touches the Bluetooth chip. Whatever is on it now stays there, and
 flashing back to another firmware brings its Bluetooth back exactly as it was.
 
+The `crowd` and `visitors` places (the Bluetooth devices nearby, section 2) are heard by the
+computer's radio, in the editor. On the SP-1 playing alone, `crowd` holds its `rest=` count
+and `visitors` is silent.
+
 ## Playing it
 
 | SP-1 | Sleepcousonique |

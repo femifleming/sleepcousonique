@@ -24,6 +24,9 @@ class Link : private juce::Thread
 public:
     Link();
     ~Link() override;
+    // false (--no-link) before a Link is made: never look for an SP-1 or open its port, for
+    // running beside another program that holds it
+    static bool enabled;
 
     struct Hands
     {

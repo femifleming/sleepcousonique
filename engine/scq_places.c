@@ -852,6 +852,7 @@ static void run_scene(node *n, const float *const in[MAX_IN])
 #include "scq_more_classic.inc"
 #include "scq_more_simple.inc"
 #include "scq_midi.inc"
+#include "scq_room.inc"
 
 #define P(name, fam, flags, cost, nat, ins, defs, outs, run, init, mem, help) \
 	{ name, fam, flags, cost, nat, ins, defs, outs, run, init, mem, help }
@@ -925,6 +926,10 @@ P("midicc",  FAM_HANDS, 0, 22, 0, "", "", "out", run_midicc, 0, 0,
   "one MIDI controller, 0 to 1: cc=0-127, 128 = pitch bend (-1 to 1), 129 = aftertouch; channel=0 is any"),
 P("midiclock", FAM_HANDS, 0, 22, 0, "", "", "clock reset run", run_midiclock, 0, 0,
   "MIDI clock: clock pulses every div ticks (24 = quarter notes, 6 = sixteenths), reset on start, run is 1 while playing"),
+P("crowd",   FAM_CURRENT, 0, 30, 0, "", "", "out count near strength", run_crowd, 0, 0,
+  "the Bluetooth devices near the computer: out is how full the room is (0 to 1, the count over max=), count the plain number, near the strongest signal, strength all of them together; rest= is the count it holds where there is no radio (the SP-1 on its own)"),
+P("visitors", FAM_CURRENT, 0, 30, 0, "", "", "arrive leave pulse voice", run_visitors, 0, 0,
+  "the same devices as they come and go: a pulse when one arrives, when one leaves and on every signal heard; voice is the number (0 to 1) of the one heard last"),
 P("fader",   FAM_HANDS, PF_SINGLE | PF_COUNTED, 20, 1, "", "", "out", run_fader, 0, 0,
   "faders: fader1 - fader4, 0 to 1"),
 P("button",  FAM_HANDS, PF_SINGLE | PF_COUNTED, 20, 1, "", "", "out", run_button, 0, 0,
@@ -986,6 +991,7 @@ static const struct { const char *place, *opts; } OPTS[] = {
 	{ "midi",       "channel=0 voice=0" },
 	{ "midicc",     "channel=0 cc=1" },
 	{ "midiclock",  "div=6" },
+	{ "crowd",      "max=20 rest=0" },
 	{ "quantizer",  "scale=nature|justmajor|justminor|justpentatonic|otonal|utonal|chromatic|major|minor|dorian|phrygian|lydian|mixolydian|locrian|harmonicminor|melodicminor|majorpentatonic|minorpentatonic|blues|wholetone|diminished|quartertone|tet19|tet22|tet31|tet53|bohlenpierce|alpha|beta|gamma|slendro|pelog|rast|bayati|partch|justchromatic|pythagorean|meantone|werckmeister" },
 };
 

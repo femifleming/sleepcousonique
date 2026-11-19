@@ -1,10 +1,11 @@
 #!/bin/bash
 # Every place alone, fed a clock and a sound, every outlet listened to.
 # Fails on NaN, silence where there should be sound, or runaway values.
+# (crowd and visitors are silent without a radio: tests/ModelTest.cpp plays them a made-up room.)
 cd "$(dirname "$0")/.."
 T=$(mktemp -d)
 fails=0
-for p in $(./tools/scqtool catalog | awk '$1=="P" && $3!="hands" && $3!="ears" && $2!="value" {print $2}'); do
+for p in $(./tools/scqtool catalog | awk '$1=="P" && $3!="hands" && $3!="ears" && $2!="value" && $2!="crowd" && $2!="visitors" {print $2}'); do
   line=$(./tools/scqtool catalog | awk -v n="$p" '$1=="P" && $2==n')
   ins=$(echo "$line" | awk '{print $6}' | tr ',' ' ')
   [ "$ins" = "|" ] && ins=""

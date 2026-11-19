@@ -193,6 +193,11 @@ Every source, and every place with a `pitch` inlet, also has an **attenuverter**
     the c is vco tune=2.5 att.pitch=10 att.fm=-0.5
     fader1 -> c.pitch               ; fader1 now sweeps ten octaves up from c's tune
 
+A fader at its top through an attenuverter at its top is always safe: every place keeps
+working whatever its inlets are sent. If a patch does run away (a place fed its own sound
+until it howls, say), the engine starts that one place again by itself: you hear a gap in
+it, the rest of the dream plays on, and nothing needs restarting.
+
 On the tapestry the tune knob sits in the board's top corner and the attenuverters next to the
 inlets. Drag them up and down (shift for fine; tune moves in semitones, or cents with shift);
 the sound follows as you drag and the journal line changes when you let go. Double-click a knob
@@ -245,6 +250,78 @@ legato; `reset` pulses on Start, and `run` is 1 while the clock plays.
     voice -> gate -> out
 
 A chord: four `midi` places with `voice=1` to `voice=4`, each into its own oscillator.
+
+## The room: Bluetooth as weather
+
+Phones, watches, earbuds, laptops and tags call out over Bluetooth a few times a second. Two
+places let a dream hear them, so it changes with whoever is in the room: `crowd` is how many
+there are and how strong, `visitors` is each coming, going and call as it happens. The
+computer's own Bluetooth does the listening (see *The room* in section 1), and nothing has
+to be paired or connected: the devices are only overheard.
+
+| place | outlets | params |
+|---|---|---|
+| `crowd` | out, count, near, strength | `max=20`, `rest=0` |
+| `visitors` | arrive, leave, pulse, voice | |
+
+**crowd**
+
+| outlet | what it gives | |
+|---|---|---|
+| `out` | 0 to 1 | how full the room is: the number of devices over `max=`, smoothed (about half a second), stopping at 1 |
+| `count` | 0, 1, 2 ... 30 ... | the plain number of devices, in steps. Any number of them: it is a count, not a yes or no |
+| `near` | 0 to 1 | the strongest signal: how close the nearest device is. 0 is the edge of hearing (−100 dBm), 1 is within arm's reach (−40 dBm), smoothed |
+| `strength` | 0 to 1 | all the signals together (their mean): whether the crowd is around you or far off, smoothed |
+
+`max=` is the count that brings `out` to 1 (`max=20`: 10 devices give 0.5, 20 or more give 1).
+`rest=` is the count the crowd holds when no radio is listening: on the SP-1 playing alone,
+or on a computer whose Bluetooth is off or not allowed. With `rest=5 max=20` a dream that
+leans on the crowd still plays on the SP-1, as a room of five (`near` and `strength` then
+sit at 0.5).
+
+**visitors**
+
+| outlet | what it gives |
+|---|---|
+| `arrive` | a pulse when a device not heard before appears |
+| `leave` | a pulse when one has been quiet for eight seconds and is counted as gone |
+| `pulse` | a pulse on every call heard: an uneven rhythm, denser the fuller the room |
+| `voice` | the number (0 to 1) of the device that called last, held until the next call. Every device has its own, so through a quantizer the room plays one note per device |
+
+    the people is crowd max=12 rest=3
+    the rain is rain 2
+    the hall is delay 9
+    the bell is bell
+    the scale is quantizer scale=slendro
+
+    people -> rain.density              ; the fuller the room, the harder it rains
+    people.near -40> hall.feedback      ; someone close: the echoes hang longer
+    people.count -8> bell.pitch         ; one more device, a step up (8 hundredths of an octave)
+    visitors.pulse -> bell.strike       ; every call strikes the bell
+    visitors.voice -> scale -> bell.pitch
+    visitors.arrive -> scene.next       ; someone comes in: the next scene
+    rain bell -> hall -> out
+
+Both are among the *currents* in the editor's place menu. On the tapestry they are boards
+like any other, and `max` and `rest` are knobs on the crowd's board.
+
+To move many things with the size of the crowd, use a lucid group:
+`lucid people: rain.density 10..90, hall.feedback 20..70, gate.level 40..100`.
+
+What the count is, and isn't:
+
+- **Devices, not people.** Someone with a phone, a watch and earbuds is three. A laptop, a
+  speaker or a tag on a set of keys counts too. Set `max=` for the room you are in.
+- **Only what calls out.** A device with Bluetooth off is silent, and some only call when
+  their screen is on.
+- **About a room.** Roughly 10 to 20 m indoors, less through walls. `near` tells close
+  from far, not metres.
+- **Addresses change.** Phones swap their Bluetooth address every quarter of an hour or so,
+  for privacy. For a few seconds such a phone is counted twice (the old address leaves, a
+  new one arrives), and its `voice` changes.
+- **Nothing is kept.** A device is one number made from the identifier the system gives for
+  it, held in memory while the device is near. No names, no addresses, nothing written to
+  disk or sent anywhere.
 
 ## Outputs
 

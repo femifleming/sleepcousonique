@@ -290,6 +290,12 @@ void MainComponent::timerCallback()
         remember();                  // a burst of typing is one step
         compile();
     }
+    if (auto note = host.roomNote(); note != roomShown)   // the crowd: someone came or went
+    {
+        roomShown = note;
+        repaint (statusArea);
+        repaint (pillArea);
+    }
     if (host.scene() != doc.scene)   // a journey happened (or a tab was pressed)
     {
         auto r = host.describe();
@@ -458,6 +464,7 @@ void MainComponent::paintPop (Graphics& g)
         g.setColour (ink);
         g.setFont (art::label (11));
         auto t = statusText.isNotEmpty() ? statusText : (doc.file.existsAsFile() ? doc.file.getFileName() + " is loaded..." : String ("the first night is loaded..."));
+        if (roomShown.isNotEmpty()) t = roomShown + String::fromUTF8 ("   \xc2\xb7   ") + t;                 // who is in the room, when a crowd listens
         g.drawText (t, pillArea.reduced (16, 0).withTrimmedLeft (14), Justification::centredLeft, true);
     }
 
@@ -706,8 +713,25 @@ void MainComponent::paint (Graphics& g)
     g.setFont (th.pop ? art::label (11.5f) : art::mono (12));
     g.drawText (statusText, statusArea.reduced (12, 0), Justification::left);
     g.setColour (th.chromeDim);
-    g.drawText (doc.file.existsAsFile() ? doc.file.getFullPathName() : String ("first night (an example - save to keep it)"),
-                statusArea.reduced (12, 0), Justification::right);
+    {
+        auto where = doc.file.existsAsFile() ? doc.file.getFullPathName() : String ("first night (an example - save to keep it)");
+        if (roomShown.isNotEmpty()) where = roomShown + String::fromUTF8 ("   \xc2\xb7   ") + where;   // who is in the room, when a crowd listens
+        g.drawText (where, statusArea.reduced (12, 0), Justification::right);
+    }
+}
+
+// What the tapestry does when an attenuverter is dragged and let go: the engine hears it at
+// once, the dream's text catches up (test modes; the tapestry's own code is in mouseDrag / mouseUp).
+bool MainComponent::turnAtt (const String& place, const String& inlet, float amount)
+{
+    auto* n = doc.nodeNamed (place);
+    auto* p = n ? scq::findPlace (n->place) : nullptr;
+    int k = p ? p->ins.indexOf (inlet) : -1;
+    if (k < 0) return false;
+    host.setAtt (n->id, k, amount);
+    doc.setOption (n->id, "att." + inlet, String (amount));
+    textEdited (false);
+    return true;
 }
 
 void MainComponent::status (const String& s)

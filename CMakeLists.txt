@@ -57,7 +57,9 @@ juce_add_gui_app(Sleepcousonique
     BUNDLE_ID "com.sleepcousonique.editor${SCQ_ID_SUFFIX}"
     DOCUMENT_EXTENSIONS dream
     ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/app/icon/icon.png"
-    MICROPHONE_PERMISSION_ENABLED FALSE)
+    MICROPHONE_PERMISSION_ENABLED FALSE
+    BLUETOOTH_PERMISSION_ENABLED TRUE
+    BLUETOOTH_PERMISSION_TEXT "A dream with a crowd in it listens for the Bluetooth devices nearby: how many there are and how strong. Nothing about them is kept or sent.")
 
 file(GLOB SCQ_SCALE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/scales/*.scl)
 juce_add_binary_data(ScqData HEADER_NAME ScqData.h NAMESPACE ScqData
@@ -77,7 +79,14 @@ target_sources(Sleepcousonique PRIVATE
     app/Router.cpp
     app/Pop.cpp
     app/Timeline.cpp
+    app/Radio.cpp
     app/MainComponent.cpp)
+if(APPLE)
+    # the room: CoreBluetooth hears the devices nearby (the crowd and visitors places)
+    target_sources(Sleepcousonique PRIVATE app/RadioMac.mm)
+    set_source_files_properties(app/RadioMac.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    target_link_libraries(Sleepcousonique PRIVATE "-framework CoreBluetooth")
+endif()
 
 target_compile_definitions(Sleepcousonique PRIVATE
     JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_DISPLAY_SPLASH_SCREEN=0
@@ -97,7 +106,11 @@ target_link_libraries(Sleepcousonique
 
 # tests for the text edits the tapestry makes
 juce_add_console_app(ScqTests PRODUCT_NAME "ScqTests")
-target_sources(ScqTests PRIVATE tests/ModelTest.cpp app/Model.cpp app/Scales.cpp)
+target_sources(ScqTests PRIVATE tests/ModelTest.cpp app/Model.cpp app/Scales.cpp app/Radio.cpp)
+if(APPLE)
+    target_sources(ScqTests PRIVATE app/RadioMac.mm)
+    target_link_libraries(ScqTests PRIVATE "-framework CoreBluetooth")
+endif()
 target_compile_definitions(ScqTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
 target_link_libraries(ScqTests PRIVATE scq_engine ScqData juce::juce_core juce::juce_graphics PUBLIC juce::juce_recommended_config_flags)
 

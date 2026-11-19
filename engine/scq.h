@@ -54,6 +54,14 @@ void  scq_control(int which, float value);
 /* MIDI bytes in (any mix of messages, running status, real time), for the midi, midicc and
  * midiclock places. Call it from the thread that calls scq_render. */
 void  scq_midi(const uint8_t *bytes, int len);
+/* The room, for the crowd and visitors places: what a radio hears of the Bluetooth devices
+ * nearby (the editor listens with the computer's; the SP-1 has none to listen with and never
+ * calls these). live: a radio is listening (0: crowd holds its rest= count); count: devices
+ * heard in the last few seconds; near: the strongest of them, 0..1; strength: their mean, 0..1.
+ * An event is one thing heard: kind 0 a signal from a device (voice: that device's number,
+ * 0..1), 1 a device arrived, 2 a device left. Call them from the thread that calls scq_render. */
+void  scq_room(int live, int count, float near, float strength);
+void  scq_room_event(int kind, float voice);
 void  scq_render(float *left, float *right, int frames); /* frames: multiple of SCQ_BLOCK */
 void  scq_goto_scene(int index);
 int   scq_scene(void);

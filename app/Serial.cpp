@@ -232,7 +232,9 @@ juce::String send (const juce::String& text, int slot, juce::String& portUsed)
 
 // ------------------------------------------------------------------------------------------ the live link
 
-Link::Link() : juce::Thread ("SP-1 link") { startThread(); }
+bool Link::enabled = true;
+
+Link::Link() : juce::Thread ("SP-1 link") { if (enabled) startThread(); }
 
 Link::~Link()
 {

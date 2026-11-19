@@ -217,6 +217,44 @@ scene, and `scene.miss` is the chance of landing on a random one.
 What fits these meters plays on the SP-1 as it plays here, because the computer runs the
 same engine code the SP-1 runs.
 
+## The room: the Bluetooth devices nearby
+
+A dream can listen to who is in the room. The `crowd` place gives how many Bluetooth devices
+are near the computer and how strong their signals are; the `visitors` place gives a pulse
+when one arrives, when one leaves, and on every call heard. Section 2 (*The room: Bluetooth
+as weather*) lists their outlets and shows a patch. This is what the editor does for them.
+
+- **It listens only when a dream asks.** The radio is started when the scene that is
+  playing has a `crowd` or a `visitors` in it, and stopped when it hasn't. A dream without
+  them never touches Bluetooth.
+- **macOS asks once.** The first time, macOS shows *"Sleepcousonique" would like to use
+  Bluetooth*. Allow it and the room is heard from then on. If you say no, the dream plays
+  with the crowd at rest (its `rest=` count); you can change your mind in **System Settings
+  ▸ Privacy & Security ▸ Bluetooth**. The app isn't notarised, so after installing a new version
+  macOS may ask again.
+- **The status bar says what it hears**, at the bottom of the window, for as long as a crowd
+  is listening: *the room: 7 devices nearby, the nearest at 62%*. Or why it hears nothing:
+  *Bluetooth is off*, *Bluetooth isn't allowed for Sleepcousonique*, *no Bluetooth radio to
+  listen with here*, or *waiting for Bluetooth* while macOS is asking.
+- **Nothing is paired, kept or sent.** The editor only overhears the short calls every
+  Bluetooth device makes. It keeps one number per device while that device is near, and
+  forgets it eight seconds after its last call.
+
+| where the dream plays | what `crowd` and `visitors` hear |
+|---|---|
+| the editor on macOS (11 or later; Legacy: 10.13 or later, where macOS asks from 10.15 on) | the Mac's Bluetooth: every device calling nearby |
+| the editor on Windows | no listening yet: `crowd` holds its `rest=` count, `visitors` is silent (or a made-up room, below) |
+| the SP-1 on its own | the same: `crowd` holds `rest=`, `visitors` is silent. The SP-1's firmware never uses its Bluetooth chip (section 3) |
+
+So a dream written around a crowd still loads and plays everywhere. Give `rest=` the
+number of devices you expect, and the SP-1 plays it as that room.
+
+To try a crowd dream with no one around, or on Windows, start the editor from a terminal
+with a made-up room of, say, seven devices that each call about once a second:
+
+    /Applications/Sleepcousonique.app/Contents/MacOS/Sleepcousonique --pretend 7
+    Sleepcousonique.exe --pretend 7
+
 ## Sending a dream to the SP-1
 
 Connect the SP-1 (running the Sleepcousonique firmware, see section 3) by USB and press

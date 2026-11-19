@@ -34,6 +34,10 @@ public:
     void openFile (const juce::File&);
     void openLast();                 // the dream you had open last time, if it's still there
     void showView (int v) { setView (v); }
+    // test modes only (see Main.cpp): the same calls the hands panel and a knob on a board make
+    Host& engine() { return host; }
+    bool turnAtt (const juce::String& place, const juce::String& inlet, float amount);   // drag an attenuverter, let go
+    void reload() { compile (true); }                                                    // what any edit does
     bool askToKeepChanges (std::function<void()> then);
     std::function<void (const juce::String&)> onTitle;
 
@@ -89,6 +93,7 @@ private:
 
     int view = 1;            // 0 journal, 1 both, 2 tapestry
     juce::String statusText, lastCode, lastMessages;
+    juce::String roomShown;      // the room's line in the status bar ("the room: 7 devices nearby"), empty without a crowd
     juce::uint32 typedAt = 0;
     bool pendingTyping = false;
     bool sendAnyway = false;

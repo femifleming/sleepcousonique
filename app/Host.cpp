@@ -12,10 +12,38 @@ Host::Host()
     devices.addAudioCallback (this);
     openMidiInputs();
     midiList = juce::MidiDeviceListConnection::make ([this] { openMidiInputs(); });
+    startTimerHz (50);
+}
+
+// the room, 50 times a second: forget whoever has gone quiet, and pass on what was heard
+void Host::timerCallback()
+{
+    radio.setWanted (roomAllowed && wantRoom);
+    if (! radio.wanted() && ! radio.pretending())
+    {
+        roomLive = 0;
+        return;
+    }
+    const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+    if (radio.pretending()) radio.pretendTick (now);
+    radio.room.tick (now);
+    const auto w = radio.room.weather();
+    roomCount = w.count;
+    roomNear = w.near;
+    roomStrength = w.strength;
+    roomLive = (radio.pretending() || radio.state() == radio::State::listening) ? 1 : 0;
+    for (auto& e : radio.room.takeEvents())
+    {
+        const auto wr = roomFifo.write (1);
+        if (wr.blockSize1 + wr.blockSize2 < 1) break;             // a very busy room: the rest is dropped
+        roomRing[(size_t) (wr.blockSize1 > 0 ? wr.startIndex1 : wr.startIndex2)] = e;
+    }
 }
 
 Host::~Host()
 {
+    stopTimer();
+    radio.setWanted (false);
     for (auto& d : juce::MidiInput::getAvailableDevices()) devices.removeMidiInputDeviceCallback (d.identifier, this);
     devices.removeAudioCallback (this);
 }
@@ -73,8 +101,15 @@ void Host::audioDeviceIOCallbackWithContext (const float* const*, int, float* co
     const double ratio = 48000.0 / rate;
     const int need = (int) std::ceil (frames * ratio) + 8;
     float l[SCQ_BLOCK], r[SCQ_BLOCK];
+    scq_room (roomLive.load(), roomCount.load(), roomNear.load(), roomStrength.load());
     while ((int) fifo[0].size() < need)
     {
+        if (roomFifo.getNumReady() > 0)                           // one thing heard per block
+        {
+            const auto rd = roomFifo.read (1);
+            const auto& e = roomRing[(size_t) (rd.blockSize1 > 0 ? rd.startIndex1 : rd.startIndex2)];
+            scq_room_event (e.kind, e.voice);
+        }
         scq_render (l, r, SCQ_BLOCK);
         fifo[0].insert (fifo[0].end(), l, l + SCQ_BLOCK);
         fifo[1].insert (fifo[1].end(), r, r + SCQ_BLOCK);
@@ -105,13 +140,37 @@ Host::Result Host::load (const juce::String& text, juce::uint32 nights)
     auto utf8 = scales::withTunings (text).toStdString();     // the scales folder's tunings it names
     const juce::ScopedLock sl (lock);
     int e = scq_load (utf8.data(), (int) utf8.size(), nights);
-    return readBack (e);
+    auto r = readBack (e);
+    noteRoom (r.describe);
+    return r;
 }
+
+// Does the scene that plays listen to the room? (its N <id> <place> ... lines.) The timer
+// starts and stops the radio from this, on the message thread and never under the audio lock;
+// a crowd in another scene starts the listening when that scene comes.
+void Host::noteRoom (const juce::String& described)
+{
+    bool wants = false;
+    for (auto& line : juce::StringArray::fromLines (described))
+        if (line.startsWith ("N "))
+        {
+            auto place = line.fromFirstOccurrenceOf (" ", false, false).fromFirstOccurrenceOf (" ", false, false).upToFirstOccurrenceOf (" ", false, false);
+            if (place == "crowd" || place == "visitors") wants = true;
+        }
+    wantRoom = wants;
+}
+
+juce::uint32 Host::healed() const { return scq_healed(); }
 
 Host::Result Host::describe()
 {
-    const juce::ScopedLock sl (lock);
-    return readBack (0);
+    Result r;
+    {
+        const juce::ScopedLock sl (lock);
+        r = readBack (0);
+    }
+    noteRoom (r.describe);
+    return r;
 }
 
 Host::Result Host::check (const juce::String& text, juce::uint32 nights)

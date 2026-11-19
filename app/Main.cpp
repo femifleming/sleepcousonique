@@ -3,6 +3,7 @@
 #include "MainComponent.h"
 #include "Art.h"
 #include "Serial.h"
+#include "scq.h"
 
 class SleepcousoniqueApp : public juce::JUCEApplication
 {
@@ -17,7 +18,66 @@ public:
     {
         // the test modes run beside an open window; otherwise one Sleepcousonique at a time
         auto args = getCommandLineParameters();
-        return args.contains ("--send") || args.contains ("--shot");
+        return args.contains ("--send") || args.contains ("--shot") || args.contains ("--storm");
+    }
+
+    // --storm report.txt file.dream PLACE INLET AMOUNT: a test of the whole program, sound card
+    // and all. Opens the dream, then does what a hand does: turns PLACE's INLET attenuverter to
+    // AMOUNT (as a drag on the board), throws fader1 between its ends for three seconds (as the
+    // hands panel), turns the attenuverter back to 1, makes an edit's reload, and writes what
+    // it saw: the output level and PLACE's first outlet before, during and after, and how many
+    // places the engine had to start again.
+    void storm (const juce::StringArray& args, int at)
+    {
+        auto out = juce::File::getCurrentWorkingDirectory().getChildFile (args[at + 1].unquoted());
+        window->main->openFile (juce::File::getCurrentWorkingDirectory().getChildFile (args[at + 2].unquoted()));
+        auto place = args[at + 3], inlet = args[at + 4];
+        float amount = args[at + 5].getFloatValue();
+        struct Watch : juce::Timer
+        {
+            MainComponent* main = nullptr;
+            juce::File out;
+            juce::String place, inlet, text;
+            float amount = 0;
+            int tick = 0;
+            float level[3] {}, outlet[3] {};
+            void timerCallback() override
+            {
+                auto& host = main->engine();
+                int phase = tick < 100 ? 0 : (tick < 250 ? 1 : 2);          // 2 s before, 3 s storm, then after
+                if (tick == 0) host.control (SCQ_CTL_LEAN1, 0.3f);
+                if (tick == 100) text << "attenuverter turned: " << (main->turnAtt (place, inlet, amount) ? "yes" : "NO (no such place or inlet)") << "\n";
+                if (phase == 1 && tick % 6 == 0) host.control (SCQ_CTL_LEAN1, (tick / 6) % 2 ? 0.0f : 1.0f);
+                if (tick == 250) { host.control (SCQ_CTL_LEAN1, 0.3f); main->turnAtt (place, inlet, 1.0f); main->reload(); }
+                if (phase < 2 || tick >= 350)                                // (after: once it has had 2 s to settle)
+                {
+                    level[phase] = juce::jmax (level[phase], host.level);
+                    auto d = host.describe().describe;
+                    for (auto& line : juce::StringArray::fromLines (d))
+                        if (line.startsWith ("N ") && line.contains (" " + place + " "))
+                        {
+                            float v = std::abs (host.probe (line.substring (2).getIntValue(), 0));
+                            if (! std::isfinite (v)) v = 1.0e30f;
+                            outlet[phase] = juce::jmax (outlet[phase], v);
+                            break;
+                        }
+                }
+                if (++tick >= 500)
+                {
+                    stopTimer();
+                    static const char* const names[3] = { "before", "during", "after " };
+                    for (int k = 0; k < 3; ++k)
+                        text << names[k] << ": output level " << juce::String (level[k], 3) << ", " << place << " outlet up to " << juce::String (outlet[k], 3) << "\n";
+                    text << "places started again by the engine: " << (int) host.healed() << "\n";
+                    text << "room: " << (host.roomNote().isEmpty() ? juce::String ("(no crowd in this dream)") : host.roomNote()) << "\n";
+                    out.replaceWithText (text);
+                    juce::JUCEApplication::quit();
+                }
+            }
+        };
+        auto* w = new Watch();                    // lives until the program quits
+        w->main = window->main; w->out = out; w->place = place; w->inlet = inlet; w->amount = amount;
+        w->startTimerHz (50);
     }
 
     void initialise (const juce::String& commandLine) override
@@ -38,7 +98,12 @@ public:
             quit();
             return;
         }
+        if (args.contains ("--no-link")) serial::Link::enabled = false;   // leave the SP-1's port to whoever has it
         window = std::make_unique<Window>();
+        if (args.contains ("--no-radio")) window->main->engine().roomAllowed = false;        // never touch Bluetooth
+        if (int pr = args.indexOf ("--pretend"); pr >= 0)                // --pretend 7: a made-up room of seven devices
+            window->main->engine().radio.pretend (args[pr + 1].getIntValue());
+        if (int st = args.indexOf ("--storm"); st >= 0) { storm (args, st); return; }
         int shot = args.indexOf ("--shot");
         if (shot >= 0)
         {
