@@ -1,0 +1,22 @@
+the n0 is wind
+the n1 is adsr attack=0.641 decay=0.065 sustain=0.554
+the n2 is highpass samplerate=eighth cutoff=0.816
+the n3 is saturator 1
+the n4 is saturator
+the n5 is phasedist samplerate=quarter att.amount=-0.62 att.resonant=1.8
+the n6 is turing
+n0 -150> n0
+rocker -> n1.attack
+n0 -> n1.sustain
+rocker -> n1.release
+n5 -> n2
+value 20 -> n2
+n0 -> n3
+n2 -> n3.burst
+fader4 -> n4
+n6 -> n5.amount
+n5 ~> n5.resonant
+n3 -> n6
+n5 -> out
+n4 -> out
+n4 -> leds

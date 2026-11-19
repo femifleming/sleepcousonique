@@ -1,0 +1,14 @@
+the ck is clock
+the sn is sine 2
+the x1 is bell
+the x2 is bell
+the x3 is bell
+the x4 is bell
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+ck.eighth -> x1.strike
+ck.eighth -> x2.strike
+ck.eighth -> x3.strike
+ck.eighth -> x4.strike

@@ -1,0 +1,21 @@
+the n0 is switch
+the n1 is formant
+the n2 is quadvca response=lin samplerate=quarter
+the n3 is supersawlite 4 att.pitch=-1.65
+value 60 -> n0
+n0 ?> n0.in4
+n2 => n0.next
+n3 => n0.reset
+n0 -> n1
+n1 -> n2.in3
+n0.step -> n2.in3
+n3 => n2.in4
+fader3 => n2.cv1
+fader1 -> n2.cv2
+n1 ~> n2.cv3
+n1 -> n2.cv4
+n0 -> n3
+n3 -> n3.detune
+n0 -> right
+n3 -> right
+n1 -> right

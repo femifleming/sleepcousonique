@@ -357,6 +357,23 @@ static void fill_block(int16_t *b)
 	int32_t       gq   = g0 << 8;
 	const int32_t step = (d << 8) / (int32_t)BLK_FRAMES;
 	uint32_t      pk   = 0u;
+	if (d == 0) {
+		/* The level isn't moving (all but the 20 ms after a VOL press): one gain for the whole
+		 * block, the same numbers as the slewing loop below gives with step 0, for about a
+		 * third fewer cycles a sample (this stage runs whatever the dream costs). */
+		const float g = (float)g0 * (32767.f / 32768.f);
+		for (uint32_t n = 0; n < BLK_FRAMES; n++) {
+			int32_t l = (int32_t)(scq_l[n] * g), r = (int32_t)(scq_r[n] * g);
+			l = l > 32767 ? 32767 : (l < -32767 ? -32767 : l);
+			r = r > 32767 ? 32767 : (r < -32767 ? -32767 : r);
+			b[2u * n]      = (int16_t)l;
+			b[2u * n + 1u] = (int16_t)r;
+			const uint32_t mag = (uint32_t)(l < 0 ? -l : l);    /* METER */
+			if (mag > pk) { pk = mag; }                         /* METER */
+		}
+		publish_peak(pk);
+		return;
+	}
 	for (uint32_t n = 0; n < BLK_FRAMES; n++) {
 		const float g = (float)(gq >> 8) * (32767.f / 32768.f);
 		int32_t l = (int32_t)(scq_l[n] * g), r = (int32_t)(scq_r[n] * g);

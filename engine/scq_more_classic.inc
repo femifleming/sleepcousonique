@@ -109,10 +109,10 @@ static void run_quadvca(node *n, const float *const in[MAX_IN])
 	int ex = OPT(0);
 	for (int k = 0; k < 4; k++) {
 		if (!(n->patched & (1u << k))) { LOOP n->out[k][i] = 0.f; continue; }
-		LOOP {
-			float g = scq_max(in[4 + k][i], 0.f);
-			n->out[k][i] = in[k][i] * (ex ? g * g * g : g);
-		}
+		const float *x = in[k], *cv = in[4 + k];
+		float *y = n->out[k];
+		if (ex) LOOP { float g = scq_max(cv[i], 0.f); y[i] = x[i] * (g * g * g); }
+		else LOOP { float g = scq_max(cv[i], 0.f); y[i] = x[i] * g; }
 	}
 }
 

@@ -1,0 +1,34 @@
+the ck is clock
+the sn is sine 2
+the x1 is logic
+the x2 is logic
+the x3 is logic
+the x4 is logic
+the x5 is logic
+the x6 is logic
+the x7 is logic
+the x8 is logic
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+x8 -> out
+sn -> x1.a
+sn -> x1.b
+sn -> x2.a
+sn -> x2.b
+sn -> x3.a
+sn -> x3.b
+sn -> x4.a
+sn -> x4.b
+sn -> x5.a
+sn -> x5.b
+sn -> x6.a
+sn -> x6.b
+sn -> x7.a
+sn -> x7.b
+sn -> x8.a
+sn -> x8.b

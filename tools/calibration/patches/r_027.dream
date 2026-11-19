@@ -1,0 +1,27 @@
+the n0 is switch
+the n1 is vcmix samplerate=half level3=0.383
+the n2 is stepseq dir=random samplerate=quarter s3=0.78 s4=0.833
+the n3 is lorenz
+the n4 is supersawlite tune=0.52 samplerate=quarter
+n2.step -> n0
+n1 -> n0.in2
+n0 -> n0.in3
+n3.y => n0.in4
+n1 >| n0.next
+n2.step -> n1.in2
+n2.step -> n1.in3
+n0.step -> n1.level1
+n2 -> n1.level2
+n0 -> n2
+button1 ~> n2.reset
+fader1 ~> n2.s2
+button1 -> n2.s4
+n4 ~> n2.s5
+n4 -> n2.s6
+fader4 -> n2.s7
+value 40 -> n2.s8
+rocker -150> n3
+n3 -35> n4
+n1 -> left
+n0 -> out
+n2 -> leds

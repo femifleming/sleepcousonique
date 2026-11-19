@@ -1015,52 +1015,14 @@ void Tapestry::removeSelection()
     edited (true);
 }
 
-static bool wordChar (juce_wchar c) { return CharacterFunctions::isLetterOrDigit (c) || c == '_'; }
-
-static String renameWord (const String& line, const String& from, const String& to)
-{
-    String out;
-    int i = 0;
-    while (i < line.length())
-    {
-        if (line.substring (i).startsWith (from) && (i == 0 || ! wordChar (line[i - 1]))
-            && (i + from.length() >= line.length() || ! wordChar (line[i + from.length()])))
-        {
-            out << to;
-            i += from.length();
-        }
-        else out << line[i++];
-    }
-    return out;
-}
-
 void Tapestry::paste (const String& text)
 {
     auto lines = StringArray::fromLines (text.trim());
     lines.removeEmptyStrings();
     if (lines.isEmpty()) return;
     // a pasted dream keeps its own names unless they're taken here
-    std::set<String> taken;
-    for (auto& n : doc.nodes) taken.insert (n.name);
     StringArray newNames;
-    for (int i = 0; i < lines.size(); ++i)
-    {
-        auto t = StringArray::fromTokens (lines[i].trim(), " ", "");
-        if (t.size() >= 4 && t[0].equalsIgnoreCase ("the") && (t[2] == "is" || t[2] == "are"))
-        {
-            String name = t[1];
-            if (taken.count (name))
-            {
-                String fresh;
-                for (char c = 'b'; c <= 'z' && fresh.isEmpty(); ++c)
-                    if (! taken.count (name + String::charToString (c))) fresh = name + String::charToString (c);
-                for (int k = 0; k < lines.size(); ++k) lines.set (k, renameWord (lines[k], name, fresh));
-                name = fresh;
-            }
-            taken.insert (name);
-            newNames.add (name);
-        }
-    }
+    lines = doc.renamedForPaste (lines, newNames);
     // put pasted boards where the mouse is
     float x = lastMouse.x, y = lastMouse.y;
     for (auto& n : newNames) { doc.setPosition (doc.scene, n, { x, y }); x += 200; if (x > lastMouse.x + 600) { x = lastMouse.x; y += 170; } }

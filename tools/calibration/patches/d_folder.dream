@@ -1,0 +1,23 @@
+the ck is clock
+the sn is sine 2
+the x1 is folder
+the x2 is folder
+the x3 is folder
+the x4 is folder
+the x5 is folder
+the x6 is folder
+the x7 is folder
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+sn -> x1.in
+sn -> x2.in
+sn -> x3.in
+sn -> x4.in
+sn -> x5.in
+sn -> x6.in
+sn -> x7.in

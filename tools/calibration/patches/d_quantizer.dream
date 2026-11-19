@@ -1,0 +1,32 @@
+the ck is clock
+the sn is sine 2
+the x1 is quantizer
+the x2 is quantizer
+the x3 is quantizer
+the x4 is quantizer
+the x5 is quantizer
+the x6 is quantizer
+the x7 is quantizer
+the x8 is quantizer
+the x9 is quantizer
+the x10 is quantizer
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+x8 -> out
+x9 -> out
+x10 -> out
+sn -> x1.in
+sn -> x2.in
+sn -> x3.in
+sn -> x4.in
+sn -> x5.in
+sn -> x6.in
+sn -> x7.in
+sn -> x8.in
+sn -> x9.in
+sn -> x10.in

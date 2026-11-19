@@ -1,0 +1,17 @@
+the n0 is compressor
+the n1 is delaylite 8
+the n2 is ducker samplerate=quarter
+the n3 is spring
+the n4 is pulsar tune=-0.48
+n4 -> n0
+n4 -> n0.amount
+n3 -150> n0.side
+rocker ?> n0.side
+n4 -> n1
+n3 -> n1.time
+n3 ~> n2.side
+n4 ?> n3.decay
+n4 -> n4.formant
+n0 -> n4.duty
+n1 -> out
+n3 -> out

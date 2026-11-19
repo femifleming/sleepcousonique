@@ -1,0 +1,18 @@
+the n0 is quantizer root=0.469
+the n1 is bell
+the n2 is white
+the n3 is bitcrush
+the n4 is lpg mode=both samplerate=quarter
+the n5 is matrix
+the n6 is comb 2
+n3 -> n1
+n1 -> n3.crush
+n2 -> n3.decimate
+fader3 ~> n4
+n6 -> n6.pitch
+n6 ?> n6.decay
+n6 -> left
+n5 -> right
+n0 -> right
+n4 -> right
+n4 -> leds

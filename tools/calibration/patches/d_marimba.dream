@@ -1,0 +1,14 @@
+the ck is clock
+the sn is sine 2
+the x1 is marimba
+the x2 is marimba
+the x3 is marimba
+the x4 is marimba
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+ck.eighth -> x1.strike
+ck.eighth -> x2.strike
+ck.eighth -> x3.strike
+ck.eighth -> x4.strike

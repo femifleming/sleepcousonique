@@ -1,0 +1,12 @@
+the n0 is shepard
+the n1 is highpass
+the n2 is kick 1 tune=1.06
+the n3 is folder
+n3 >| n1
+n2 -> n2.pitch
+n3 -> n2.decay
+n0 >| n3.fold
+value 40 -> n3.fold
+n3 -> out
+n2 -> right
+n0 -> leds

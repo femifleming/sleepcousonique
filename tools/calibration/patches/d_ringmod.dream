@@ -1,0 +1,30 @@
+the ck is clock
+the sn is sine 2
+the x1 is ringmod
+the x2 is ringmod
+the x3 is ringmod
+the x4 is ringmod
+the x5 is ringmod
+the x6 is ringmod
+the x7 is ringmod
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+sn -> x1.in
+sn -> x1.mod
+sn -> x2.in
+sn -> x2.mod
+sn -> x3.in
+sn -> x3.mod
+sn -> x4.in
+sn -> x4.mod
+sn -> x5.in
+sn -> x5.mod
+sn -> x6.in
+sn -> x6.mod
+sn -> x7.in
+sn -> x7.mod

@@ -1,0 +1,30 @@
+the ck is clock
+the sn is sine 2
+the x1 is slope
+the x2 is slope
+the x3 is slope
+the x4 is slope
+the x5 is slope
+the x6 is slope
+the x7 is slope
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+sn -> x1.in
+ck.eighth -> x1.trig
+sn -> x2.in
+ck.eighth -> x2.trig
+sn -> x3.in
+ck.eighth -> x3.trig
+sn -> x4.in
+ck.eighth -> x4.trig
+sn -> x5.in
+ck.eighth -> x5.trig
+sn -> x6.in
+ck.eighth -> x6.trig
+sn -> x7.in
+ck.eighth -> x7.trig

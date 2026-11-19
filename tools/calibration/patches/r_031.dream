@@ -1,0 +1,16 @@
+the n0 is decay curve=lin
+the n1 is bernoulli samplerate=quarter
+the n2 is choruslite samplerate=half
+the n3 is vcmix level3=1.735
+n3 -> n0.decay
+n0 -> n1.chance
+n1 -> n2
+n1 ~> n2.depth
+n1.b -> n3
+n2 => n3.in3
+n2 -> n3.in3
+n0 -75> n3.level1
+n2 -> n3.level3
+n2 -> n3.level4
+n0 -> right
+n1 -> right

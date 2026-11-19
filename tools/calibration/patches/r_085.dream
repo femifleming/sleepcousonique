@@ -1,0 +1,10 @@
+the n0 is automaton
+the n1 is comparator
+the n2 is quantizer
+the n3 is pulse
+n3 -> n0
+n3 -> n1.ref
+n2.pulse -> n3
+n0 -> right
+n3 -> left
+n2 -> out

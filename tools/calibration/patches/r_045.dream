@@ -1,0 +1,19 @@
+the n0 is supersawlite samplerate=quarter att.pitch=0.97
+the n1 is switch
+the n2 is vca samplerate=eighth gain=1.553
+the n3 is euclid
+n0 ~> n0
+n1 -> n1
+fader1 -150> n1.in3
+play ~> n1.next
+n2 ?> n2.gain
+n0 -> n2.gain
+n1 >| n3
+fader2 -> n3.hits
+n2 -> n3.rotate
+rocker ~> n3.reset
+n2 -> right
+n0 -> left
+n1 -> left
+n3 -> out
+n1 -> leds

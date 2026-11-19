@@ -1,0 +1,20 @@
+the n0 is compressor
+the n1 is phasor samplerate=half
+the n2 is vcmix samplerate=quarter
+the n3 is attenuverter amount=1.835
+the n4 is rain samplerate=quarter
+n4 => n0
+n3 => n0
+n0.gain -> n0.side
+n4 -50> n1.reset
+n1 -> n2.in2
+n4.pulse -> n2.in4
+n0 -> n2.level3
+n4 => n3
+n4.pulse -35> n3.amount
+n0 -> n3.amount
+n4 ~> n3.offset
+n1 -> left
+n2 -> right
+n0 -> right
+n3 -> right

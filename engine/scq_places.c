@@ -12,6 +12,12 @@ world W = { .nb = SCQ_BLOCK, .sr = (float)SCQ_RATE, .isr = 1.f / (float)SCQ_RATE
 /* Place code sees the block and the rate of the place being run: a place at samplerate=half
  * runs half as many samples at half the rate (the engine decimates its inlets and holds its
  * outlets back up to full rate). */
+/* Loops stay loops (see scq_core.c): the SP-1's C library clears and copies a byte at a time, and
+ * at -O3 the compiler would hand it every `LOOP out = 0` and every block copy in here. */
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC optimize ("no-tree-loop-distribute-patterns")
+#endif
+
 #undef B
 #undef SR
 #undef INV_SR
@@ -767,6 +773,7 @@ static void run_fader(node *n, const float *const in[MAX_IN])
 	(void)in;
 	int k = natural(n->nature, 1, 4) - 1;
 	float v = n->s[0], t = W.ctl[SCQ_CTL_LEAN1 + k];
+	if (v + (t - v) * 0.004f == v) { LOOP n->out[0][i] = v; return; }     /* at rest: nothing to smooth */
 	LOOP { v += (t - v) * 0.004f; n->out[0][i] = v; }
 	n->s[0] = v;
 }

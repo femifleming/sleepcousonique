@@ -1,0 +1,13 @@
+the n0 is formant tune=0.89 att.vowel=-0.69
+the n1 is seq
+the n2 is wind samplerate=quarter
+the n3 is steprandom samplerate=quarter
+the n4 is comparator ref=0.911
+the n5 is automaton 28
+n3 -> n0.vowel
+n2 -> n1.back
+rocker ?> n2
+n0 -20> n4
+n1 -> out
+n0 -> right
+n2 -> out

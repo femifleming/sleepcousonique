@@ -1,0 +1,25 @@
+the n0 is adsr release=0.387
+the n1 is seq
+the n2 is wind samplerate=half gust=0.127
+the n3 is onepole samplerate=quarter
+the n4 is choruslite samplerate=half
+the n5 is comparator samplerate=half
+the n6 is crackle samplerate=eighth att.chaos=-0.6 att.density=-1.12
+n6.dust -> n0
+n3 ~> n0.decay
+n1 -> n0.decay
+n0.end -> n0.sustain
+n2 -> n1
+n1.step -> n1
+n1.pulse ~> n1.back
+n3 -> n3
+value 20 -> n3.cutoff
+n2 -> n4
+n0 -> n4.depth
+n2 => n5
+n2 -> n6
+n5 -> n6.density
+n2 -> right
+n3 -> left
+n4 -> right
+n0 -> right

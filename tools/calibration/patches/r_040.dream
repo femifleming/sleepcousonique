@@ -1,0 +1,18 @@
+the n0 is granular samplerate=half
+the n1 is difftone 18 tune=2.79 samplerate=eighth att.ratio=-0.84
+the n2 is vcmix samplerate=half level2=0.857
+the n3 is dcblock
+n2 -> n0
+n2 -> n0.density
+fader2 -> n1.ratio
+n1.f2 ?> n2
+n2 -50> n2.in3
+n1.f1 -> n2.in4
+n3 ~> n2.level1
+fader1 -35> n2.level2
+fader2 -50> n2.level3
+n3 -> right
+n1 -> right
+n0 -> right
+n2 -> left
+n0 -> leds

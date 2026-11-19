@@ -1,0 +1,42 @@
+the ck is clock
+the sn is sine 2
+the x1 is samplehold
+the x2 is samplehold
+the x3 is samplehold
+the x4 is samplehold
+the x5 is samplehold
+the x6 is samplehold
+the x7 is samplehold
+the x8 is samplehold
+the x9 is samplehold
+the x10 is samplehold
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+x8 -> out
+x9 -> out
+x10 -> out
+sn -> x1.in
+ck.eighth -> x1.clock
+sn -> x2.in
+ck.eighth -> x2.clock
+sn -> x3.in
+ck.eighth -> x3.clock
+sn -> x4.in
+ck.eighth -> x4.clock
+sn -> x5.in
+ck.eighth -> x5.clock
+sn -> x6.in
+ck.eighth -> x6.clock
+sn -> x7.in
+ck.eighth -> x7.clock
+sn -> x8.in
+ck.eighth -> x8.clock
+sn -> x9.in
+ck.eighth -> x9.clock
+sn -> x10.in
+ck.eighth -> x10.clock

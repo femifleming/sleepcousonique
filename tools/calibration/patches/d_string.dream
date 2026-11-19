@@ -1,0 +1,23 @@
+the ck is clock
+the sn is sine 2
+the x1 is string
+the x2 is string
+the x3 is string
+the x4 is string
+the x5 is string
+the x6 is string
+the x7 is string
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+ck.eighth -> x1.pluck
+ck.eighth -> x2.pluck
+ck.eighth -> x3.pluck
+ck.eighth -> x4.pluck
+ck.eighth -> x5.pluck
+ck.eighth -> x6.pluck
+ck.eighth -> x7.pluck

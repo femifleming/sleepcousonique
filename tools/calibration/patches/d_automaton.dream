@@ -1,0 +1,11 @@
+the ck is clock
+the sn is sine 2
+the x1 is automaton
+the x2 is automaton
+the x3 is automaton
+x1 -> out
+x2 -> out
+x3 -> out
+ck.eighth -> x1.clock
+ck.eighth -> x2.clock
+ck.eighth -> x3.clock

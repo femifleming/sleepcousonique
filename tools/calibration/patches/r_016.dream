@@ -1,0 +1,15 @@
+the n0 is sine 4 samplerate=eighth att.fm=-1.35
+the n1 is frogs 2 tune=-1.27 samplerate=eighth
+the n2 is chord type=0.141 att.spread=-1.68
+the n3 is saw tune=0.4
+the n4 is hum
+n0 => n0
+n4 -> n0.fm
+n0 => n1.pitch
+n1.pulse -35> n1.pitch
+n2 => n2
+button1 -> n2.type
+n0 -20> n2.spread
+n4 -> n4.level
+n2 -> left
+n3 -> out

@@ -1,0 +1,20 @@
+the n0 is ringmod tune=0.44 att.pitch=1.85
+the n1 is saturator
+the n2 is folder
+the n3 is marimba tune=-1.32 samplerate=quarter att.decay=-1.72
+n3 -> n0
+n2 -> n0
+n1 -> n0.mod
+fader3 >| n0.pitch
+n3 -> n1
+n3 -> n1.burst
+rocker -> n2
+n1 -> n2.fold
+n0 >| n3
+n1 ?> n3.pitch
+n1 -> n3.decay
+value 40 -> n3.bright
+n1 -> out
+n0 -> right
+n3 -> right
+n0 -> leds

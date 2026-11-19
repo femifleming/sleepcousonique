@@ -1,0 +1,27 @@
+the n0 is slope 1 cycle=on range=audio
+the n1 is choruslite 1 samplerate=quarter
+the n2 is burst count=0.255
+the n3 is svf samplerate=eighth
+the n4 is lowpass samplerate=quarter cutoff=0.726
+the n5 is comb att.pitch=-1.06
+the n6 is saw 3
+the n7 is attenuverter
+n1 -> n0
+n7 -> n0.rise
+n6 -> n0.fall
+n1 -> n1.depth
+n7 -> n1.depth
+n5 -> n3
+n5 => n3
+n2 -> n3.cutoff
+n7 ~> n3.res
+n4.band -> n4
+n1 -> n4.res
+play >| n5
+value 10 -> n5.pitch
+n4.band -> n5.decay
+n5 ~> n7.offset
+n1 -> out
+n2 -> left
+n5 -> right
+n7 -> out

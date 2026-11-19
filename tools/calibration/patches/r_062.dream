@@ -1,0 +1,13 @@
+the n0 is froglet samplerate=half
+the n1 is vowelfilter 1
+the n2 is pulser samplerate=quarter
+the n3 is shepard 1
+fader3 -> n0.pitch
+n3 ?> n1.vowel
+n3 ~> n1.shift
+n1 -> n2
+n0 -> n3
+value 20 -> n3.pitch
+n1 ~> n3.pitch
+n2 -> out
+n1 -> left

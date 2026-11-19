@@ -1,0 +1,14 @@
+the n0 is freqshift 1
+the n1 is saw samplerate=half
+the n2 is reverblite samplerate=quarter
+the n3 is minmax samplerate=half
+the n4 is matrix samplerate=half
+n0.down -> n0.shift
+n2 ~> n1
+n1 -> n3
+n0.down -75> n3.b
+n3.min ~> n4
+n1 => n4.in2
+fader2 -> n4.in4
+n3 -> out
+n4 -> right

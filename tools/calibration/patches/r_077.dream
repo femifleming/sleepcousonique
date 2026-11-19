@@ -1,0 +1,17 @@
+the n0 is ringmod
+the n1 is fmlite index=0.748
+the n2 is clock 4
+the n3 is sinesaw att.fm=-1.17
+the n4 is white samplerate=quarter
+n1 -35> n0.mod
+n4 -> n1
+button1 ~> n1.ratio
+n1 -> n1.index
+n2.eighth -35> n2.reset
+n3 >| n2.reset
+n4 ~> n3
+n4 -> n3.fm
+n4 -> right
+n3 -> left
+n1 -> out
+n3 -> leds

@@ -1,0 +1,20 @@
+the ck is clock
+the sn is sine 2
+the x1 is thunder
+the x2 is thunder
+the x3 is thunder
+the x4 is thunder
+the x5 is thunder
+the x6 is thunder
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+ck.eighth -> x1.strike
+ck.eighth -> x2.strike
+ck.eighth -> x3.strike
+ck.eighth -> x4.strike
+ck.eighth -> x5.strike
+ck.eighth -> x6.strike

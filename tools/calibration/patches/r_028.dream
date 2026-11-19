@@ -1,0 +1,19 @@
+the n0 is decay curve=lin decay=0.09
+the n1 is noise samplerate=half
+the n2 is pitchshift
+the n3 is slew samplerate=quarter
+the n4 is vcmix
+n2 -150> n0
+n1.blue -> n0.decay
+n1.blue -> n1
+n3 -> n2.shift
+n1.pink -> n3
+n0 >| n4.in4
+n4 -> n4.level1
+n3 ?> n4.level2
+n2 -> n4.level2
+n3 -> n4.level3
+n2 -> out
+n0 -> out
+n1 -> right
+n4 -> leds

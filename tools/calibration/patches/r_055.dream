@@ -1,0 +1,20 @@
+the n0 is wind
+the n1 is steprandom
+the n2 is rungler samplerate=quarter
+the n3 is spring samplerate=quarter
+the n4 is tapeecho samplerate=eighth
+the n5 is vowelfilter vowel=0.385
+the n6 is samplehold 1 samplerate=quarter
+the n7 is samplehold
+n0 -> n1
+fader2 ~> n3
+n7.track -> n3.decay
+button1 -> n3.decay
+n3 -> n4.wow
+button1 ?> n5
+value 10 -> n6.clock
+fader4 -> n7
+n4 -> n7.clock
+n2 -> left
+n5 -> left
+n4 -> right

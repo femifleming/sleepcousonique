@@ -1,0 +1,32 @@
+the ck is clock
+the sn is sine 2
+the x1 is phasor
+the x2 is phasor
+the x3 is phasor
+the x4 is phasor
+the x5 is phasor
+the x6 is phasor
+the x7 is phasor
+the x8 is phasor
+the x9 is phasor
+the x10 is phasor
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+x8 -> out
+x9 -> out
+x10 -> out
+ck.eighth -> x1.reset
+ck.eighth -> x2.reset
+ck.eighth -> x3.reset
+ck.eighth -> x4.reset
+ck.eighth -> x5.reset
+ck.eighth -> x6.reset
+ck.eighth -> x7.reset
+ck.eighth -> x8.reset
+ck.eighth -> x9.reset
+ck.eighth -> x10.reset

@@ -1,0 +1,21 @@
+the n0 is tapeecho samplerate=eighth
+the n1 is ar samplerate=eighth attack=0.326 release=0.02
+the n2 is svf samplerate=eighth
+the n3 is lorenz samplerate=eighth
+the n4 is phasor samplerate=quarter
+fader3 -> n0.feedback
+n2.band -> n0.wow
+n0.wet -> n0.wow
+button1 -> n1
+n4 -35> n1.attack
+n1 -> n1.release
+n2.band -35> n1.release
+n2.band -> n2
+n1 -> n2.cutoff
+n2.band ?> n2.res
+play -> n4.reset
+n1 -> left
+n2 -> out
+n3 -> right
+n4 -> right
+n3 -> leds

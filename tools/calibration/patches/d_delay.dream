@@ -1,0 +1,8 @@
+the ck is clock
+the sn is sine 2
+the x1 is delay
+the x2 is delay
+x1 -> out
+x2 -> out
+sn -> x1.in
+sn -> x2.in

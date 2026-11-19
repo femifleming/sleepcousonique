@@ -1,0 +1,17 @@
+the n0 is saturator
+the n1 is reverblite 3 samplerate=half size=0.609
+the n2 is freqshift 1
+the n3 is lowpass samplerate=quarter
+n2 -> n0
+rocker -> n0.burst
+n1 ?> n1
+n0 -> n1.size
+n2 -> n2
+n0 -> n3.cutoff
+n2.down => n3.res
+fader4 -> n3.res
+n0 -> left
+n3 -> right
+n2 -> left
+n1 -> out
+n0 -> leds

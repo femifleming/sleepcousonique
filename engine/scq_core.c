@@ -16,6 +16,13 @@
 #include "scq_int.h"
 #include "scq_costs.h"
 
+/* Loops stay loops. GCC likes to turn a clearing or copying loop into a call to memset or memcpy,
+ * and the SP-1's C library (built for size) does those a byte at a time: clearing one 32-sample
+ * block that way cost 36 cycles a sample, more than most places. */
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC optimize ("no-tree-loop-distribute-patterns")
+#endif
+
 typedef struct { int start, end, line0, ts, te; } scene;
 #define MAX_KONST 32
 #define MAX_TUNINGS 32
@@ -32,8 +39,13 @@ typedef struct {
 	int      nk;
 	uint32_t pool[POOL_BYTES / 4];
 	uint32_t used;
+	uint32_t wanted;             /* what the scene asked for, whether it fitted or not */
 
+#ifdef SCQ_DEVICE
+	const char *text;            /* the SP-1 reads the dream where the firmware keeps it (16 KB of RAM saved) */
+#else
 	char     text[SCQ_MAX_TEXT];
+#endif
 	int      len;
 	scene    sc[SCQ_MAX_SCENES];
 	int      nsc;
@@ -253,6 +265,7 @@ static int find_node(const char *w, int n)
 static void *pool_take(uint32_t bytes)
 {
 	bytes = (bytes + 3u) & ~3u;
+	G.wanted += bytes;
 	if (G.used + bytes > POOL_BYTES) return 0;
 	uint32_t *p = &G.pool[G.used / 4];
 	for (uint32_t i = 0; i < bytes / 4; i++) p[i] = 0;
@@ -446,10 +459,13 @@ static int opt_set(node *n, const tok *name, const tok *val)
 	return -1;
 }
 
+/* where an outlet a place doesn't have points: written, never read */
+static float SPARE[B];
+
 static int make_node(int p, const char *name, int nl, float nature)
 {
 	const place *pl = &SCQ_PLACES[p];
-	if (G.nn >= MAX_NODES) { say('E', "the dream is too crowded (", 0, 0, "64 places at most)"); return -1; }
+	if (G.nn >= MAX_NODES) { say('E', "the dream is too crowded (", 0, 0, "96 places at most)"); return -1; }
 	if (nl >= NAME_LEN) nl = NAME_LEN - 1;
 	node *n = &G.n[G.nn];
 	uint8_t *raw = (uint8_t *)n;
@@ -477,6 +493,12 @@ static int make_node(int p, const char *name, int nl, float nature)
 		const char *w = d;
 		while (*d && *d != ' ') d++;
 		n->def[k] = parse_num(w, (int)(d - w));
+	}
+	for (int o = 0; o < MAX_OUT; o++) n->out[o] = SPARE;
+	for (int o = 0; o < n->nout; o++) {          /* a block for each outlet it has */
+		float *b = (float *)pool_take(B * sizeof(float));
+		if (!b) { say('E', "the house is full: no room for ", name, nl, ""); return -1; }
+		n->out[o] = b;
 	}
 	if (pl->mem) {
 		uint32_t bytes = pl->mem(n->nature);
@@ -543,7 +565,7 @@ static int resolve(const tok *t, int role, endpoint *e)
 
 static void add_cord(const endpoint *a, const endpoint *b, int kind, float amt, float amt2, int has_amt)
 {
-	if (G.nc >= MAX_CORDS) { say('E', "too many passages (", 0, 0, "224 at most)"); return; }
+	if (G.nc >= MAX_CORDS) { say('E', "too many passages (", 0, 0, "320 at most)"); return; }
 	cord *c = &G.c[G.nc++];
 	c->src = (int8_t)(a->is_bottle ? -1 : a->node);
 	c->sport = (uint8_t)(a->is_bottle ? 0 : a->port);
@@ -807,11 +829,11 @@ static void compile_range(int a, int b, int line0)
  * place at a lower samplerate. Every figure is in scq_costs.h, fitted by tools/calibrate.py
  * from whole patches measured on SP-1s (tools/sp1fleet.py). */
 enum { CT_FIXED, CT_MIXED, CT_HALL, CT_FOG, CT_WATER, CT_DOOR, CT_RANGE, CT_BOTTLE, CT_MAYBE,
-       CT_ATT, CT_KNOB, CT_TUNE, CT_FILL, CT_SLOW, CT_SLOW_IN, CT_SLOW_OUT, CT_N };
+       CT_SHAPE, CT_FILL, CT_SLOW, CT_SLOW_IN, CT_SLOW_OUT, CT_N };
 static const float COST_TERM[CT_N] = {
 	SCQ_COST_FIXED, SCQ_COST_MIXED, SCQ_COST_HALL, SCQ_COST_FOG, SCQ_COST_WATER, SCQ_COST_DOOR,
-	SCQ_COST_RANGE, SCQ_COST_BOTTLE, SCQ_COST_MAYBE, SCQ_COST_ATT, SCQ_COST_KNOB, SCQ_COST_TUNE,
-	SCQ_COST_FILL, SCQ_COST_SLOW_FIXED, SCQ_COST_SLOW_INLET, SCQ_COST_SLOW_OUTLET };
+	SCQ_COST_RANGE, SCQ_COST_BOTTLE, SCQ_COST_MAYBE, SCQ_COST_SHAPE, SCQ_COST_FILL,
+	SCQ_COST_SLOW_FIXED, SCQ_COST_SLOW_INLET, SCQ_COST_SLOW_OUTLET };
 
 static float place_cycles(int type)
 {
@@ -826,8 +848,11 @@ static float place_cycles(int type)
 	return (float)known[type];
 }
 
+static inline int steady(const float *p);
+
 /* how much of each kind of work the compiled scene has: t[CT_N], and per place w[type] (how many
- * of it run, a slow one counting 1/divisor); either may be 0 */
+ * of it run, a slow one counting 1/divisor); either may be 0. It follows gather(), mix() and
+ * run_slow() pass for pass: a pass over a slow place's short block counts 1/divisor. */
 static void cost_count(float *t, float *w)
 {
 	static int frogs = -2;
@@ -842,24 +867,32 @@ static void cost_count(float *t, float *w)
 			runs *= scq_clamp(n->nature, 1.f, 8.f) / 3.f;
 		if (w) w[n->type] += runs;
 		if (!t) continue;
-		int live = 0;                         /* inlets that carry something (not the shared zeros) */
+		uint16_t full = 0;                    /* inlets summed on every sample: a cord there remembers */
+		if (n->rdiv > 1)
+			for (int c = G.cstart[k]; c < G.cstart[k + 1]; c++)
+				if (!G.c[c].direct && (G.c[c].kind == K_FOG || G.c[c].kind == K_WATER || G.c[c].kind == K_MAYBE))
+					full |= (uint16_t)(1u << G.c[c].dport);
+		for (int c = G.cstart[k]; c < G.cstart[k + 1]; c++)
+			if (!G.c[c].direct) t[CT_HALL + G.c[c].kind] += (full & (1u << G.c[c].dport)) ? 1.f : inv;
 		for (int p = 0; p < n->nin; p++) {
 			const uint16_t bit = (uint16_t)(1u << p);
-			if (n->mixed & bit) { t[CT_MIXED] += 1.f; live++; }
-			else if (n->direct[p]) live++;
-			else if (n->def[p] != 0.f) { t[CT_FILL] += 1.f; live++; }
-			if (n->attset & n->patched & bit) t[CT_ATT] += 1.f;
-			if (n->knobset & n->patched & bit) t[CT_KNOB] += 1.f;
+			const int shaped = ((n->attset | n->knobset) & n->patched & bit) || (p == n->pitchin && n->tune != 0.f);
+			if (n->mixed & bit) {
+				t[CT_MIXED] += (full & bit) ? 1.f : inv;
+				if (shaped) t[CT_SHAPE] += inv;
+				else if (full & bit) t[CT_SLOW_IN] += inv;           /* every step-th sample of the sum */
+			} else if (n->direct[p] && !steady(n->direct[p])) {
+				if (shaped) t[CT_SHAPE] += inv;
+				else if (n->rdiv > n->dshort[p]) t[CT_SLOW_IN] += inv;   /* every step-th sample of the wire */
+			} else if (shaped || (!n->direct[p] && n->def[p] != 0.f)) {
+				t[CT_FILL] += inv;                                   /* a constant written out */
+			}
 		}
-		if (n->pitchin >= 0 && n->tune != 0.f) t[CT_TUNE] += 1.f;
 		if (n->rdiv > 1) {
 			t[CT_SLOW] += 1.f;
-			t[CT_SLOW_IN] += (float)live * inv;      /* the decimate: a shorter block per inlet */
-			t[CT_SLOW_OUT] += (float)n->nout;        /* the hold: a whole block per outlet */
+			for (int o = 0; o < n->nout; o++) if (n->held & (1u << o)) t[CT_SLOW_OUT] += 1.f;   /* the hold */
 		}
 	}
-	if (t) for (int k = 0; k < G.nc; k++)
-		if (!G.c[k].direct) t[CT_HALL + G.c[k].kind] += 1.f;        /* a plain wire costs nothing */
 }
 
 static float cost_estimate(void)
@@ -964,7 +997,7 @@ static void read_tunings(void)
 
 static void compile_scene(int idx, int report)
 {
-	G.nn = 0; G.nc = 0; G.used = 0; G.drift = 0.f; G.nk = 0;
+	G.nn = 0; G.nc = 0; G.used = 0; G.wanted = 0; G.drift = 0.f; G.nk = 0;
 	G.quiet = !(report & 1);            /* the prelude is reported once */
 	read_tunings();
 	compile_range(0, G.pre_end, 1);
@@ -1013,6 +1046,29 @@ static void compile_scene(int idx, int report)
 			} else {
 				n->mixed |= (uint16_t)(1u << p);
 			}
+		}
+	}
+	/* A place at a lower samplerate makes a short block (B / its divisor). An outlet is held out
+	 * to the full block only if someone needs it so: a place running faster than it, or a cord
+	 * that remembers (fog, water, maybe: those listen to every sample), or any cord into an
+	 * inlet that has one. Everyone else reads the short block as it is: a slow place feeding a
+	 * place at its own rate costs nothing between them. */
+	{
+		uint16_t remembers[MAX_NODES] = { 0 };
+		for (int k = 0; k < G.nc; k++)
+			if (G.c[k].kind == K_FOG || G.c[k].kind == K_WATER || G.c[k].kind == K_MAYBE)
+				remembers[G.c[k].dst] |= (uint16_t)(1u << G.c[k].dport);
+		for (int k = 0; k < G.nn; k++) { G.n[k].held = 0; for (int p = 0; p < MAX_IN; p++) G.n[k].dshort[p] = 1; }
+		for (int k = 0; k < G.nc; k++) {
+			const cord *c = &G.c[k];
+			if (c->src < 0 || G.n[c->src].rdiv <= 1) continue;
+			if (G.n[c->dst].rdiv < G.n[c->src].rdiv || (remembers[c->dst] & (1u << c->dport)))
+				G.n[c->src].held |= (uint8_t)(1u << c->sport);
+		}
+		for (int k = 0; k < G.nc; k++) {
+			const cord *c = &G.c[k];
+			if (c->direct && c->src >= 0 && G.n[c->src].rdiv > 1 && !(G.n[c->src].held & (1u << c->sport)))
+				G.n[c->dst].dshort[c->dport] = G.n[c->src].rdiv;
 		}
 	}
 	uint8_t mark[MAX_NODES] = { 0 };
@@ -1096,8 +1152,12 @@ int scq_load(const char *text, int len, uint32_t nights)
 	if (carrying) carry_save();
 #endif
 	if (len > SCQ_MAX_TEXT - 1) len = SCQ_MAX_TEXT - 1;
+#ifdef SCQ_DEVICE
+	G.text = text;               /* not copied: it must stay as it is while this dream plays (scq.h) */
+#else
 	for (int i = 0; i < len; i++) G.text[i] = text[i];
 	G.text[len] = 0;
+#endif
 	G.len = len;
 	G.nights = nights;
 	G.msgn = 0; G.msg[0] = 0; G.errors = 0;
@@ -1124,7 +1184,7 @@ const char *scq_messages(void) { return G.msg; }
 const char *scq_cost_terms(int scene)
 {
 	static const char *const NAMES[CT_N] = { "fixed", "mixed", "hall", "fog", "water", "door", "range", "bottle",
-		"maybe", "att", "knob", "tune", "fill", "slow", "slow_in", "slow_out" };
+		"maybe", "shape", "fill", "slow", "slow_in", "slow_out" };
 	static char out[4096];
 	static float w[256];
 	float t[CT_N];
@@ -1249,6 +1309,12 @@ void scq_goto_scene(int index)
 	G.pending = ((index % G.nsc) + G.nsc) % G.nsc;
 }
 
+void scq_memory(uint32_t *used, uint32_t *total)
+{
+	if (used) *used = G.wanted > G.used ? G.wanted : G.used;   /* more than there is, if it didn't fit */
+	if (total) *total = (uint32_t)POOL_BYTES;
+}
+
 int scq_scene(void) { return G.cur; }
 int scq_node_count(void) { return G.nn; }
 int scq_scene_count(void) { return G.nsc; }
@@ -1269,101 +1335,159 @@ float scq_probe(int node, int port)
 }
 
 static const float ZEROS[B];
-static void mix(node *n, int k, float scratch[MAX_IN][B]);
 
-static void gather(node *n, int k, const float *in[MAX_IN], float scratch[MAX_IN][B])
+/* Bringing a place its inlets is most of what a big dream costs the SP-1, so each inlet's block
+ * is made in as few passes as it can be, and only as long as the place will read it: a place at
+ * a lower samplerate (step > 1) gets cnt = B / step samples, taken from every step-th one.
+ *   - a lone plain wire, or a constant: the block is read where it lies, nothing is done;
+ *   - several cords, or one with an amount: the first cord writes the sum, the others add to it
+ *     (no clearing first), and at a lower samplerate only the samples that will be read;
+ *   - an attenuverter, a turned knob, the tune knob: one pass for all three.
+ * Fog, water and maybe-cords remember, so they always run on every sample, and a slow place
+ * takes every step-th one of their sum. */
+
+/* a samplerate divisor (1, 2, 4, 8) as a shift */
+static inline int rshift(int d) { return d >= 8 ? 3 : (d >= 4 ? 2 : (d >= 2 ? 1 : 0)); }
+
+/* a block that never changes: the shared zeros, or a constant block (a default, a lone value) */
+static inline int steady(const float *p)
 {
-	for (int p = 0; p < n->nin; p++) {
-		if (n->direct[p]) { in[p] = n->direct[p]; continue; }
-		if (n->mixed & (1u << p)) { LOOP scratch[p][i] = 0.f; in[p] = scratch[p]; continue; }
-		float d = n->def[p];
-		if (d == 0.f) { in[p] = ZEROS; continue; }
-		LOOP scratch[p][i] = d;
-		in[p] = scratch[p];
-	}
-	if (n->mixed) mix(n, k, scratch);
-	for (uint16_t a = n->attset & n->patched; a; a &= (uint16_t)(a - 1)) {   /* attenuverters */
-		int p = 0;
-		while (!(a & (1u << p))) p++;   /* lowest set bit (no compiler builtins: MSVC builds this too) */
-		const float *src = in[p];
-		float g = n->att[p], *dst = scratch[p];
-		LOOP dst[i] = g * src[i];
-		in[p] = dst;
-	}
-	for (uint16_t a = n->knobset & n->patched; a; a &= (uint16_t)(a - 1)) {  /* panel knobs over what's patched */
-		int p = 0;
-		while (!(a & (1u << p))) p++;
-		const float *src = in[p];
-		float o = n->koff[p], *dst = scratch[p];
-		LOOP dst[i] = src[i] + o;
-		in[p] = dst;
-	}
-	if (n->pitchin >= 0 && n->tune != 0.f) {                                 /* the tune knob */
-		int p = n->pitchin;
-		const float *src = in[p];
-		float t = n->tune, *dst = scratch[p];
-		LOOP dst[i] = t + src[i];
-		in[p] = dst;
-	}
+	return p == ZEROS || (uintptr_t)p - (uintptr_t)&G.konst[0][0] < (uintptr_t)sizeof G.konst;
 }
 
-static void mix(node *n, int k, float scratch[MAX_IN][B])
+/* dst[j] = or += what the cord gives at sample j of m, reading every st-th sample of src */
+#define MIXLOOP(expr) do { \
+		if (first) { for (int j = 0; j < m; j++) { const float x = src[j * st]; dst[j] = (expr); } } \
+		else       { for (int j = 0; j < m; j++) { const float x = src[j * st]; dst[j] += (expr); } } \
+	} while (0)
+
+/* sums every mixed inlet of place k into scratch; returns the inlets already at the place's own
+ * rate (cnt samples), the others hold all B and gather() takes every step-th */
+static uint16_t mix(int k, float scratch[MAX_IN][B], int step, int cnt)
 {
-	(void)n;
+	uint16_t seen = 0, full = 0;
+	if (step > 1)                            /* inlets with a cord that remembers: summed on every sample */
+		for (int ci = G.cstart[k]; ci < G.cstart[k + 1]; ci++) {
+			const cord *c = &G.c[ci];
+			if (!c->direct && (c->kind == K_FOG || c->kind == K_WATER || c->kind == K_MAYBE)) full |= (uint16_t)(1u << c->dport);
+		}
 	for (int ci = G.cstart[k]; ci < G.cstart[k + 1]; ci++) {
 		cord *c = &G.c[ci];
 		if (c->direct) continue;
+		const uint16_t bit = (uint16_t)(1u << c->dport);
+		const int first = !(seen & bit);
+		int st = (full & bit) ? 1 : step;
+		const int m = (full & bit) ? B : cnt;
 		float *dst = scratch[c->dport];
-		if (c->kind == K_BOTTLE) { float v = c->a; LOOP dst[i] += v; continue; }
+		seen |= bit;
+		if (c->src >= 0 && G.n[c->src].rdiv > 1 && !(G.n[c->src].held & (1u << c->sport)))
+			st >>= rshift(G.n[c->src].rdiv);     /* a short block: already every rdiv-th sample */
+		if (c->kind == K_BOTTLE) {
+			const float v = c->a;
+			if (first) { for (int j = 0; j < m; j++) dst[j] = v; }
+			else { for (int j = 0; j < m; j++) dst[j] += v; }
+			continue;
+		}
 		const float *src = G.n[c->src].out[c->sport];
 		switch (c->kind) {
-		case K_HALL: { float a = c->a; LOOP dst[i] += src[i] * a; } break;
+		case K_HALL: { const float a = c->a; MIXLOOP(x * a); } break;
 		case K_FOG: {
-			float s = c->s, a = c->a;
-			const float f = 0.18f;               /* ~1.5 kHz: a softening */
-			LOOP { s += f * (src[i] * a - s); dst[i] += s; }
+			float s = c->s;
+			const float a = c->a, f = 0.18f;     /* ~1.5 kHz: a softening */
+			MIXLOOP((s += f * (x * a - s)));
 			c->s = scq_sane(s) ? s : 0.f;         /* what ran away upstream doesn't stay in the fog */
 		} break;
 		case K_WATER: {                         /* a capacitor: slow to fill, slow to drain */
-			float s = c->s, step = (src[B - 1] - s) * c->a, s0 = s;
-			s += step;
-			LOOP dst[i] += s0 + step * (float)(i + 1) * (1.f / (float)B);
+			float s = c->s;
+			const float stp = (src[B - 1] - s) * c->a, s0 = s;
+			s += stp;
+			MIXLOOP(((void)x, s0 + stp * (float)(j + 1) * (1.f / (float)B)));
 			c->s = scq_sane(s) ? s : 0.f;
 		} break;
-		case K_DOOR: LOOP dst[i] += src[i] > 0.f ? src[i] : 0.f; break;
-		case K_RANGE: { float lo = c->a, d = c->b - c->a; LOOP dst[i] += lo + d * src[i]; } break;
+		case K_DOOR: MIXLOOP(x > 0.f ? x : 0.f); break;
+		case K_RANGE: { const float lo = c->a, d = c->b - c->a; MIXLOOP(lo + d * x); } break;
 		case K_MAYBE: {                         /* each rise through zero rolls the dice again */
-			float prev = c->s, open = c->b, chance = c->a;
-			LOOP {
-				float v = src[i];
+			float prev = c->s, open = c->b;
+			const float chance = c->a;
+			if (first) for (int j = 0; j < m; j++) dst[j] = 0.f;
+			for (int j = 0; j < m; j++) {
+				const float v = src[j];
 				if (prev <= 0.f && v > 0.f) open = scq_rand01(&G.rng) < chance ? 1.f : 0.f;
 				prev = v;
-				dst[i] += v * open;
+				dst[j] += v * open;
 			}
 			c->s = prev; c->b = open;
 		} break;
 		}
 	}
+	return (uint16_t)(seen & ~full);
 }
 
-/* a place at a lower samplerate: every rdiv-th sample of its inlets, run on the shorter block,
- * then each outlet sample held for rdiv samples (the zero-order hold of a sample-rate reducer) */
+static void gather(node *n, int k, const float *in[MAX_IN], float scratch[MAX_IN][B])
+{
+	const int step = n->rdiv, cnt = B >> rshift(step);
+	const uint16_t att = n->attset & n->patched, knob = n->knobset & n->patched;
+	const uint16_t atrate = n->mixed ? mix(k, scratch, step, cnt) : 0;
+	for (int p = 0; p < n->nin; p++) {
+		const uint16_t bit = (uint16_t)(1u << p);
+		const float tune = (p == n->pitchin) ? n->tune : 0.f;
+		const int shaped = (att & bit) || (knob & bit) || tune != 0.f;   /* an attenuverter, a knob, the tune knob */
+		const float g = (att & bit) ? n->att[p] : 1.f, o = (knob & bit) ? n->koff[p] : 0.f;
+		const float *src;
+		float *dst = scratch[p];
+		int st = step;
+		if (n->mixed & bit) { src = dst; if (atrate & bit) st = 1; }
+		else if (n->direct[p]) { src = n->direct[p]; st = step >> rshift(n->dshort[p]); }
+		else if (n->def[p] == 0.f) src = ZEROS;
+		else {                                    /* a default that found no constant block */
+			const float v = n->def[p] + tune;
+			for (int j = 0; j < cnt; j++) dst[j] = v;
+			in[p] = dst;
+			continue;
+		}
+		if (!(n->mixed & bit) && steady(src)) {   /* a constant: shaped once, not sample by sample */
+			if (!shaped) { in[p] = src; continue; }
+			const float v = (g * src[0] + o) + tune;
+			for (int j = 0; j < cnt; j++) dst[j] = v;
+			in[p] = dst;
+			continue;
+		}
+		if (!shaped) {
+			if (st == 1) { in[p] = src; continue; }
+			for (int j = 0; j < cnt; j++) dst[j] = src[j * st];           /* every step-th sample */
+		} else if (tune == 0.f && !(knob & bit)) {
+			for (int j = 0; j < cnt; j++) dst[j] = g * src[j * st];
+		} else if (!(att & bit) && tune == 0.f) {
+			for (int j = 0; j < cnt; j++) dst[j] = src[j * st] + o;
+		} else if (!(att & bit) && !(knob & bit)) {
+			for (int j = 0; j < cnt; j++) dst[j] = tune + src[j * st];
+		} else {
+			for (int j = 0; j < cnt; j++) dst[j] = tune + (g * src[j * st] + o);
+		}
+		in[p] = dst;
+	}
+}
+
+/* a place at a lower samplerate: gather() gave it every rdiv-th sample of its inlets; it runs on
+ * the shorter block, then each outlet sample is held for rdiv samples (the zero-order hold of a
+ * sample-rate reducer) */
 static void run_slow(node *n, const float *in[MAX_IN])
 {
-	static float dec[MAX_IN][B];
-	const int d = n->rdiv, nb = B / d;
-	for (int p = 0; p < n->nin; p++) {
-		if (in[p] == ZEROS) continue;
-		const float *src = in[p];
-		for (int j = 0; j < nb; j++) dec[p][j] = src[j * d];
-		in[p] = dec[p];
-	}
+	const int d = n->rdiv, nb = B >> rshift(d);
 	W.nb = nb; W.sr = SR / (float)d; W.isr = (float)d * INV_SR;
 	SCQ_PLACES[n->type].run(n, in);
 	W.nb = B; W.sr = SR; W.isr = INV_SR;
 	for (int o = 0; o < n->nout; o++) {
 		float *b = n->out[o];
-		for (int i = B - 1; i >= 0; i--) b[i] = b[i / d];
+		if (!(n->held & (1u << o))) { b[B - 1] = b[nb - 1]; continue; }   /* kept short; its last sample where the nurse and the editor look */
+		float *q = b + B;                          /* from the end, so nothing is overwritten before it is read */
+		if (d == 2) for (int j = nb - 1; j >= 0; j--) { const float v = b[j]; q -= 2; q[0] = v; q[1] = v; }
+		else if (d == 4) for (int j = nb - 1; j >= 0; j--) { const float v = b[j]; q -= 4; q[0] = v; q[1] = v; q[2] = v; q[3] = v; }
+		else for (int j = nb - 1; j >= 0; j--) {
+			const float v = b[j];
+			q -= 8;
+			q[0] = v; q[1] = v; q[2] = v; q[3] = v; q[4] = v; q[5] = v; q[6] = v; q[7] = v;
+		}
 	}
 }
 
@@ -1425,7 +1549,11 @@ static void run_block(void)
 
 /* the output stage: the soft clip, and silence for a sample that isn't a number (a place that
  * ran away is healed at the end of its block; until then nothing of it reaches the converter) */
-static inline float out_clip(float x) { return x == x ? scq_softclip(x) : 0.f; }
+static inline float out_clip(float x)
+{
+	if (scq_abs(x) <= 1.5f) return x - 0.148148f * x * x * x;    /* nearly always: one test, then scq_softclip's cubic */
+	return x == x ? scq_softclip(x) : 0.f;
+}
 
 void scq_render(float *left, float *right, int frames)
 {
@@ -1560,7 +1688,10 @@ const char *scq_describe(void)
 		sb_f(&s, c->kind == K_RANGE ? c->b * 100.f : 0.f); sb_c(&s, ' ');
 		sb_i(&s, c->line); sb_c(&s, '\n');
 	}
-	sb_s(&s, "M "); sb_i(&s, (int)G.used); sb_c(&s, ' '); sb_i(&s, POOL_BYTES); sb_c(&s, ' ');
+	sb_s(&s, "R "); sb_i(&s, G.nn); sb_c(&s, ' '); sb_i(&s, MAX_NODES); sb_c(&s, ' ');
+	sb_i(&s, G.nc); sb_c(&s, ' '); sb_i(&s, MAX_CORDS); sb_c(&s, ' ');
+	sb_i(&s, G.len); sb_c(&s, ' '); sb_i(&s, SCQ_SLOT_TEXT); sb_c(&s, '\n');
+	sb_s(&s, "M "); sb_i(&s, (int)(G.wanted > G.used ? G.wanted : G.used)); sb_c(&s, ' '); sb_i(&s, POOL_BYTES); sb_c(&s, ' ');
 	sb_f(&s, G.load); sb_c(&s, '\n');
 	return G.desc;
 }

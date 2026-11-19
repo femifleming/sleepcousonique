@@ -1,0 +1,21 @@
+the n0 is slew shape=exp
+the n1 is highpass samplerate=half cutoff=0.46
+the n2 is flipflop
+the n3 is rain att.density=-0.44
+the n4 is tri
+the n5 is onepole 5 samplerate=eighth
+the n6 is shepard 1
+the n7 is attenuverter
+the n8 is fm
+n5 -> n0
+n6 -> n0.rise
+n2.inverse -> n1.res
+n0 -35> n3
+value 20 -> n8
+n6 -> n8.ratio
+n6 -> n8.ratio
+n0 -> n8.index
+n2.inverse -150> n8.feedback
+n0 -> left
+n3 -> out
+n1 -> leds

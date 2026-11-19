@@ -1,0 +1,17 @@
+the n0 is noisesweep samplerate=eighth
+the n1 is tapeecho
+the n2 is white samplerate=half
+the n3 is delay
+the n4 is follower 1 attack=0.408
+the n5 is matrix
+n2 -20> n1
+n1.wet -> n1
+n4.gate -> n1.feedback
+n0 -> n3
+n5 -> n3.time
+n0 ~> n3.feedback
+n0 -> n4
+n3 -> n4.attack
+n0 -> n5.in3
+n1 -> right
+n5 -> left

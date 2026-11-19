@@ -7,11 +7,14 @@
  *             •• + FFWD / RWD  next / previous scene (the rocker never reaches the dream then)
  * USB serial: "SCQ HELLO"  -> "SLEEPCOUSONIQUE <version>"
  *             "SCQ LOAD <bytes> <slot>" + bytes  -> "OK <errors>" / "ERR <why>"
+ *             "SCQ TRY <bytes>" + bytes  -> plays it without keeping it (no slot is written)
  *             "SCQ SLOT <n>"  -> plays slot n
  *             "SCQ MODE IFACE" / "SCQ MODE DREAM" -> interface mode (a USB sound card) or dreams
  *             "SCQ UNIT <n>"  -> this SP-1 is unit n of an array (shown on the LEDs, kept)
  *             "SCQ WHO"       -> "SCQ ME <usb serial> <unit> <IFACE|DREAM>"
  *             "SCQ SHOW"      -> flashes the LEDs (which one is this?)
+ *             "SCQ MEASURE <n>" -> after n rendered blocks: "SCQ MEASURED <avg cycles> <max cycles>
+ *                                <cycles a block has> <blocks> <dropped> <memory used> <memory>"
  *             "SCQ WATCH 1"   -> streams the hands ~30x a second until "SCQ WATCH 0" or the
  *                                port closes:  "SCQ HANDS f1 f2 f3 f4 buttons scene slot leds"
  *                                (faders 0-4095, buttons a bitmask, leds 8 hex bytes)
@@ -47,7 +50,7 @@
 #include <zephyr/drivers/hwinfo.h>
 #endif
 
-#define SCQ_VERSION   "1.2.0"
+#define SCQ_VERSION   "1.4.0"
 #define SLOTS         5
 #define SLOT_BYTES    (16 * 1024)
 #define STATE_OFF     (SLOTS * SLOT_BYTES)       /* 0x14000: one page of state */
@@ -58,12 +61,25 @@ static const struct device *cdc = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
 K_MUTEX_DEFINE(engine_lock);
 
 RING_BUF_DECLARE(rx_ring, 4096);
+/* The dream's text: received here, and (since 1.4) read here by the engine for as long as it
+ * plays, at every scene change (scq_load() no longer copies it: 16 KB of RAM the dream's places
+ * can have). So while the next dream is arriving, byte by byte into this same buffer, no scene is
+ * compiled (sp1_scq_tick): a scene change asked for in that half second waits, in silence, for
+ * the new dream. Everything that reads or writes it runs on the main thread. */
 static char     staging[SCQ_MAX_TEXT];
 static int      slot;              /* the slot that is playing */
 static uint32_t nights;            /* boots so far: drift's seed */
 static bool     link_up;
 static bool     audio_live;        /* ON and the audio thread running: flash writes must pause it */
 static volatile uint32_t eng_sum, eng_n, eng_max, eng_skipped;   /* skipped: over budget, played as silence */   /* engine cycles, from the audio thread */
+/* "SCQ MEASURE n": the engine's cycles over exactly the next n rendered blocks (tools/sp1fleet.py) */
+static volatile uint32_t m_left, m_n, m_max, m_skipped;
+static volatile uint64_t m_sum;
+static volatile bool m_done;
+/* a 64 MHz chip, a 48 kHz codec: 1333 cycles to a frame */
+#define SCQ_CYCLES_PER_FRAME 1333u
+#define ENGINE_SHARE 90      /* % of a block the engine may use on average */
+#define DEBT_LIMIT   60      /* % of the queued block the debt may reach before a block is dropped */
 static uint32_t report_ms;
 static bool     watching;          /* the editor wants the hands, live */
 static uint32_t watch_ms;
@@ -175,6 +191,9 @@ static void iface_leave(void);
 
 static int load_text(const char *text, int len)
 {
+	if (text == staging) {
+		staging[len < (int)sizeof staging ? len : (int)sizeof staging - 1] = 0;
+	}
 	iface_leave();                 /* the dream takes its pool back from the sound card */
 	k_mutex_lock(&engine_lock, K_FOREVER);
 	int errors = scq_load(text, len, nights);
@@ -266,30 +285,57 @@ void sp1_scq_render(float *left, float *right, uint32_t frames)
 		memset(right, 0, frames * sizeof(float));
 		return;
 	}
-	/* Over budget: a dream that takes longer to render than the block lasts starves the
-	 * I2S queue, and the stream errors out and never stays up (heard as near-silence). So
-	 * after a block that used more than 90% of its time, this one is silence: the stream
-	 * keeps running and the overload is heard as dropouts, not as a dead SP-1. */
+	/* Over budget. The I2S queue holds one block beyond the one playing (sp1_audio.c: a block
+	 * that runs long has (queue + 1) x 2 ms before the output runs dry), so one slow block costs
+	 * nothing: only a dream that is slow ON AVERAGE starves the stream, and then it errors out
+	 * and never stays up. So what is kept is the debt: how far the renders have run past their
+	 * share of the processor (ENGINE_SHARE: the rest is the output stage in sp1_audio.c and the
+	 * main loop, which runs below this thread and must still read the hands). A block is played
+	 * as silence, which pays a whole share back, only when the debt, with another block like the
+	 * last one, would use up more than DEBT_LIMIT of the queued block. A dream at 93 % drops one
+	 * block in twenty, not every other one; one that peaks at 110 % now and then drops none.
+	 * (Through 1.2.0 any single block over 90 % silenced the next.) */
 	midi_drain();                            /* even in a skipped block: a note-off must land */
-	static uint32_t last_c;
-	const uint32_t budget = 1333u * frames;
-	if (last_c > budget / 10u * 9u) {
-		last_c = 0u;
+	static int32_t debt, last_over;
+	const int32_t budget = (int32_t)(SCQ_CYCLES_PER_FRAME * frames);
+	const int32_t share = budget / 100 * ENGINE_SHARE;
+	if (debt > 0 && debt + last_over > budget / 100 * DEBT_LIMIT) {
+		debt -= share;
+		if (debt < 0) {
+			debt = 0;                        /* paid: the next block is rendered whatever it costs */
+		}
 		k_mutex_unlock(&engine_lock);
 		memset(left, 0, frames * sizeof(float));
 		memset(right, 0, frames * sizeof(float));
 		eng_skipped++;
+		m_skipped++;
 		return;
 	}
 	const uint32_t c0 = DWT->CYCCNT;
 	scq_render(left, right, (int)frames);
 	const uint32_t c = DWT->CYCCNT - c0;
-	last_c = c;
 	k_mutex_unlock(&engine_lock);
+	last_over = (int32_t)c > share ? (int32_t)c - share : 0;
+	debt += (int32_t)c - share;
+	if (debt < 0) {
+		debt = 0;
+	} else if (debt > 4 * budget) {
+		debt = 4 * budget;                   /* a stall (a flash write) is not a debt to pay off */
+	}
 	eng_sum += c;
 	eng_n++;
 	if (c > eng_max) {
 		eng_max = c;
+	}
+	if (m_left) {                            /* SCQ MEASURE: an exact window, for calibration */
+		m_sum += c;
+		m_n++;
+		if (c > m_max) {
+			m_max = c;
+		}
+		if (--m_left == 0u) {
+			m_done = true;
+		}
 	}
 }
 
@@ -409,6 +455,17 @@ static void handle_line(void)
 			got = 0;
 			want_slot = (s >= 0 && s < SLOTS) ? (int)s : slot;
 		}
+	} else if (strncmp(line, "SCQ TRY ", 8) == 0) {
+		/* play it without keeping it: no slot is written (and the audio isn't paused for the
+		 * write). "SCQ SLOT n" or switching off brings the kept dream back. */
+		long n = strtol(line + 8, NULL, 10);
+		if (n <= 0 || n >= (long)sizeof staging) {
+			reply("ERR too big\n");
+		} else {
+			want = (int)n;
+			got = 0;
+			want_slot = -1;
+		}
 	} else if (strncmp(line, "SCQ WATCH ", 10) == 0) {
 		watching = line[10] == '1';
 		watch_ms = 0u;
@@ -434,6 +491,11 @@ static void handle_line(void)
 		snprintf(out, sizeof out, "SCQ ME %s %u %s\n", sn[0] ? sn : "-", (unsigned)unit,
 			 iface_mode ? "IFACE" : "DREAM");
 		reply(out);
+	} else if (strncmp(line, "SCQ MEASURE", 11) == 0) {
+		long blocks = strtol(line + 11, NULL, 10);
+		m_left = 0u;
+		m_sum = 0u; m_n = 0u; m_max = 0u; m_skipped = 0u; m_done = false;
+		m_left = (uint32_t)(blocks > 0 && blocks <= 100000 ? blocks : 1000);
 	} else if (strncmp(line, "SCQ SLOT ", 9) == 0) {
 		play_slot(atoi(line + 9) - 1);
 		state_save();
@@ -457,7 +519,9 @@ static void serial_poll(void)
 			}
 			want = -1;
 			int e = load_text(staging, got);
-			if (e == 0) {
+			if (e == 0 && want_slot < 0) {
+				reply("OK 0\n");                    /* SCQ TRY: played, not kept */
+			} else if (e == 0) {
 				/* the playing dream is the new one; keep it */
 				slot = want_slot;
 				audio_pause();                       /* one pause for both writes */
@@ -573,28 +637,50 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 		}
 	}
 
+	if (m_done) {
+		/* cycles per block: average and worst, the block's budget, blocks rendered and dropped */
+		char out[96];
+		m_done = false;
+		uint32_t used = 0u, total = 0u;
+		scq_memory(&used, &total);
+		snprintf(out, sizeof out, "SCQ MEASURED %u %u %u %u %u %u %u\n",
+			 (unsigned)(m_n ? m_sum / m_n : 0u), (unsigned)m_max,
+			 (unsigned)(SCQ_CYCLES_PER_FRAME * (uint32_t)CONFIG_SP1_AUDIO_BLOCK_FRAMES),
+			 (unsigned)m_n, (unsigned)m_skipped, (unsigned)used, (unsigned)total);
+		reply(out);
+	}
+
 	if ((report_ms += elapsed_ms) >= 5000u) {
 		report_ms = 0u;
 		const uint32_t n = eng_n, sum = eng_sum, mx = eng_max;
 		eng_n = 0u; eng_sum = 0u; eng_max = 0u;
 		/* the audio block is SP1 audio frames at 64 MHz: 1333 cycles per frame */
-		const uint32_t budget = 1333u * (uint32_t)CONFIG_SP1_AUDIO_BLOCK_FRAMES;
+		const uint32_t budget = SCQ_CYCLES_PER_FRAME * (uint32_t)CONFIG_SP1_AUDIO_BLOCK_FRAMES;
 		const uint32_t skipped = eng_skipped;
 		eng_skipped = 0u;
 #if defined(CONFIG_SP1_SCQ_IFACE)
 		if (iface_mode) {
 			struct sp1_iface_stats is;
 			sp1_iface_stats(&is);
-			printk("SCQ iface unit=%u %s packets=%u fill=%u under=%u over=%u follow=%dppm\n",
+			printk("SCQ iface unit=%u %s packets=%u fill=%u under=%u over=%u follow=%dppm resync=%u\n",
 			       (unsigned)unit, is.streaming ? "streaming" : "idle", (unsigned)is.packets,
-			       (unsigned)is.fill, (unsigned)is.under, (unsigned)is.over, (int)is.ratio_ppm);
+			       (unsigned)is.fill, (unsigned)is.under, (unsigned)is.over, (int)is.ratio_ppm,
+			       (unsigned)is.resync);
 		}
 #endif
-		printk("SCQ engine avg=%u%% max=%u%%  places=%d scene=%d slot=%d%s\n",
-		       n ? (unsigned)((uint64_t)sum * 100u / ((uint64_t)n * budget)) : 0u,
-		       (unsigned)((uint64_t)mx * 100u / budget),
-		       scq_node_count(), scq_scene() + 1, slot + 1,
-		       skipped ? "  OVER BUDGET: blocks dropped" : "");
+		{
+			/* avg= and max= stay whole numbers first (editors before 1.4 read them so); the
+			 * tenths, the dropped blocks and the memory follow */
+			uint32_t used = 0u, total = 0u;
+			scq_memory(&used, &total);
+			const unsigned a10 = n ? (unsigned)((uint64_t)sum * 1000u / ((uint64_t)n * budget)) : 0u;
+			const unsigned m10 = (unsigned)((uint64_t)mx * 1000u / budget);
+			printk("SCQ engine avg=%u%% max=%u%%  places=%d scene=%d slot=%d  load=%u.%u peak=%u.%u dropped=%u of %u mem=%u/%u%s\n",
+			       a10 / 10u, m10 / 10u, scq_node_count(), scq_scene() + 1, slot + 1,
+			       a10 / 10u, a10 % 10u, m10 / 10u, m10 % 10u, (unsigned)skipped, (unsigned)(n + skipped),
+			       (unsigned)used, (unsigned)total,
+			       skipped ? "  OVER BUDGET: blocks dropped" : "");
+		}
 		if (skipped) {
 			printk("SCQ over budget: %u blocks played as silence in 5 s; the dream is too heavy\n", (unsigned)skipped);
 		}
@@ -671,7 +757,9 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 		return;
 	}
 	k_mutex_lock(&engine_lock, K_FOREVER);
-	scq_service();
+	if (want < 0) {                 /* not while a dream is arriving: its text is half written */
+		scq_service();
+	}
 	k_mutex_unlock(&engine_lock);
 }
 

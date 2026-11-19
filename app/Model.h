@@ -74,6 +74,11 @@ public:
     std::vector<Message> messages;
     int scene = 0;
     int poolUsed = 0, poolTotal = 1;
+    // the SP-1's other limits, and how near the playing scene is to each (the engine's R line)
+    int places = 0, placesMost = 96, cordsIn = 0, cordsMost = 320, textBytes = 0, textMost = 16376;
+    // the tightest of them all, 1 = full: the pool, the places, the cords, or the text a slot keeps;
+    // `what` says which one and how much ("memory 43 of 121 KB", "places 70 of 96" ...)
+    float room (juce::String* what = nullptr) const;
     float load = 0;
     int errors = 0;
 
@@ -106,6 +111,8 @@ public:
     void setCordAmount (int cordIndex, float amount, float amount2 = 0);
     void setCordKind (int cordIndex, Kind);
     juce::String copyNodes (const std::vector<int>& ids) const;   // their lines, as text
+    // pasted lines with every name that's already taken here changed (the place a name is never changes)
+    juce::StringArray renamedForPaste (const juce::StringArray& pasted, juce::StringArray& newNames) const;
 
     // scenes in the text
     struct Span { int header = -1, first = 0, last = 0; };    // 0-based line indices, inclusive body

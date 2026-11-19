@@ -1,0 +1,11 @@
+the ck is clock
+the sn is sine 2
+the x1 is tube
+the x2 is tube
+the x3 is tube
+x1 -> out
+x2 -> out
+x3 -> out
+sn -> x1.in
+sn -> x2.in
+sn -> x3.in

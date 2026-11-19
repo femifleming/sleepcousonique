@@ -1,0 +1,26 @@
+the ck is clock
+the sn is sine 2
+the x1 is dusg
+the x2 is dusg
+the x3 is dusg
+the x4 is dusg
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+sn -> x1.in1
+ck.eighth -> x1.trig1
+sn -> x1.in2
+ck.eighth -> x1.trig2
+sn -> x2.in1
+ck.eighth -> x2.trig1
+sn -> x2.in2
+ck.eighth -> x2.trig2
+sn -> x3.in1
+ck.eighth -> x3.trig1
+sn -> x3.in2
+ck.eighth -> x3.trig2
+sn -> x4.in1
+ck.eighth -> x4.trig1
+sn -> x4.in2
+ck.eighth -> x4.trig2

@@ -1,0 +1,14 @@
+the n0 is phasor
+the n1 is bell
+the n2 is tube drive=0.414
+the n3 is samplehold samplerate=eighth
+the n4 is diffuser
+n1 -150> n1.pitch
+n4 -> n2
+value 40 -> n2.bias
+n0 -20> n3.clock
+n3 -> n4
+n3.track -75> n4.amount
+n2 -> left
+n4 -> left
+n1 -> leds

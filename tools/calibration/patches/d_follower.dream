@@ -1,0 +1,26 @@
+the ck is clock
+the sn is sine 2
+the x1 is follower
+the x2 is follower
+the x3 is follower
+the x4 is follower
+the x5 is follower
+the x6 is follower
+the x7 is follower
+the x8 is follower
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+x8 -> out
+sn -> x1.in
+sn -> x2.in
+sn -> x3.in
+sn -> x4.in
+sn -> x5.in
+sn -> x6.in
+sn -> x7.in
+sn -> x8.in

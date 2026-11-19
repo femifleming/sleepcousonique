@@ -1,0 +1,66 @@
+the ck is clock
+the sn is sine 2
+the x1 is switch
+the x2 is switch
+the x3 is switch
+the x4 is switch
+the x5 is switch
+the x6 is switch
+the x7 is switch
+the x8 is switch
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+x8 -> out
+sn -> x1.in1
+sn -> x1.in2
+sn -> x1.in3
+sn -> x1.in4
+ck.eighth -> x1.next
+ck.eighth -> x1.reset
+sn -> x2.in1
+sn -> x2.in2
+sn -> x2.in3
+sn -> x2.in4
+ck.eighth -> x2.next
+ck.eighth -> x2.reset
+sn -> x3.in1
+sn -> x3.in2
+sn -> x3.in3
+sn -> x3.in4
+ck.eighth -> x3.next
+ck.eighth -> x3.reset
+sn -> x4.in1
+sn -> x4.in2
+sn -> x4.in3
+sn -> x4.in4
+ck.eighth -> x4.next
+ck.eighth -> x4.reset
+sn -> x5.in1
+sn -> x5.in2
+sn -> x5.in3
+sn -> x5.in4
+ck.eighth -> x5.next
+ck.eighth -> x5.reset
+sn -> x6.in1
+sn -> x6.in2
+sn -> x6.in3
+sn -> x6.in4
+ck.eighth -> x6.next
+ck.eighth -> x6.reset
+sn -> x7.in1
+sn -> x7.in2
+sn -> x7.in3
+sn -> x7.in4
+ck.eighth -> x7.next
+ck.eighth -> x7.reset
+sn -> x8.in1
+sn -> x8.in2
+sn -> x8.in3
+sn -> x8.in4
+ck.eighth -> x8.next
+ck.eighth -> x8.reset

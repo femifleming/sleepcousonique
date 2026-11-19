@@ -1,0 +1,16 @@
+the n0 is hihat tune=-0.77
+the n1 is dualprocessor
+the n2 is vca response=exp samplerate=half
+the n3 is granular density=0.19
+the n4 is marimba 6 tune=-0.62 samplerate=eighth
+value 20 -> n0.decay
+n2 -> n0.pitch
+n4 -> n1
+value 60 -> n1
+n2 -> n3
+n1.out2 >| n4
+n4 -> n4.pitch
+n4 -> left
+n3 -> left
+n1 -> left
+n1 -> leds

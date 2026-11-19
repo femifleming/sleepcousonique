@@ -1,0 +1,32 @@
+the ck is clock
+the sn is sine 2
+the x1 is drummap
+the x2 is drummap
+the x3 is drummap
+the x4 is drummap
+the x5 is drummap
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+ck.eighth -> x1.clock
+sn -> x1.x
+sn -> x1.y
+ck.eighth -> x1.reset
+ck.eighth -> x2.clock
+sn -> x2.x
+sn -> x2.y
+ck.eighth -> x2.reset
+ck.eighth -> x3.clock
+sn -> x3.x
+sn -> x3.y
+ck.eighth -> x3.reset
+ck.eighth -> x4.clock
+sn -> x4.x
+sn -> x4.y
+ck.eighth -> x4.reset
+ck.eighth -> x5.clock
+sn -> x5.x
+sn -> x5.y
+ck.eighth -> x5.reset

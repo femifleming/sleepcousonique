@@ -342,7 +342,7 @@ chance of landing on a random one instead.
 
 ## The SP-1's limits
 
-The editor shows **load** (how much of the SP-1's processor the dream needs) and **memory**
-(its 80 KB of room for delays, grains and so on). Keep both under 100%, and what you hear on
-the computer is what the SP-1 plays. Every dream can have up to 64 places, 224 passages and
-16 scenes.
+The editor shows **load** (how much of the SP-1's processor the dream needs) and **room**
+(whichever of its other limits the scene is nearest: its 124 KB of memory for delays, grains and
+each place's sound, 96 places, 320 passages, or the 16 KB of text a slot keeps). Keep both under
+100%, and what you hear on the computer is what the SP-1 plays. A dream can have up to 16 scenes.

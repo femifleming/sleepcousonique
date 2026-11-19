@@ -1,0 +1,24 @@
+the n0 is quadvca
+the n1 is froglet 4
+the n2 is lpg mode=vca level=1.187
+the n3 is phasedist 1
+the n4 is highpass samplerate=quarter
+the n5 is euclid
+n4 -> n0.in2
+n3 ~> n0.in2
+n4 -> n0.cv1
+n3 -> n0.cv1
+n5 -> n0.cv4
+n0.out4 -> n1
+n3 => n1.pitch
+n3 ?> n2.level
+n1 -> n3
+rocker -35> n3.amount
+n2 ~> n3.resonant
+n4 ?> n4.cutoff
+n2 -150> n4.res
+n4 -> n5.hits
+n2 -> n5.hits
+n2 -> out
+n4 -> right
+n4 -> leds

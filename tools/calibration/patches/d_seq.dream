@@ -1,0 +1,27 @@
+the ck is clock
+the sn is sine 2
+the x1 is seq
+the x2 is seq
+the x3 is seq
+the x4 is seq
+the x5 is seq
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+ck.eighth -> x1.next
+ck.eighth -> x1.back
+ck.eighth -> x1.reset
+ck.eighth -> x2.next
+ck.eighth -> x2.back
+ck.eighth -> x2.reset
+ck.eighth -> x3.next
+ck.eighth -> x3.back
+ck.eighth -> x3.reset
+ck.eighth -> x4.next
+ck.eighth -> x4.back
+ck.eighth -> x4.reset
+ck.eighth -> x5.next
+ck.eighth -> x5.back
+ck.eighth -> x5.reset

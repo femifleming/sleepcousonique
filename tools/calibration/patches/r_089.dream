@@ -1,0 +1,22 @@
+the n0 is phasor
+the n1 is attenuverter
+the n2 is rain density=0.359
+the n3 is adsr
+the n4 is spring
+the n5 is ringmod tune=1.58 samplerate=quarter att.in=0.72
+n5 -> n0
+n1 -> n0
+n4 >| n0.reset
+n3 ?> n1.amount
+n1 -> n3
+n5 -> n3.attack
+n3 => n3.decay
+n2 -> n3.release
+n0.wrap -> n4
+n2 -> n4.decay
+n2 -150> n5
+n1 -> n5.mod
+n5 -> out
+n0 -> out
+n3 -> left
+n4 -> left

@@ -1,0 +1,42 @@
+the ck is clock
+the sn is sine 2
+the x1 is dualprocessor
+the x2 is dualprocessor
+the x3 is dualprocessor
+the x4 is dualprocessor
+the x5 is dualprocessor
+the x6 is dualprocessor
+the x7 is dualprocessor
+the x8 is dualprocessor
+the x9 is dualprocessor
+the x10 is dualprocessor
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+x8 -> out
+x9 -> out
+x10 -> out
+sn -> x1.in1
+sn -> x1.in2
+sn -> x2.in1
+sn -> x2.in2
+sn -> x3.in1
+sn -> x3.in2
+sn -> x4.in1
+sn -> x4.in2
+sn -> x5.in1
+sn -> x5.in2
+sn -> x6.in1
+sn -> x6.in2
+sn -> x7.in1
+sn -> x7.in2
+sn -> x8.in1
+sn -> x8.in2
+sn -> x9.in1
+sn -> x9.in2
+sn -> x10.in1
+sn -> x10.in2

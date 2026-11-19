@@ -1,0 +1,8 @@
+the ck is clock
+the sn is sine 2
+the x1 is vco
+the x2 is vco
+x1 -> out
+x2 -> out
+ck.eighth -> x1.sync
+ck.eighth -> x2.sync

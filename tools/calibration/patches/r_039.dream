@@ -1,0 +1,18 @@
+the n0 is minmax
+the n1 is granular samplerate=quarter
+the n2 is steprandom
+the n3 is slope rise=0.461
+the n4 is ringmod
+n2 => n0
+n2 ?> n1
+n0 -> n1.density
+n1 -> n2
+n1 -> n3.trig
+n1 -> n3.rise
+value 10 -> n4
+n2.pulse -35> n4.pitch
+n0 -> left
+n2 -> left
+n1 -> out
+n3 -> out
+n4 -> leds

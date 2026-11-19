@@ -1,0 +1,28 @@
+the n0 is seq
+the n1 is trigger
+the n2 is comparator
+the n3 is vcmix samplerate=quarter
+the n4 is granular
+the n5 is folder samplerate=half
+the n6 is follow
+the n7 is follower
+the n8 is pulser 3 samplerate=quarter
+the n9 is dcblock 1
+n2 -> n0
+fader4 -> n0.reset
+n3 -> n1
+value 60 -> n2.ref
+value 20 -> n3.in2
+n7 -> n3.in4
+n4 -> n3.level1
+n7 -> n4
+n3 -> n4.density
+n1 => n5
+n2.inverse >| n7
+n7 -50> n7.release
+n6 -> n8
+n5 -> n8.trig
+n9 -> left
+n3 -> left
+n6 -> out
+n5 -> leds

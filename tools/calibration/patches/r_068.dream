@@ -1,0 +1,22 @@
+the n0 is phasedist resonant=0.32
+the n1 is trigger
+the n2 is ringmod 3
+the n3 is vcmix level3=1.108
+the n4 is tube bias=0.449
+n3 -> n0.amount
+n0 -> n0.resonant
+fader2 -> n2.pitch
+n0 -> n3.in2
+n2 -150> n3.in3
+n2 ?> n3.level1
+n1 -75> n3.level1
+play ~> n3.level2
+n4 -> n3.level2
+n2 -> n3.level3
+n3 ?> n3.level3
+fader3 -> n3.level4
+n2 => n4
+n2 => n4.drive
+n1 -150> n4.bias
+n1 -> left
+n2 -> out

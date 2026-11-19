@@ -1,0 +1,29 @@
+the n0 is ar curve=exp
+the n1 is stepseq 6 dir=pingpong samplerate=quarter
+the n2 is reverblite 1
+the n3 is kick att.punch=-0.95
+the n4 is randomwalk samplerate=eighth
+the n5 is svf
+the n6 is ar samplerate=quarter attack=0.397
+the n7 is delay
+n5.high -> n0.attack
+n5 -> n1
+n7 => n1.s1
+n3 -> n1.s2
+n3 -> n1.s5
+rocker -35> n1.s6
+n7 -> n1.s6
+n7 -> n1.s8
+n4 -> n2.size
+n0 -> n3
+fader2 -> n3.pitch
+n6 -> n3.punch
+n4 ?> n3.decay
+n1.gate -> n5.cutoff
+fader4 ~> n6.attack
+n3 -> n6.release
+n4 ~> n7
+n3 -> n7.time
+n6 -> n7.feedback
+n2 -> right
+n3 -> left

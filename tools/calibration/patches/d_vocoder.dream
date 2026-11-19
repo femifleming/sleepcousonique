@@ -1,0 +1,6 @@
+the ck is clock
+the sn is sine 2
+the x1 is vocoder
+x1 -> out
+sn -> x1.carrier
+sn -> x1.modulator

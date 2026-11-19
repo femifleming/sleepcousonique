@@ -1,0 +1,22 @@
+the ck is clock
+the sn is sine 2
+the x1 is duallpg
+the x2 is duallpg
+the x3 is duallpg
+the x4 is duallpg
+the x5 is duallpg
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+sn -> x1.in1
+sn -> x1.in2
+sn -> x2.in1
+sn -> x2.in2
+sn -> x3.in1
+sn -> x3.in2
+sn -> x4.in1
+sn -> x4.in2
+sn -> x5.in1
+sn -> x5.in2

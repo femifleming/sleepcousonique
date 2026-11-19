@@ -1,0 +1,17 @@
+the ck is clock
+the sn is sine 2
+the x1 is kick
+the x2 is kick
+the x3 is kick
+the x4 is kick
+the x5 is kick
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+ck.eighth -> x1.strike
+ck.eighth -> x2.strike
+ck.eighth -> x3.strike
+ck.eighth -> x4.strike
+ck.eighth -> x5.strike

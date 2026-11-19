@@ -12,12 +12,11 @@ its faders, track buttons, rocker and LEDs do whatever your dream says.
 |---|---|---|---|
 | ![](docs/themes/faltung-dark.png) | ![](docs/themes/faltung-light.png) | ![](docs/themes/modular.png) | ![](docs/themes/journal-dark.png) |
 
-**New in 1.3.0:** the room: `crowd` and `visitors` hear the Bluetooth devices near the computer
-(how many, how strong, each one coming and going), so a dream changes with whoever is in the
-room. **Fixed:** a fader through an attenuverter turned all the way up could silence a place
-until the editor was restarted (the bell and the marimba); nothing you can patch stops a place
-for good any more, and the reverbs no longer drift after three hours. (The SP-1 firmware is still
-1.2.0's: the fix reaches the SP-1 itself with its next firmware.)
+**New in 1.4.0:** room for bigger patches. The SP-1 plays the same dreams with about a third less of
+its processor (the dance scenes measured 91–95 % on 1.2, 51–66 % now, the same sound to the bit),
+with 124 KB of memory, 96 places and 320 passages; the load meter is refitted to 390 patches measured
+on SP-1s, and ROOM shows whichever limit you are nearest. The firmware has 1.3.0's bell and marimba
+fix. (1.3.0 added `crowd` and `visitors`, which hear the Bluetooth devices in the room.)
 
 Write a patch as a dated journal entry, or build it on the tapestry of boards and cords;
 every visual edit is a text edit, and every text edit redraws the tapestry. Hear it at once
@@ -45,7 +44,7 @@ fader1 -> hall.feedback
 - **snapshots and a timeline** (after openprocess): keep what's sounding, cut or glide between snapshots, sequence them.
 - **cables**: fat braided audio, thin CV; hanging or routed around the boards like Max, opacity, slack, room light with glow.
 - **the room**: `crowd` and `visitors` hear the Bluetooth devices near the computer (how many, how strong, each one coming and going), so a dream changes with whoever is in the room.
-- **an honest load meter**: every module measured on an SP-1, so what the editor says is what the SP-1 does.
+- **an honest load meter**: fitted to hundreds of patches measured on SP-1s (`tools/sp1fleet.py`, `tools/calibrate.py`), so what the editor says is what the SP-1 does.
 - **looks**: the original journal (default) or openprocess, each light or dark, or following the computer.
 
 Inspired by the dream journal at femishonuga.com, Peter Blasser's **Nabra** (knobless; cords

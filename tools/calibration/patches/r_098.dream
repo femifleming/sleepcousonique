@@ -1,0 +1,14 @@
+the n0 is flanger depth=0.591
+the n1 is vca samplerate=half
+the n2 is trigdelay samplerate=half
+the n3 is pingpong feedback=0.023
+the n4 is supersawlite att.pitch=-1.83
+play -> n2
+play => n3
+n4 ?> n4
+n1 -> n4
+n2 -> n4.detune
+n4 -> out
+n0 -> right
+n2 -> left
+n1 -> right

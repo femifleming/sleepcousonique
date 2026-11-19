@@ -1,0 +1,26 @@
+the ck is clock
+the sn is sine 2
+the x1 is compressor
+the x2 is compressor
+the x3 is compressor
+the x4 is compressor
+the x5 is compressor
+the x6 is compressor
+the x7 is compressor
+the x8 is compressor
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+x8 -> out
+sn -> x1.in
+sn -> x2.in
+sn -> x3.in
+sn -> x4.in
+sn -> x5.in
+sn -> x6.in
+sn -> x7.in
+sn -> x8.in

@@ -1,0 +1,21 @@
+the n0 is logistic 1
+the n1 is crossfade 1 samplerate=quarter
+the n2 is supersawlite tune=2.1
+the n3 is phaser
+the n4 is white
+the n5 is freeze
+n3 => n0.chaos
+n3 -> n1
+n4 -> n1.b
+n3 ~> n1.mix
+n0.pulse -> n2.detune
+n5 -> n3.rate
+rocker -> n3.depth
+n0 -> n5
+n3 -> n5
+n4 -> n5.length
+n1 -> left
+n3 -> out
+n4 -> right
+n5 -> left
+n5 -> leds

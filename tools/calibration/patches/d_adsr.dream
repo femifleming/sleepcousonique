@@ -1,0 +1,23 @@
+the ck is clock
+the sn is sine 2
+the x1 is adsr
+the x2 is adsr
+the x3 is adsr
+the x4 is adsr
+the x5 is adsr
+the x6 is adsr
+the x7 is adsr
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+ck.eighth -> x1.gate
+ck.eighth -> x2.gate
+ck.eighth -> x3.gate
+ck.eighth -> x4.gate
+ck.eighth -> x5.gate
+ck.eighth -> x6.gate
+ck.eighth -> x7.gate

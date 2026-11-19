@@ -1,0 +1,16 @@
+the n0 is pulse 2
+the n1 is sineshaper
+the n2 is smoothrandom
+the n3 is switch
+the n4 is pingpong
+n4.r -> n0
+n2 ~> n0.width
+n3 ?> n3.in2
+value 20 -> n3.in3
+n0 -150> n3.next
+n1 -> n3.reset
+n2 -> n3.reset
+value 60 -> n4
+n3 -> right
+n4 -> left
+n0 -> left

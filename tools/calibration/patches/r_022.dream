@@ -1,0 +1,17 @@
+the n0 is ringmod
+the n1 is thunder samplerate=quarter
+the n2 is pan samplerate=eighth
+the n3 is highpass
+the n4 is decay curve=exp samplerate=half
+the n5 is trigdelay time=0.657
+button1 -> n0.pitch
+button1 -> n1
+n1 -> n2.position
+n3 -> n2.position
+n3 -150> n3.cutoff
+n1 -> n4.decay
+n3 ?> n5
+n3 -> n5.time
+n3 -> n5.time
+n0 -> out
+n2 -> out

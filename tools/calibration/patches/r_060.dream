@@ -1,0 +1,18 @@
+the n0 is white
+the n1 is granular 1
+the n2 is glide
+the n3 is randomwalk step=0.909
+the n4 is pitchshift 1 samplerate=quarter
+the n5 is follow
+the n6 is white samplerate=quarter
+n3 -> n1
+n4 ~> n1.density
+n0 -> n2.clock
+n1 -> n3
+n1 -> n3.clock
+fader2 -20> n4
+n5 -> n4.shift
+n3 -> n5
+n1 -> right
+n6 -> out
+n0 -> leds

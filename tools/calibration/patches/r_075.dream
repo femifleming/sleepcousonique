@@ -1,0 +1,20 @@
+the n0 is sineshaper samplerate=eighth
+the n1 is turing
+the n2 is sympathetic tune=-1.8 samplerate=eighth
+the n3 is dualprocessor mode1=lag samplerate=quarter
+the n4 is euclid 19
+the n5 is minmax
+n5 ?> n0
+n5.min -> n0.drive
+fader4 -35> n1.change
+n5 -35> n2
+n1.pulse -> n2.chord
+n1.pulse ~> n3
+n1 -> n3.rate1
+n1 -> n3.rate2
+n2 -> n4
+n3.out2 -> n4.reset
+n0 -> out
+n4 -> right
+n5 -> right
+n2 -> out

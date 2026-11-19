@@ -1,0 +1,11 @@
+the n0 is quadvca
+the n1 is crossfade samplerate=quarter
+the n2 is ducker
+the n3 is samplehold samplerate=half
+n1 -> n0.cv2
+n1 -> n0.cv3
+n0.out2 -> n1
+n1 -> n1.b
+n1 -75> n1.mix
+n0 -> right
+n2 -> out

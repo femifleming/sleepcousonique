@@ -1,0 +1,32 @@
+the ck is clock
+the sn is sine 2
+the x1 is ar
+the x2 is ar
+the x3 is ar
+the x4 is ar
+the x5 is ar
+the x6 is ar
+the x7 is ar
+the x8 is ar
+the x9 is ar
+the x10 is ar
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+x8 -> out
+x9 -> out
+x10 -> out
+ck.eighth -> x1.gate
+ck.eighth -> x2.gate
+ck.eighth -> x3.gate
+ck.eighth -> x4.gate
+ck.eighth -> x5.gate
+ck.eighth -> x6.gate
+ck.eighth -> x7.gate
+ck.eighth -> x8.gate
+ck.eighth -> x9.gate
+ck.eighth -> x10.gate

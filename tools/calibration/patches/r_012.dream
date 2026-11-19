@@ -1,0 +1,17 @@
+the n0 is logic
+the n1 is lpg 1
+the n2 is logic 1
+the n3 is crossfade
+the n4 is logistic
+the n5 is granular
+n0 => n0
+n1 -> n0.b
+n5 -> n1.level
+n4 -> n2.b
+n1 -> n3
+n2 -> n4.chaos
+n0.not -> n5.density
+n4 -> out
+n5 -> left
+n0 -> out
+n2 -> left

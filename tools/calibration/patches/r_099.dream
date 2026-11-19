@@ -1,0 +1,19 @@
+the n0 is mixer
+the n1 is saturator samplerate=quarter
+the n2 is pulsar 3 formant=2.189 duty=0.352
+the n3 is sinesaw samplerate=quarter fm=0.297
+the n4 is noisesweep att.level=0.95 level=0.317
+n0 -> n0
+n4 -> n0.in2
+fader3 -> n0.in6
+n3.saw -> n1.burst
+n3.saw -> n1.burst
+n4 -> n2
+n0 -> n2.formant
+n2 -> n3
+n4 -> n3
+n4 -> n4
+n0 -> out
+n3 -> right
+n1 -> right
+n4 -> right

@@ -1,0 +1,8 @@
+the o1 is onepole 
+the o2 is onepole 
+the o3 is onepole 
+the o4 is onepole 
+fader1 -> o1.cutoff
+fader2 -> o2.cutoff
+fader3 -> o3.cutoff
+fader4 -> o4.cutoff

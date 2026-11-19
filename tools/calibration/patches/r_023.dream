@@ -1,0 +1,16 @@
+the n0 is kick att.strike=-0.32 punch=0.577
+the n1 is divider
+the n2 is comparator
+the n3 is wind samplerate=half
+n3 -> n0
+n1.dn -> n0.pitch
+n1.d4 -> n0.pitch
+n2 -> n1
+n0 -> n1.reset
+n2 -> n2
+n2 -> n2.ref
+value 20 -> n3
+n0 -> right
+n3 -> out
+n2 -> out
+n2 -> leds

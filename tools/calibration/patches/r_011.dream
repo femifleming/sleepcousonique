@@ -1,0 +1,23 @@
+the n0 is freeze
+the n1 is mixer
+the n2 is hihat samplerate=eighth
+the n3 is attenuverter
+the n4 is frogs 2
+the n5 is follower
+n3 -> n0
+n0 -> n0.length
+n2 -> n1
+n4.pulse -> n1.in2
+n5 -> n1.in2
+n0 -> n1.in4
+n3 -> n1.in6
+n0 -20> n2
+n4 -35> n3
+n5.gate -> n3
+n2 -> n3.amount
+n4 -> n4.pitch
+n2 -> right
+n5 -> out
+n0 -> right
+n4 -> right
+n5 -> leds

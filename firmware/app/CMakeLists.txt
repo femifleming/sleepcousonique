@@ -534,7 +534,10 @@ if(CONFIG_SP1_SCQ)
 	zephyr_library_named(scq_engine)
 	zephyr_library_sources(${SCQ_ROOT}/engine/scq_core.c ${SCQ_ROOT}/engine/scq_places.c)
 	zephyr_library_compile_definitions(SCQ_DEVICE)
-	zephyr_library_compile_options(-O2 -Wno-double-promotion)
+	# -O3 and strict aliasing: about a tenth fewer cycles than -O2 across whole dreams (tools/sp1sim.py;
+	# the desktop builds have always had both). Zephyr's own -fno-strict-aliasing comes first on the
+	# command line, so this one wins for the engine only.
+	zephyr_library_compile_options(-O3 -fstrict-aliasing -Wno-double-promotion)
 	target_link_libraries(app PRIVATE scq_engine)
 	target_include_directories(app PRIVATE ${SCQ_ROOT}/engine)
 

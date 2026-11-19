@@ -1,0 +1,14 @@
+the n0 is delaylite feedback=0.371
+the n1 is follow samplerate=half
+the n2 is kick
+the n3 is steprandom samplerate=eighth
+the n4 is follow
+n2 -> n0.time
+n4 -> n0.feedback
+n4 -20> n2.punch
+n0 -> n2.decay
+n1 -> n3
+n0 -> n4
+n0 -> right
+n4 -> right
+n1 -> out

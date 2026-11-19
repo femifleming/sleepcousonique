@@ -1,0 +1,14 @@
+the ck is clock
+the sn is sine 2
+the x1 is froglet
+the x2 is froglet
+the x3 is froglet
+the x4 is froglet
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+ck.eighth -> x1.trig
+ck.eighth -> x2.trig
+ck.eighth -> x3.trig
+ck.eighth -> x4.trig

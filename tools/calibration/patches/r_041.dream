@@ -1,0 +1,16 @@
+the n0 is trigdelay
+the n1 is lfo range=lfo
+the n2 is dcblock
+the n3 is ringmod
+the n4 is white
+the n5 is sine range=lfo samplerate=half att.fm=0.16
+the n6 is comb samplerate=half decay=0.927
+n4 -> n1.reset
+n4 -> n1.reset
+n6 -> n3.mod
+rocker -> n3.pitch
+fader1 -> n5.fm
+n3 -> n6.decay
+n4 -> right
+n0 -> left
+n1 -> leds

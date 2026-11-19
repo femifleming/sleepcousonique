@@ -1,0 +1,15 @@
+the n0 is clock
+the n1 is chord tune=-1.6 spread=0.812
+the n2 is lfo 1 range=lfo
+the n3 is cvprocessor
+the n4 is freqshift samplerate=half
+value 40 -> n0
+fader2 -> n0.reset
+n3 -> n1
+n3 -> n1.spread
+n1 -> n3.b
+n3 -> n3.offset
+n0.eighth => n3.time
+n4 -> left
+n0 -> out
+n1 -> left

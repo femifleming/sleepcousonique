@@ -493,7 +493,7 @@ struct ArrayComponent : Component, Timer
         master.setTooltip ("master volume: every output. double-click: 0 dB");
         muteBtn.onClick = [this] { engine.masterMute = muteBtn.getToggleState(); };
         rescanBtn.onClick = [this] { rescan(); };
-        ifaceAllBtn.onClick = [this] { for (auto& u : units) if (u.port.isNotEmpty()) serial::ask (u.port, "SCQ MODE IFACE", { "OK" }); rescan(); };
+        ifaceAllBtn.onClick = [this] { ifaceAll(); };
         sharedBtn.onClick = [this] { shared = ! shared; sharedBtn.setToggleState (shared, dontSendNotification); props->setValue ("shared", shared); rebuild(); };
         openBtn.onClick = [this] { chooseFile(); };
         playBtn.onClick = [this] { if (engine.transport.isPlaying()) engine.transport.stop(); else { if (engine.transport.hasStreamFinished()) engine.transport.setPosition (0); engine.transport.start(); } };
@@ -650,6 +650,14 @@ struct ArrayComponent : Component, Timer
             resized(); repaint();
             return;
         }
+        // a loopback driver that has stopped answering would freeze the whole Array as it opens:
+        // ask first (a second, short-lived copy of this program does the asking), and go on without it
+        String stuck;
+        if (loopUid.isNotEmpty() && ! agg::answers (loopUid, 3000))
+        {
+            stuck = loops[(size_t) loopBox.getSelectedId() - 2].name;
+            loopUid = {};
+        }
         const bool unmuted = loopUid.isNotEmpty() && agg::unmute (loopUid);
         String err;
         auto name = agg::make (uids, loopUid, shared, err);
@@ -671,8 +679,26 @@ struct ArrayComponent : Component, Timer
         int n = uids.size();
         status = e.isNotEmpty() ? "couldn't open the array: " + e
                : String (n) + (n == 1 ? " SP-1" : " SP-1s") + DOT + String (n * 2) + " outputs" + (shared ? DOT + "shared as \"" + name + "\"" : String())
-                 + (unmuted ? DOT + "the loopback input was muted: turned it back up" : String());
+                 + (unmuted ? DOT + "the loopback input was muted: turned it back up" : String())
+                 + (stuck.isNotEmpty() ? DOT + stuck + " isn't answering (left out): restart Core Audio or the Mac to get it back" : String());
         resized(); repaint();
+    }
+
+    void ifaceAll()
+    {
+        for (auto& u : units) if (u.port.isNotEmpty()) serial::ask (u.port, "SCQ MODE IFACE", { "OK" });
+        rescan();
+    }
+
+    void playFile (const File& f)
+    {
+        if (! f.existsAsFile()) { fileName = "no such file: " + f.getFileName(); repaint(); return; }
+        auto err = engine.openFile (f);
+        fileName = err.isEmpty() ? f.getFileName() + DOT + String (engine.fileChans.load()) + " ch" : err;
+        loopBtn.setToggleState (true, dontSendNotification);
+        engine.setLoop (true);
+        if (err.isEmpty()) { engine.transport.setPosition (0); engine.transport.start(); }
+        repaint();
     }
 
     void chooseFile()
@@ -1338,8 +1364,24 @@ struct ArrayApp : JUCEApplication
         look::sansMed = Typeface::createSystemTypefaceFor (ArrayFonts::InterMedium_ttf, ArrayFonts::InterMedium_ttfSize);
         look::mono = Typeface::createSystemTypefaceFor (ArrayFonts::IBMPlexMonoRegular_ttf, ArrayFonts::IBMPlexMonoRegular_ttfSize);
         auto args = StringArray::fromTokens (getCommandLineParameters(), true);
+        if (int pr = args.indexOf ("--probe"); pr >= 0 && pr + 1 < args.size())     // see agg::answers
+        {
+            setApplicationReturnValue (agg::probe (args[pr + 1].unquoted()));
+            quit();
+            return;
+        }
         const bool demo = args.contains ("--demo");
         window = std::make_unique<Window> (demo);
+        // for tests: --iface puts every SP-1 into interface mode, --play FILE opens a wav and plays
+        // it looped, --for SECONDS quits after that long (leaving the SP-1s as they are)
+        if (auto* ac = dynamic_cast<ArrayComponent*> (window->getContentComponent()))
+        {
+            if (args.contains ("--iface")) ac->ifaceAll();
+            if (int pl = args.indexOf ("--play"); pl >= 0 && pl + 1 < args.size())
+                ac->playFile (File::getCurrentWorkingDirectory().getChildFile (args[pl + 1].unquoted()));
+        }
+        if (int fo = args.indexOf ("--for"); fo >= 0 && fo + 1 < args.size())
+            Timer::callAfterDelay (jmax (1, args[fo + 1].getIntValue()) * 1000, [] { JUCEApplication::getInstance()->systemRequestedQuit(); });
         int shot = args.indexOf ("--shot");
         if (shot >= 0 && shot + 1 < args.size())
         {

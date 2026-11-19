@@ -1,0 +1,17 @@
+the n0 is logistic
+the n1 is choruslite
+the n2 is dualprocessor mode1=slew
+the n3 is crackle
+the n4 is comb
+the n5 is snare
+n3 => n0
+n5 -> n0.chaos
+n4 -> n1
+n3.dust -> n2.rate1
+n2.out2 -> n3.density
+n1 ~> n5
+n2 -> n5.tone
+n4 -> out
+n1 -> left
+n2 -> right
+n5 -> right

@@ -1,0 +1,22 @@
+the n0 is logic 1 samplerate=eighth
+the n1 is samplehold 1
+the n2 is pulsar 2 tune=0.56
+the n3 is drummap
+the n4 is freqshift samplerate=half
+the n5 is gesture samplerate=half
+the n6 is vco tune=-0.8
+n6.tri -> n0
+n5 -35> n0.b
+n6.tri -> n1
+value 20 -> n1.clock
+n5 -> n2
+n0.or -> n3
+n4 -> n3.x
+n4 -> n3.reset
+n2 -> n4
+rocker -> n5
+n4.down -> n5.record
+play -> n6
+n4 -> n6.width
+n2 -> right
+n3 -> left

@@ -1,0 +1,42 @@
+the ck is clock
+the sn is sine 2
+the x1 is crossfade
+the x2 is crossfade
+the x3 is crossfade
+the x4 is crossfade
+the x5 is crossfade
+the x6 is crossfade
+the x7 is crossfade
+the x8 is crossfade
+the x9 is crossfade
+the x10 is crossfade
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+x8 -> out
+x9 -> out
+x10 -> out
+sn -> x1.a
+sn -> x1.b
+sn -> x2.a
+sn -> x2.b
+sn -> x3.a
+sn -> x3.b
+sn -> x4.a
+sn -> x4.b
+sn -> x5.a
+sn -> x5.b
+sn -> x6.a
+sn -> x6.b
+sn -> x7.a
+sn -> x7.b
+sn -> x8.a
+sn -> x8.b
+sn -> x9.a
+sn -> x9.b
+sn -> x10.a
+sn -> x10.b

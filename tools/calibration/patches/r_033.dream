@@ -1,0 +1,17 @@
+the n0 is trigger
+the n1 is lowpass 1
+the n2 is trigdelay
+the n3 is follower samplerate=quarter
+the n4 is noisesweep
+the n5 is pulsar 2 formant=0.833 duty=0.052
+n0 -> n1
+n0 -> n1.res
+n4 => n2
+n0 -75> n2.time
+n3.gate ~> n2.time
+n3 -> n3
+n1 -> n5
+fader2 ~> n5.duty
+n2 -> right
+n4 -> left
+n0 -> right

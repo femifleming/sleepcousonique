@@ -1,0 +1,14 @@
+the n0 is square 2 width=0.138
+the n1 is lorenz samplerate=half rate=0.944 rho=0.503
+the n2 is reverb
+the n3 is vocoder samplerate=eighth
+n1.y -> n0.fm
+n1.y -> n1
+n1.z >| n2
+fader3 -50> n2
+value 60 -> n2.size
+n1.z -> n3.modulator
+n2 -> left
+n3 -> right
+n0 -> right
+n1 -> right

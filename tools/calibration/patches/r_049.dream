@@ -1,0 +1,21 @@
+the n0 is freeze length=0.637
+the n1 is divider 11
+the n2 is snare samplerate=half snap=0.709
+the n3 is crackle samplerate=eighth
+the n4 is lowpass 1 cutoff=0.46
+the n5 is duallpg
+the n6 is slew samplerate=eighth
+the n7 is euclid
+n1.d4 -50> n0
+n0 -150> n1.reset
+fader2 -> n2.tone
+n5.out2 -> n4.cutoff
+n7 >| n4.res
+n7.step -150> n5
+rocker -> n5.in2
+n1.d3 -> n5.cv2
+fader1 -20> n6.rise
+n7 >| n7
+n2 -> n7.hits
+n6 -> right
+n5 -> out

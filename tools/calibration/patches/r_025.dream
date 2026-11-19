@@ -1,0 +1,17 @@
+the n0 is samplehold
+the n1 is froglet tune=-0.34 att.trig=-1.67
+the n2 is matrix
+the n3 is dcblock samplerate=half
+the n4 is follower samplerate=half
+n4 -150> n1
+fader4 -> n1.pitch
+n4.gate -75> n2
+n3 -> n2.in2
+n0 >| n2.in3
+n4.gate -> n2.in4
+n3 ~> n4
+n0.track -35> n4.attack
+n3 -> right
+n4 -> right
+n2 -> left
+n0 -> left

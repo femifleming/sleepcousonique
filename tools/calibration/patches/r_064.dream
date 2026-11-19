@@ -1,0 +1,12 @@
+the n0 is bernoulli 1 samplerate=eighth
+the n1 is lowpass samplerate=eighth cutoff=0.785
+the n2 is burst 1
+the n3 is logistic samplerate=half
+n2 -> n0
+n1.band -> n0.chance
+n0.b -> n1.cutoff
+fader4 ~> n1.res
+n0.b ~> n3
+n3 -> n3.chaos
+n0 -> out
+n2 -> left

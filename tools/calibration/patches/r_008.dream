@@ -1,0 +1,18 @@
+the n0 is compressor
+the n1 is chord samplerate=half
+the n2 is pulse
+the n3 is reverb samplerate=half
+the n4 is crackle 1 samplerate=half
+n4.dust -> n0
+n0.gain >| n0.amount
+n3 -> n1
+n0 -> n1.type
+n0 -> n1.spread
+value 10 -> n2.width
+n4.dust -> n4
+n0 -50> n4.density
+fader3 -> n4.density
+n4 -> right
+n3 -> out
+n1 -> out
+n0 -> leds

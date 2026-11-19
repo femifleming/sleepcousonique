@@ -1,0 +1,24 @@
+the s1 is sine 
+the s2 is sine 
+the s3 is sine 
+the s4 is sine 
+the s5 is sine 
+the s6 is sine 
+the s7 is sine 
+the s8 is sine 
+the t1 is sine tune=1.5
+the t2 is sine tune=1.5
+the t3 is sine tune=1.5
+the t4 is sine tune=1.5
+the t5 is sine tune=1.5
+the t6 is sine tune=1.5
+the t7 is sine tune=1.5
+the t8 is sine tune=1.5
+s1 -> t1.pitch
+s2 -> t2.pitch
+s3 -> t3.pitch
+s4 -> t4.pitch
+s5 -> t5.pitch
+s6 -> t6.pitch
+s7 -> t7.pitch
+s8 -> t8.pitch

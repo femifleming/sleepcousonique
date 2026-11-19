@@ -1,0 +1,17 @@
+the ck is clock
+the sn is sine 2
+the x1 is hihat
+the x2 is hihat
+the x3 is hihat
+the x4 is hihat
+the x5 is hihat
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+ck.eighth -> x1.strike
+ck.eighth -> x2.strike
+ck.eighth -> x3.strike
+ck.eighth -> x4.strike
+ck.eighth -> x5.strike

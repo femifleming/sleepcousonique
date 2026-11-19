@@ -1,0 +1,32 @@
+the ck is clock
+the sn is sine 2
+the x1 is logistic
+the x2 is logistic
+the x3 is logistic
+the x4 is logistic
+the x5 is logistic
+the x6 is logistic
+the x7 is logistic
+the x8 is logistic
+the x9 is logistic
+the x10 is logistic
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+x8 -> out
+x9 -> out
+x10 -> out
+ck.eighth -> x1.clock
+ck.eighth -> x2.clock
+ck.eighth -> x3.clock
+ck.eighth -> x4.clock
+ck.eighth -> x5.clock
+ck.eighth -> x6.clock
+ck.eighth -> x7.clock
+ck.eighth -> x8.clock
+ck.eighth -> x9.clock
+ck.eighth -> x10.clock

@@ -1,0 +1,21 @@
+the n0 is switch
+the n1 is hihat
+the n2 is vca response=exp samplerate=half
+the n3 is seq
+the n4 is fm 3 tune=1.45 feedback=0.019
+value 20 -> n0
+n4 >| n0.in4
+fader2 ~> n0.next
+n2 -> n0.reset
+fader1 -> n0.reset
+play -> n1.decay
+n0 -> n2
+n2 -> n2
+n3.pulse -> n2.gain
+n0 -> n3.back
+n0 => n3.reset
+n2 -> n4.index
+n0.step -> n4.feedback
+n3 -> left
+n0 -> right
+n2 -> leds

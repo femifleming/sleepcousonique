@@ -130,6 +130,40 @@ int main (int argc, char** argv)
     e.addLines (juce::StringArray::fromLines (copied));
     CHECK (compile (e) == 0, "pasted text compiles in another dream");
 
+    // paste where the names are taken: only the names change, never the place a name is, its
+    // params, or a port spelled the same (the editor once wrote "the combb is combb")
+    {
+        scq::Document p;
+        p.text = "n\n-----\nthe comb is comb\nthe decay is decay decay=0.9\nthe saw is saw\nsaw -> comb\ndecay -> comb.decay\ncomb -> out\n";
+        CHECK (compile (p) == 0 && p.messages.empty(), "a comb, a decay and a saw, no notes");
+        for (int round = 0; round < 3; ++round)      // paste, then paste the paste
+        {
+            std::vector<int> ids;
+            for (auto& n : p.nodes) if (n.name.startsWith ("comb") || n.name.startsWith ("decay") || n.name.startsWith ("saw")) ids.push_back (n.id);
+            juce::StringArray names;
+            auto lines = p.renamedForPaste (juce::StringArray::fromLines (p.copyNodes (ids)), names);
+            p.addLines (lines);
+            CHECK (compile (p) == 0 && p.messages.empty(), ("pasted copies compile with no notes, round " + juce::String (round + 1)).toRawUTF8());
+            CHECK (names.size() == (int) ids.size(), "every pasted place got a name");
+        }
+        CHECK (p.text.contains ("the combb is comb\n") && ! p.text.contains ("is combb"), "the copy of comb is still a comb");
+        CHECK (p.text.contains ("the decayb is decay decay=0.9"), "a param spelled like the name is left alone");
+        CHECK (p.text.contains ("decayb -> combb.decay"), "and so is a port spelled like the name");
+        int combs = 0;
+        for (auto& n : p.nodes) if (n.place == "comb") ++combs;
+        CHECK (combs == 8, "eight combs after three rounds");
+    }
+
+    // an amount the language can't write is brought to the nearest one it can
+    {
+        scq::Document a;
+        a.text = "the s is sine\nthe o is onepole\ns -50> o\ns ~> o.cutoff\ns => o\ns ?> o\nlucid fader1: o.cutoff 0..100\n";
+        CHECK (compile (a) == 0, "five kinds of cord");
+        for (int k = 0; k < (int) a.cords.size(); ++k) { a.setCordAmount (k, -25.5f, -155.96f); CHECK (compile (a) == 0, "a negative amount still compiles"); }
+        CHECK (a.text.contains ("lucid fader1: o.cutoff -25.5..-155.96"), "a range may go below zero at both ends");
+        CHECK (a.text.contains ("s -0> o") && a.text.contains ("s ?0> o") && a.text.contains ("s =1> o"), "cords stop at nothing, water at a millisecond");
+    }
+
     // every example compiles
     for (auto f : juce::File (juce::File::getCurrentWorkingDirectory().getChildFile ("examples")).findChildFiles (juce::File::findFiles, false, "*.dream"))
     {

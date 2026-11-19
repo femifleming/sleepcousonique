@@ -110,6 +110,28 @@ bool unmute (const juce::String& uid)
     return changed;
 }
 
+static OSStatus probeProc (AudioObjectID, const AudioTimeStamp*, const AudioBufferList*, const AudioTimeStamp*,
+                           AudioBufferList*, const AudioTimeStamp*, void*) { return noErr; }
+
+int probe (const juce::String& uid)
+{
+    auto id = findByUid (uid);
+    if (id == 0) return 2;
+    AudioDeviceIOProcID proc = nullptr;                     // this is the call a stuck driver never returns from
+    if (AudioDeviceCreateIOProcID (id, probeProc, nullptr, &proc) != noErr || proc == nullptr) return 3;
+    AudioDeviceDestroyIOProcID (id, proc);
+    return 0;
+}
+
+bool answers (const juce::String& uid, int ms)
+{
+    juce::ChildProcess child;
+    juce::StringArray cmd { juce::File::getSpecialLocation (juce::File::currentExecutableFile).getFullPathName(), "--probe", uid };
+    if (! child.start (cmd, 0)) return true;                // can't ask: carry on as before
+    if (! child.waitForProcessToFinish (ms)) { child.kill(); return false; }
+    return child.getExitCode() == 0;
+}
+
 static CFStringRef cf (const juce::String& s) { return CFStringCreateWithCString (nullptr, s.toRawUTF8(), kCFStringEncodingUTF8); }
 
 juce::String make (const juce::StringArray& sp1Uids, const juce::String& loopUid, bool shared, juce::String& err)
@@ -165,6 +187,8 @@ namespace agg
 std::vector<Device> list() { return {}; }
 juce::String Device::serial() const { return uid; }
 juce::String make (const juce::StringArray&, const juce::String&, bool, juce::String& err) { err = "the Array needs macOS for now"; return {}; }
+bool answers (const juce::String&, int) { return true; }
+int probe (const juce::String&) { return 0; }
 void destroy() {}
 bool unmute (const juce::String&) { return false; }
 }

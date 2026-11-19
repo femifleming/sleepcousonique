@@ -1,0 +1,18 @@
+the n0 is ar
+the n1 is automaton seed=0.032
+the n2 is comparator samplerate=quarter
+the n3 is bitcrush
+the n4 is sympathetic samplerate=quarter chord=0.143
+the n5 is randomwalk
+the n6 is vco att.pitch=1.51
+n2 -> n0.release
+n0 -> n1.seed
+n3 ~> n2
+n4 -> n2.ref
+n4 -> n3.crush
+value 60 -> n4.pitch
+play -> n5
+n2 -> n5.clock
+n4 ?> n6
+n5 -> left
+n3 -> right

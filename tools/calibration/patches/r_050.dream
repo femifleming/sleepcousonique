@@ -1,0 +1,26 @@
+the n0 is phaser 1
+the n1 is crossfm
+the n2 is glide
+the n3 is quadvca
+the n4 is stepseq 9 s3=0.498 s6=0.891
+the n5 is dcblock 1
+n2 -> n0
+play -> n0.rate
+fader2 -> n1
+n0 ?> n1.index
+n4.step -50> n1.fold
+n3.out2 -> n2.clock
+n1.a ~> n2.time
+n5 -75> n3
+n2 -> n3.in3
+n0 ~> n3.cv3
+fader2 -> n3.cv3
+n1.a -> n3.cv4
+n5 -> n4.reset
+n1 -> n4.s1
+n0 -> n4.s5
+fader4 -> n4.s7
+fader2 -50> n4.s8
+value 20 -> n5
+n2 -> left
+n3 -> right

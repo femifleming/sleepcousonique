@@ -1,0 +1,19 @@
+the n0 is lowpass
+the n1 is ducker side=0.265
+the n2 is onepole samplerate=quarter
+the n3 is svf
+the n4 is thunder
+the n5 is tube 1 bias=0.776
+the n6 is rain samplerate=half
+the n7 is white
+n2 -> n0
+play -> n0.res
+fader2 -> n1.side
+n0 -> n2.cutoff
+n5 -35> n3.cutoff
+n7 -> n3.res
+fader2 -35> n5.drive
+n6 -> n6
+n3 -> out
+n1 -> out
+n7 -> left

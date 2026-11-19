@@ -1,0 +1,23 @@
+the ck is clock
+the sn is sine 2
+the x1 is smoothrandom
+the x2 is smoothrandom
+the x3 is smoothrandom
+the x4 is smoothrandom
+the x5 is smoothrandom
+the x6 is smoothrandom
+the x7 is smoothrandom
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+ck.eighth -> x1.follow
+ck.eighth -> x2.follow
+ck.eighth -> x3.follow
+ck.eighth -> x4.follow
+ck.eighth -> x5.follow
+ck.eighth -> x6.follow
+ck.eighth -> x7.follow

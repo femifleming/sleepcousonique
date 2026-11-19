@@ -1,0 +1,12 @@
+the n0 is rectify
+the n1 is burst
+the n2 is diffuser 1 amount=0.934
+the n3 is pingpong
+the n4 is sinesaw tune=1.22 samplerate=half att.fm=1.5
+n3 -> n1.rate
+n4.saw -> n2
+n2 -20> n2.amount
+n2 ~> n3.feedback
+n4.saw -> n4.fm
+n2 -> right
+n0 -> left

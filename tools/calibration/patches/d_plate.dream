@@ -1,0 +1,5 @@
+the ck is clock
+the sn is sine 2
+the x1 is plate
+x1 -> out
+sn -> x1.in

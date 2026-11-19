@@ -1,0 +1,16 @@
+the n0 is matrix
+the n1 is comparator samplerate=half
+the n2 is xorsquares
+the n3 is froglet samplerate=half
+the n4 is saw tune=-0.41 samplerate=eighth
+the n5 is onepole
+n0.out2 -> n0
+n2 -75> n0.in3
+value 40 -> n0.rotate
+n3 -> n3.pitch
+fader2 -150> n5
+n2.b ~> n5.cutoff
+n3 -> out
+n1 -> out
+n4 -> out
+n2 -> right

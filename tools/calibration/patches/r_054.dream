@@ -1,0 +1,16 @@
+the n0 is mixer
+the n1 is crackle density=0.756
+the n2 is chorus
+the n3 is vcmix level4=1.078
+n0 -> n0.in2
+n1 -> n0.in3
+fader4 -35> n0.in4
+n1 >| n0.in6
+n0 >| n1.density
+n0 -> n2
+n2 -20> n3.in4
+n0 -> n3.level1
+n1 -> n3.level2
+n2 -> right
+n1 -> out
+n0 -> leds

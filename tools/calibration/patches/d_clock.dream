@@ -1,0 +1,20 @@
+the ck is clock
+the sn is sine 2
+the x1 is clock
+the x2 is clock
+the x3 is clock
+the x4 is clock
+the x5 is clock
+the x6 is clock
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+ck.eighth -> x1.reset
+ck.eighth -> x2.reset
+ck.eighth -> x3.reset
+ck.eighth -> x4.reset
+ck.eighth -> x5.reset
+ck.eighth -> x6.reset

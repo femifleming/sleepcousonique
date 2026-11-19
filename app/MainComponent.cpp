@@ -578,7 +578,7 @@ void MainComponent::paintPop (Graphics& g)
         auto readout = [&] (Rectangle<float> r, const String& name, float v, bool known, const String& extra)
         {
             auto col = ! known ? th.chromeDim : (v > 1.0f ? overC : (v > 0.85f ? tightC : okC));
-            String word = ! known ? String() : (v > 1.0f ? "too heavy" : (v > 0.85f ? "tight" : "ok"));
+            String word = ! known ? String() : (v > 1.0f ? (name == "ROOM" ? "full" : "too heavy") : (v > 0.85f ? "tight" : "ok"));
             g.setColour (th.chromeDim);
             g.setFont (art::label (10));
             g.drawText (name, r.withHeight (12), Justification::left);
@@ -601,7 +601,13 @@ void MainComponent::paintPop (Graphics& g)
         readout (area.removeFromLeft (w), "LOAD (estimate)", doc.load, true, {});
         readout (area.removeFromLeft (w), "SP-1 CPU (measured)", fresh ? (float) meas.peak / 100.0f : 0.0f, fresh,
                  fresh ? "avg " + String (meas.avg) + "%" : String ("plug in the SP-1"));
-        readout (area, "MEMORY", (float) doc.poolUsed / (float) jmax (1, doc.poolTotal), true, {});
+        {
+            // room on the SP-1: whichever runs out first (the memory pool, 96 places, 320 cords, or
+            // the 16 KB of text a slot keeps), named beside the number
+            String what;
+            const float use = doc.room (&what);
+            readout (area, "ROOM", use, true, what);
+        }
         // the output level and the file, small, at the end
         auto tail = s.withLeft (s.getRight() - 160);
         g.setColour (th.chromeDim); g.setFont (art::label (10));
@@ -702,8 +708,12 @@ void MainComponent::paint (Graphics& g)
         bar1 (m.removeFromLeft (w - 8), label, v, th.pop ? th.checkA : art::blue);
     }
     m.removeFromLeft (8);
-    bar1 (m.removeFromLeft (w - 8), "memory " + String (roundToInt (100.0f * (float) doc.poolUsed / (float) doc.poolTotal)) + "%",
-          (float) doc.poolUsed / (float) doc.poolTotal, th.pop ? th.current : art::copper);
+    {
+        String what;                              // whichever runs out first: memory, places, cords or text
+        const float use = doc.room (&what);
+        bar1 (m.removeFromLeft (w - 8), what.upToFirstOccurrenceOf (" ", false, false) + " " + String (roundToInt (100.0f * use)) + "%",
+              use, th.pop ? th.current : art::copper);
+    }
     m.removeFromLeft (8);
     bar1 (m, "out", host.level, th.pop ? th.checkB : art::gold);
 
@@ -858,6 +868,13 @@ void MainComponent::sendToSP1()
     String port;
     String err;
     auto sent = scales::withTunings (doc.text);       // the SP-1 has no scales folder: the tunings go with the dream
+    if ((int) sent.getNumBytesAsUTF8() > doc.textMost)   // a slot keeps 16 KB: the SP-1 would play it and lose it at power-off
+    {
+        AlertWindow::showMessageBoxAsync (MessageBoxIconType::InfoIcon, "send to SP-1",
+            "This dream is " + String ((int) sent.getNumBytesAsUTF8()) + " bytes of text; an SP-1 slot keeps " + String (doc.textMost)
+            + ". Notes after a ; and the positions at the end count too: a shorter journal, or fewer scenes, will fit.");
+        return;
+    }
     if (link.connected()) { err = link.send (sent, -1); port = link.port(); }   // -1: the slot that is playing
     else err = serial::send (sent, -1, port);
     if (err.isEmpty()) status ("sent to the SP-1 on " + port);

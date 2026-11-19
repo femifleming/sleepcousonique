@@ -17,6 +17,7 @@ extern "C" {
 #define SCQ_RATE        48000
 #define SCQ_BLOCK       32          /* samples per engine block (the SP-1 renders 96: three blocks) */
 #define SCQ_MAX_TEXT    (16 * 1024) /* largest patch file */
+#define SCQ_SLOT_TEXT   (SCQ_MAX_TEXT - 8) /* largest dream an SP-1 slot keeps (a slot is 16 KB with its 8-byte header) */
 #define SCQ_MAX_SCENES  16
 #define SCQ_LEDS        8           /* 0-3 track row (above T1-T4), 4-7 play row */
 
@@ -34,6 +35,8 @@ enum {
  * the first scene starts. Returns the number of errors (warnings don't count).
  * `nights` is how many times this dream has been loaded before; `drift` uses it. */
 int  scq_load(const char *text, int len, uint32_t nights);
+/* On the SP-1 (SCQ_DEVICE) the text is NOT copied: it is read again at every scene change, so it
+ * must stay where it is, unchanged, until the next scq_load() (or scq_sleep()). */
 
 /* Errors and warnings from the last load / scene change, one per line:
  *   E <line> <message>     or     W <line> <message>                       */
@@ -43,7 +46,8 @@ const char *scq_messages(void);
  *   S <index> <count> <title>
  *   N <id> <place> <nature> <name>
  *   C <src> <srcport> <dst> <dstport> <kind> <amount> <amount2>   (src -1 = bottle)
- *   M <pool bytes used> <pool bytes total> <load estimate 0..1+>          */
+ *   R <places> <most> <cords> <most> <text bytes> <most an SP-1 slot keeps>
+ *   M <pool bytes used, or asked for if they didn't fit> <pool bytes total> <load estimate 0..1+>  */
 const char *scq_describe(void);
 
 /* The place catalogue, one place per line:
@@ -64,6 +68,7 @@ void  scq_room(int live, int count, float near, float strength);
 void  scq_room_event(int kind, float voice);
 void  scq_render(float *left, float *right, int frames); /* frames: multiple of SCQ_BLOCK */
 void  scq_goto_scene(int index);
+void  scq_memory(uint32_t *used, uint32_t *total);   /* the pool: bytes the playing scene uses (or asked for), and its size */
 int   scq_scene(void);
 int   scq_node_count(void);             /* places in the scene that's playing */
 int   scq_scene_count(void);

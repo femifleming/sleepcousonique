@@ -1,0 +1,19 @@
+the n0 is samplehold 1
+the n1 is chord
+the n2 is dusg cycle2=on
+the n3 is slope range=audio fall=0.521
+the n4 is slew
+n2.end1 -> n0
+n0.track -> n0.clock
+n4 ?> n1.type
+n0 -> n2
+n0 -> n2.trig1
+play -> n2.fall1
+n4 -> n2.in2
+n4 => n2.trig2
+n2.end1 -> n3.trig
+n3 ?> n3.fall
+n2.end2 -> n4
+n0.track => n4.fall
+n0 -> out
+n4 -> out

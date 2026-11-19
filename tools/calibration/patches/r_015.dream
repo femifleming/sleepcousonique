@@ -1,0 +1,18 @@
+the n0 is rectify samplerate=eighth
+the n1 is follower
+the n2 is trigger
+the n3 is ar attack=0.636 release=0.895
+the n4 is additive
+the n5 is marimba att.strike=0.27 att.pitch=-1.25
+n2 => n0
+n2 -> n1
+n4 ?> n1.release
+n1 >| n3.attack
+n0.half -> n3.release
+button1 => n4.tilt
+n2 -> n4.odd
+n0.half -50> n5
+n2 -> n5.pitch
+n2 -> n5.decay
+n1 -> out
+n3 -> out

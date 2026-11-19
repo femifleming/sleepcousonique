@@ -1,0 +1,14 @@
+the o1 is onepole 
+the o2 is onepole 
+the o3 is onepole 
+the o4 is onepole 
+the o5 is onepole 
+the o6 is onepole 
+the o7 is onepole 
+the o8 is onepole 
+button1 -> o1.cutoff
+button2 -> o2.cutoff
+rocker -> o3.cutoff
+play -> o4.cutoff
+dots -> o5.cutoff
+rocker.up -> o6.cutoff

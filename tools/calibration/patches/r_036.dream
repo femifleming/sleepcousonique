@@ -1,0 +1,14 @@
+the n0 is folder
+the n1 is wavetable 2
+the n2 is square range=audio fm=0.767
+the n3 is ad loop=on curve=exp
+the n4 is saturator
+n3 -> n0
+n4 -> n1
+n4 ~> n2
+n3.end -> n2.width
+n1 -> right
+n3 -> right
+n4 -> left
+n2 -> left
+n1 -> leds

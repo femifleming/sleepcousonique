@@ -1,0 +1,12 @@
+the n0 is flipflop samplerate=eighth
+the n1 is wind samplerate=eighth
+the n2 is snare samplerate=half att.strike=-1.4
+the n3 is sine tune=0.71 att.fm=-0.25
+n0.inverse -> n1
+n1 -> n1
+n0.inverse -> n2
+n3 -> n2.snap
+n3 => n3.fm
+n1 -> right
+n3 -> left
+n2 -> right

@@ -26,6 +26,7 @@ struct sp1_iface_stats {
 	bool     streaming;
 	uint32_t packets, under, over, fill;
 	int32_t  ratio_ppm;          /* how far the SP-1 is stepping from 1.0, to follow the host */
+	uint32_t resync;   /* times the reader stepped back to the target (a burst from the host) */
 };
 void  sp1_iface_stats(struct sp1_iface_stats *s);
 

@@ -1,0 +1,13 @@
+the n0 is trigdelay 1 samplerate=quarter
+the n1 is ducker 1 side=0.174
+the n2 is dualprocessor mode2=slew
+the n3 is comparator
+the n4 is tapeecho
+n1.lfo -> n0.time
+n2 -> n1.side
+n4.wet -> n2.rate2
+n4 ~> n4
+play ?> n4.feedback
+n0 ~> n4.wow
+n4 -> left
+n3 -> left

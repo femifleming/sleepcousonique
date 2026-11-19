@@ -1,0 +1,20 @@
+the n0 is phaser samplerate=half rate=0.437 feedback=0.062
+the n1 is comb samplerate=eighth
+the n2 is follower samplerate=eighth
+the n3 is string samplerate=quarter att.pitch=1.89
+the n4 is slope curve=exp
+n3 -> n0.depth
+n0 -> n1.decay
+n3 -> n1.decay
+fader1 -> n2
+n3 -> n2.attack
+n4 -> n2.release
+n0 -> n3
+n4.end -> n3.pitch
+fader2 -> n3.bright
+n4.end => n4.trig
+rocker -> n4.rise
+n1 -> left
+n0 -> left
+n2 -> left
+n4 -> left

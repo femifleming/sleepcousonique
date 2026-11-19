@@ -1,0 +1,16 @@
+the n0 is quadvca
+the n1 is ad
+the n2 is sineshaper
+the n3 is logistic
+n2 -75> n0.cv2
+n3 -> n0.cv3
+n0.out4 -> n0.cv4
+n2 -> n1
+n2 -150> n1
+n2 -> n1.attack
+n2 -> n1.decay
+n1.end ?> n3
+n1 -> left
+n2 -> right
+n3 -> out
+n1 -> leds

@@ -1,0 +1,20 @@
+the ck is clock
+the sn is sine 2
+the x1 is gesture
+the x2 is gesture
+the x3 is gesture
+the x4 is gesture
+the x5 is gesture
+the x6 is gesture
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+sn -> x1.in
+sn -> x2.in
+sn -> x3.in
+sn -> x4.in
+sn -> x5.in
+sn -> x6.in

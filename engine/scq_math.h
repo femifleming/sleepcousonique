@@ -10,7 +10,11 @@
 /* Every one of these gives a number back for anything put in, not-a-number included: a control
  * that has gone bad upstream is clamped like any other, so it never reaches a place's memory
  * (min and max give b, clamp gives lo). */
+#if defined(__GNUC__) || defined(__clang__)
+static inline float scq_abs(float x) { return __builtin_fabsf(x); }   /* one instruction on the SP-1, no branch */
+#else
 static inline float scq_abs(float x) { return x < 0.f ? -x : x; }
+#endif
 static inline float scq_min(float a, float b) { return a < b ? a : b; }
 static inline float scq_max(float a, float b) { return a > b ? a : b; }
 static inline float scq_clamp(float x, float lo, float hi) { return x > lo ? (x < hi ? x : hi) : lo; }

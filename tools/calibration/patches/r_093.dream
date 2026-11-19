@@ -1,0 +1,18 @@
+the n0 is thunder
+the n1 is svf cutoff=0.254
+the n2 is ar curve=exp
+the n3 is snare samplerate=quarter
+the n4 is suboctave
+n4 => n1
+n1.notch -35> n1.cutoff
+n1.notch -> n1.res
+n3 -> n2
+n2 -> n3
+fader2 ~> n3.tone
+n4.sub2 -> n3.snap
+button1 -> n4
+n3 -> left
+n1 -> left
+n2 -> right
+n4 -> left
+n3 -> leds

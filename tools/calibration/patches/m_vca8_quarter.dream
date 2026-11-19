@@ -1,0 +1,32 @@
+the s1 is sine 
+the s2 is sine 
+the s3 is sine 
+the s4 is sine 
+the s5 is sine 
+the s6 is sine 
+the s7 is sine 
+the s8 is sine 
+the v1 is vca samplerate=quarter
+the v2 is vca samplerate=quarter
+the v3 is vca samplerate=quarter
+the v4 is vca samplerate=quarter
+the v5 is vca samplerate=quarter
+the v6 is vca samplerate=quarter
+the v7 is vca samplerate=quarter
+the v8 is vca samplerate=quarter
+s1 -> v1
+s1 -> v1.gain
+s2 -> v2
+s2 -> v2.gain
+s3 -> v3
+s3 -> v3.gain
+s4 -> v4
+s4 -> v4.gain
+s5 -> v5
+s5 -> v5.gain
+s6 -> v6
+s6 -> v6.gain
+s7 -> v7
+s7 -> v7.gain
+s8 -> v8
+s8 -> v8.gain

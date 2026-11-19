@@ -89,7 +89,7 @@ The engine had to run in two places: inside a Mac app, and on a chip with no ope
 system to speak of. The only language that is comfortable in both is **C**, and specifically
 *freestanding* C99:
 
-- **No `malloc`.** All memory is reserved up front (an 80 KB "pool"). On a tiny device,
+- **No `malloc`.** All memory is reserved up front (a "pool": 80 KB at first, 124 KB since 1.4). On a tiny device,
   memory that can run out halfway through a performance is a bug waiting to happen. If a
   patch is too big, you find out when you load it, not in the middle of a song.
 - **No math library.** `sin`, `exp2`, `tanh` and `log2` are written by hand in `scq_math.h`,

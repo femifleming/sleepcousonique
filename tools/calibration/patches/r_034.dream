@@ -1,0 +1,12 @@
+the n0 is gesture
+the n1 is sineshaper samplerate=half drive=0.018
+the n2 is rain 1
+the n3 is seq
+n3 => n0
+n2 -> n3
+n3.pulse -> n3.back
+n0 -> n3.reset
+n3 -> left
+n0 -> left
+n1 -> right
+n2 -> out

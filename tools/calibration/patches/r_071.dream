@@ -1,0 +1,23 @@
+the n0 is slew shape=lin
+the n1 is lfo samplerate=quarter
+the n2 is minmax
+the n3 is onepole
+the n4 is logistic
+the n5 is vcgate
+the n6 is sinesaw 2
+the n7 is rain
+the n8 is smoothrandom samplerate=quarter
+the n9 is steprandom
+n5.b -> n1
+fader4 -> n2
+n5 -> n3.cutoff
+rocker -> n4.chaos
+value 60 -> n5.b
+button1 -> n6
+n2.min -75> n7
+n6 -> n8.follow
+fader1 -> n9
+n3 -> right
+n5 -> out
+n2 -> right
+n4 -> left

@@ -1,0 +1,20 @@
+the n0 is attenuverter
+the n1 is rungler tune=1.18 loop=0.598
+the n2 is onepole
+the n3 is string damp=0.891 bright=0.465
+the n4 is slope range=audio rise=0.545
+the n5 is lorenz 1 samplerate=half
+n2 ~> n0
+n0 ~> n0
+n4 => n0.amount
+n4.end -> n1
+n3 -> n3.pitch
+n3 ~> n3.bright
+n0 -> n4
+fader2 -> n4.fall
+fader4 >| n4.fall
+n3 -> n5
+n5 -> n5.rho
+n3 -> right
+n0 -> left
+n5 -> right

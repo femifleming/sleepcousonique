@@ -1,0 +1,20 @@
+the ck is clock
+the sn is sine 2
+the x1 is reverblite
+the x2 is reverblite
+the x3 is reverblite
+the x4 is reverblite
+the x5 is reverblite
+the x6 is reverblite
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+sn -> x1.in
+sn -> x2.in
+sn -> x3.in
+sn -> x4.in
+sn -> x5.in
+sn -> x6.in

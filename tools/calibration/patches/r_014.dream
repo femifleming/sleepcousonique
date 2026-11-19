@@ -1,0 +1,24 @@
+the n0 is automaton
+the n1 is randomwalk samplerate=eighth step=0.118
+the n2 is saturator samplerate=eighth
+the n3 is dcblock 1 samplerate=half
+the n4 is steprandom
+the n5 is decay decay=0.107
+the n6 is logistic
+the n7 is randomwalk step=0.273
+n7 -> n0
+n2 ?> n0
+n4 -> n0.seed
+n5 -> n1
+fader1 -150> n1.clock
+n3 -> n2
+play -> n2.burst
+n7 -> n4
+n2 -50> n4
+n4 -> n5
+n1 >| n6
+n7 -> n6.chaos
+n5 -> out
+n4 -> right
+n2 -> out
+n6 -> left

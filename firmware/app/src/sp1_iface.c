@@ -180,7 +180,7 @@ static uint32_t rd;                     /* frames read: the audio thread */
 static float    frac, ratio = 1.f, rate = 1.f, avgfill;
 static uint32_t blocks, head_mark, out_mark;
 static bool     primed;
-static volatile uint32_t st_packets, st_bytes, st_under, st_over;
+static volatile uint32_t st_packets, st_bytes, st_under, st_over, st_resync;
 static volatile float st_ratio;
 static float    lvl[2];
 #define TARGET  288u                    /* 6 ms: three blocks of the USB's jitter */
@@ -428,6 +428,17 @@ void sp1_iface_render(float *left, float *right, uint32_t frames)
 		}
 		blocks = 0u; out_mark = 0u; head_mark = h;
 	}
+	/* Far too full. When an aggregate device starts, the Mac sends the SP-1s it drift-corrects a
+	 * burst: they began with four times the target in hand (about 20 ms late) and crept back at
+	 * the pull's 500 ppm, so an array of SP-1s played out of step for the first 45 s (measured on
+	 * three, 2026-11-19). The pull is for the clocks' slow drift; a gap like that is stepped
+	 * over at once: one small click, then in time with the others. */
+	if (avgfill > 2.f * (float)TARGET) {
+		rd = h - TARGET;
+		frac = 0.f;
+		avgfill = (float)TARGET;
+		st_resync++;
+	}
 	const float pull = (avgfill - (float)TARGET) / (float)TARGET * 2e-4f;
 	ratio = rate * (1.f + (pull > 5e-4f ? 5e-4f : (pull < -5e-4f ? -5e-4f : pull)));
 	st_ratio = ratio;
@@ -465,6 +476,7 @@ void sp1_iface_stats(struct sp1_iface_stats *s)
 	s->packets = st_packets;
 	s->under = st_under;
 	s->over = st_over;
+	s->resync = st_resync;
 	s->fill = ring ? (uint32_t)atomic_get(&head) - rd : 0u;
 	s->ratio_ppm = (int32_t)((st_ratio - 1.f) * 1e6f);
 }

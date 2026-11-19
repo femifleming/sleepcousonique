@@ -1,0 +1,14 @@
+the n0 is marimba tune=-0.93 decay=0.709 bright=0.923
+the n1 is pan
+the n2 is ad range=lfo
+the n3 is marimba
+the n4 is sinesaw range=lfo fm=0.744
+n1.r => n0
+n1 => n0.pitch
+n1 -> n0.decay
+button1 => n0.decay
+n2 -> n1
+n0 -> n2.attack
+value 60 -> n3
+n0 -> left
+n1 -> left

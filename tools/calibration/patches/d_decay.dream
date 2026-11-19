@@ -1,0 +1,32 @@
+the ck is clock
+the sn is sine 2
+the x1 is decay
+the x2 is decay
+the x3 is decay
+the x4 is decay
+the x5 is decay
+the x6 is decay
+the x7 is decay
+the x8 is decay
+the x9 is decay
+the x10 is decay
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+x8 -> out
+x9 -> out
+x10 -> out
+ck.eighth -> x1.trig
+ck.eighth -> x2.trig
+ck.eighth -> x3.trig
+ck.eighth -> x4.trig
+ck.eighth -> x5.trig
+ck.eighth -> x6.trig
+ck.eighth -> x7.trig
+ck.eighth -> x8.trig
+ck.eighth -> x9.trig
+ck.eighth -> x10.trig

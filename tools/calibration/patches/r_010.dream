@@ -1,0 +1,21 @@
+the n0 is trigger
+the n1 is attenuverter
+the n2 is logic
+the n3 is thunder
+the n4 is slew shape=exp fall=0.482
+the n5 is divider 10
+n5.d3 ~> n0
+n2 -> n1
+n5.d3 ~> n1.amount
+n4 ~> n1.offset
+n1 -> n2
+n1 ?> n3
+button1 -> n4
+n2.or -> n4.fall
+n5.d3 -> n5
+n1 -> n5.reset
+n3 -> left
+n2 -> right
+n5 -> left
+n0 -> out
+n3 -> leds

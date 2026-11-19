@@ -1,0 +1,21 @@
+the n0 is steprandom
+the n1 is drummap
+the n2 is trigdelay
+the n3 is smoothrandom
+the n4 is rungler 2 att.pitch=-1.18 chaos=0.025
+the n5 is compressor
+n3 -150> n1
+n5.gain >| n1.y
+n2 -> n1.density
+n1.hat -20> n1.reset
+fader2 -150> n2
+n2 => n3
+value 20 -> n3.follow
+n4.steps ~> n4
+n4.b -> n4
+n4 -> n4.chaos
+n4 >| n5
+n5 -> left
+n3 -> left
+n2 -> right
+n1 -> out

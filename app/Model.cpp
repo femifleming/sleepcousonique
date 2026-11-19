@@ -105,7 +105,7 @@ const PlaceInfo* findPlace (const juce::String& name)
 Signal outletSignal (const PlaceInfo& p, int port)
 {
     auto o = p.outs[port];
-    if (o == "pulse" || o == "gate" || o == "trig" || o == "end" || o == "up" || o == "down") return Pulse;
+    if (o == "pulse" || o == "gate" || o == "trig" || o == "end" || o == "up" || o == "down" || o == "arrive" || o == "leave") return Pulse;
     if (p.name == "button" || p.name == "play" || p.name == "dots") return Pulse;
     if (p.family == Current || p.family == Hands) return Flow;
     if (p.name == "leds") return Flow;
@@ -142,6 +142,12 @@ void Document::readDescription (const char* describe, const char* msgs)
         else if (t[0] == "C" && t.size() >= 9)
             cords.push_back ({ t[1].getIntValue(), t[2].getIntValue(), t[3].getIntValue(), t[4].getIntValue(),
                                t[5].getIntValue(), t[6].getFloatValue(), t[7].getFloatValue(), t[8].getIntValue() });
+        else if (t[0] == "R" && t.size() >= 7)
+        {
+            places = t[1].getIntValue(); placesMost = juce::jmax (1, t[2].getIntValue());
+            cordsIn = t[3].getIntValue(); cordsMost = juce::jmax (1, t[4].getIntValue());
+            textBytes = t[5].getIntValue(); textMost = juce::jmax (1, t[6].getIntValue());
+        }
         else if (t[0] == "M" && t.size() >= 4)
         {
             poolUsed = t[1].getIntValue();
@@ -159,6 +165,20 @@ void Document::readDescription (const char* describe, const char* msgs)
         if (m.error) ++errors;
         messages.push_back (m);
     }
+}
+
+float Document::room (juce::String* what) const
+{
+    struct Limit { float use; juce::String say; };
+    const Limit all[] = {
+        { (float) poolUsed / (float) juce::jmax (1, poolTotal), "memory " + juce::String (juce::roundToInt ((float) poolUsed / 1024.0f)) + " of " + juce::String (juce::roundToInt ((float) poolTotal / 1024.0f)) + " KB" },
+        { (float) places / (float) placesMost, "places " + juce::String (places) + " of " + juce::String (placesMost) },
+        { (float) cordsIn / (float) cordsMost, "cords " + juce::String (cordsIn) + " of " + juce::String (cordsMost) },
+        { (float) textBytes / (float) textMost, "text " + juce::String (juce::roundToInt ((float) textBytes / 1024.0f)) + " of " + juce::String (juce::roundToInt ((float) textMost / 1024.0f)) + " KB" } };
+    const Limit* worst = &all[0];
+    for (auto& l : all) if (l.use > worst->use) worst = &l;
+    if (what) *what = worst->say;
+    return worst->use;
 }
 
 const NodeInfo* Document::node (int id) const
@@ -406,7 +426,16 @@ void Document::setCordAmount (int ci, float a, float a2)
 {
     if (ci < 0 || ci >= (int) cords.size()) return;
     auto ls = lines();
-    expandLineExcept (ls, cords[(size_t) ci].line, -1, [a, a2] (CordInfo& c) { c.amt = a; if (c.kind == Range) c.amt2 = a2; }, ci);
+    // only what the language can write: a cord passes 0 % or more (the attenuverter is what
+    // inverts), a maybe-cord's chance is 0 to 100, a water cord takes a millisecond or more
+    auto& was = cords[(size_t) ci];
+    if (was.src >= 0)
+    {
+        if (was.kind == Hall || was.kind == Fog) a = juce::jmax (0.0f, a);
+        else if (was.kind == Maybe) a = juce::jlimit (0.0f, 100.0f, a);
+        else if (was.kind == Water) a = juce::jmax (1.0f, a);
+    }
+    expandLineExcept (ls, was.line, -1, [a, a2] (CordInfo& c) { c.amt = a; if (c.kind == Range) c.amt2 = a2; }, ci);
     setLines (ls);
 }
 
@@ -469,6 +498,84 @@ juce::String Document::copyNodes (const std::vector<int>& ids) const
     for (auto& c : cords)
         if (set.count (c.dst) && (c.src < 0 || set.count (c.src))) out.add (cordText (c));
     return out.joinIntoString ("\n");
+}
+
+static bool wordChar (juce::juce_wchar c) { return juce::CharacterFunctions::isLetterOrDigit (c) || c == '_'; }
+
+// `from` -> `to` wherever it stands as a whole word, from column `start` on
+static juce::String renameWord (const juce::String& line, const juce::String& from, const juce::String& to, int start = 0)
+{
+    juce::String out = line.substring (0, start);
+    int i = start;
+    while (i < line.length())
+    {
+        // a whole word, and not a port (the "decay" of "env.decay" is an inlet, not the place called decay)
+        if (line.substring (i).startsWith (from) && (i == 0 || (! wordChar (line[i - 1]) && line[i - 1] != '.'))
+            && (i + from.length() >= line.length() || ! wordChar (line[i + from.length()])))
+        {
+            out << to;
+            i += from.length();
+        }
+        else out << line[i++];
+    }
+    return out;
+}
+
+// "the NAME is PLACE ...": where the name and the place stand in the line (false if it isn't one)
+static bool declaration (const juce::String& line, juce::Range<int>& name, juce::Range<int>& place)
+{
+    int i = 0;
+    juce::Range<int> w[4];
+    for (int k = 0; k < 4; ++k)
+    {
+        while (i < line.length() && juce::CharacterFunctions::isWhitespace (line[i])) ++i;
+        int a = i;
+        while (i < line.length() && ! juce::CharacterFunctions::isWhitespace (line[i]) && line[i] != ';') ++i;
+        if (i == a) return false;
+        w[k] = { a, i };
+    }
+    auto word = [&line, &w] (int k) { return line.substring (w[k].getStart(), w[k].getEnd()); };
+    if (! word (0).equalsIgnoreCase ("the") || (word (2) != "is" && word (2) != "are")) return false;
+    name = w[1]; place = w[3];
+    return true;
+}
+
+juce::StringArray Document::renamedForPaste (const juce::StringArray& pasted, juce::StringArray& newNames) const
+{
+    auto lines = pasted;
+    std::set<juce::String> taken;
+    for (auto& n : nodes) taken.insert (n.name);
+    for (int i = 0; i < lines.size(); ++i)
+    {
+        juce::Range<int> nameAt, placeAt;
+        if (! declaration (lines[i], nameAt, placeAt)) continue;
+        auto name = lines[i].substring (nameAt.getStart(), nameAt.getEnd());
+        if (taken.count (name))
+        {
+            juce::String fresh;
+            for (int n = 2; fresh.isEmpty(); ++n)                 // comb -> combb, combc ... then comb27
+            {
+                auto tryName = n <= 26 ? name + juce::String::charToString ((juce::juce_wchar) ('a' + n - 1)) : name + juce::String (n);
+                if (! taken.count (tryName) && ! findPlace (tryName)) fresh = tryName;
+            }
+            // The name changes wherever the pasted cords use it. In a declaration only the name
+            // itself does: the place it is (the word after "is") and its switches and params stay,
+            // even when they are spelled the same. "the comb is comb" becomes "the combb is comb"
+            // (there is no place called combb), "the decay is decay decay=0.9" keeps its decay=.
+            for (int k = 0; k < lines.size(); ++k)
+            {
+                juce::Range<int> nk, pk;
+                auto& l = lines.getReference (k);
+                if (! declaration (l, nk, pk)) l = renameWord (l, name, fresh);
+                else if (l.substring (nk.getStart(), nk.getEnd()) == name && k == i)
+                    l = l.substring (0, nk.getStart()) + fresh + l.substring (nk.getEnd());
+            }
+            name = fresh;
+        }
+        taken.insert (name);
+        newNames.add (name);
+    }
+    return lines;
 }
 
 // ------------------------------------------------------------------------------------------ positions

@@ -1,0 +1,14 @@
+the n0 is bernoulli samplerate=half
+the n1 is chord tune=-1.52
+the n2 is smoothrandom
+the n3 is bernoulli
+the n4 is choruslite
+value 10 -> n0.chance
+n1 -> n1
+play -> n1.type
+n3.b -> n1.spread
+n1 -> n2.follow
+n2 -> n3
+fader3 -> n4.depth
+n1 -> left
+n0 -> out

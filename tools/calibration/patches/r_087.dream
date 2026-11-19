@@ -1,0 +1,15 @@
+the n0 is tri tune=0.64 samplerate=eighth
+the n1 is supersaw
+the n2 is sineshaper samplerate=quarter
+the n3 is bell tune=-0.16 att.strike=-0.65 att.decay=1.29
+n2 -> n0
+n0 -150> n1
+n3 -> n1.detune
+fader4 -> n1.mix
+n2 -> n2
+n2 ~> n2.drive
+n0 -> n3
+n2 >| n3.decay
+n1 -> left
+n3 -> left
+n0 -> right

@@ -1,0 +1,12 @@
+the n0 is sinesaw 4
+the n1 is rectify
+the n2 is clock samplerate=half
+the n3 is adsr decay=0.578 release=0.637
+the n4 is phasedist tune=0.31 samplerate=quarter
+fader3 -> n0.fm
+button1 -> n3
+n4 -> n3.decay
+n0.saw => n3.sustain
+n1.full -> n3.release
+n0 -> out
+n2 -> left

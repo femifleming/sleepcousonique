@@ -1,0 +1,14 @@
+the n0 is vcgate
+the n1 is ar curve=exp
+the n2 is mixer in5=0.501
+the n3 is hihat tune=1.47
+n1 -> n0.levela
+n3 -> n1.release
+n2 ~> n2.in5
+n2 -> n2.in5
+n0 -> n2.in6
+fader4 -20> n3.decay
+n0.b ?> n3.pitch
+n0 -> left
+n1 -> right
+n3 -> left

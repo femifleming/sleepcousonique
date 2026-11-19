@@ -1,0 +1,18 @@
+the n0 is phasor samplerate=eighth
+the n1 is froglet
+the n2 is compressor samplerate=quarter
+the n3 is noisesweep
+the n4 is trigdelay 1
+the n5 is shepard samplerate=quarter
+the n6 is marimba tune=2.33 att.pitch=-0.66 decay=0.292
+n2 -35> n1
+n4 >| n2
+play -50> n2.amount
+n0.wrap -> n2.side
+value 20 -> n4.time
+n3 -> n6.pitch
+n2 -20> n6.decay
+n4 -> left
+n6 -> out
+n1 -> left
+n3 -> left

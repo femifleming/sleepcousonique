@@ -1,0 +1,13 @@
+the n0 is glide
+the n1 is chord tune=2.74
+the n2 is smoothrandom 1 rate=0.578
+the n3 is white
+the n4 is lorenz samplerate=eighth att.rho=-1.84
+n4.y ~> n0
+n3 -> n0.clock
+n2 -> n0.clock
+value 20 -> n1.type
+n4.y ?> n2
+play -> n4.rho
+n3 -> left
+n2 -> left

@@ -204,14 +204,19 @@ scene, and `scene.miss` is the chance of landing on a random one.
 
 ## The meters
 
-- **load:** how much of the SP-1's processor the scene needs. Every place's cost was measured
-  on a real SP-1, so this is close to what the SP-1 will report itself (within a few percent).
-  It turns amber above 85% and red above 100%. Keep every scene under about 90%: a scene over
-  100% stutters on the SP-1, and **send to SP-1** warns you before sending one. Plain wires
-  cost nothing; cords with parts in them, or several cords into one inlet, cost a little;
-  reverbs, choruses and the vocoder cost the most.
-- **memory:** how much of the SP-1's 80 KB of room for delays, grains and gestures the
-  scene uses.
+- **load:** how much of the SP-1's processor the scene needs. The figures behind it were fitted
+  to whole patches measured on SP-1s (`tools/sp1fleet.py`, `tools/calibrate.py`), so this is
+  close to what the SP-1 will report itself (within a few percent). It turns amber above 85%
+  and red above 100%. Keep every scene under about 90%: **send to SP-1** warns you before
+  sending one that is heavier. A plain wire costs nothing; a cord with an amount or a part in
+  it, several cords into one inlet, an attenuverter or a turned knob cost a little; a place at
+  `samplerate=half` (or lower) costs about half, and two slow places wired together exchange
+  their short blocks with nothing in between. Reverbs, choruses and the vocoder cost the most.
+  When the SP-1 is plugged in, **SP-1 CPU** beside it shows what the SP-1 itself measures.
+- **room:** whichever of the SP-1's limits the scene is closest to, named beside the number:
+  its **memory** (124 KB for delay lines, grains, gestures and each place's sound), **places**
+  (96 in a scene), **cords** (320), or the dream's **text** (16 KB fit in a slot; send refuses
+  a longer one). At 100% the scene won't build: the journal says which place didn't fit.
 - **out:** the level coming out.
 
 What fits these meters plays on the SP-1 as it plays here, because the computer runs the

@@ -1,0 +1,14 @@
+the ck is clock
+the sn is sine 2
+the x1 is freeze
+the x2 is freeze
+the x3 is freeze
+x1 -> out
+x2 -> out
+x3 -> out
+sn -> x1.in
+ck.eighth -> x1.hold
+sn -> x2.in
+ck.eighth -> x2.hold
+sn -> x3.in
+ck.eighth -> x3.hold

@@ -1,0 +1,14 @@
+the n0 is seq 8 samplerate=half
+the n1 is noise
+the n2 is wind
+the n3 is rungler tune=1.48
+n0.pulse ?> n0
+n3.steps -> n0.back
+n0.step -> n0.reset
+fader2 -> n1
+fader3 -20> n2
+n0.step => n3.chaos
+n3 -> left
+n0 -> out
+n1 -> left
+n2 -> out

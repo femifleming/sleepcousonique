@@ -29,6 +29,14 @@ void destroy();
 // keys turn it down whenever it is the Mac's output. Turns it back to full; true if it had to.
 bool unmute (const juce::String& uid);
 
+// Does this device still take audio? A driver that has stopped answering (seen with BlackHole)
+// blocks whoever opens it, for ever, and an aggregate holding it blocks the same way: the Array
+// froze at launch with nothing on screen. So the question is put by a second copy of this program
+// (`--probe UID`, which calls probe()), given `ms` to come back; if it doesn't, it is ended and the
+// answer is no. probe() itself returns 0 if the device let a reader in.
+bool answers (const juce::String& uid, int ms);
+int probe (const juce::String& uid);
+
 constexpr const char* kName = "SP-1 Array";
 constexpr const char* kUid = "com.sleepcousonique.array";
 }

@@ -1,0 +1,21 @@
+the n0 is switch samplerate=quarter
+the n1 is bernoulli
+the n2 is vco tune=0.79 att.fm=-0.44 fm=0.807
+the n3 is crossfade samplerate=quarter
+the n4 is follower
+the n5 is tube samplerate=half drive=0.229
+the n6 is pan 1 samplerate=eighth
+value 20 -> n0.in2
+n5 => n0.next
+n3 >| n0.reset
+n4 ?> n1
+value 20 -> n1.chance
+n1.b -> n2.fm
+n6.r -> n3
+n3 => n4
+value 20 -> n4.attack
+n3 -> n4.release
+n3 -> left
+n0 -> right
+n6 -> left
+n5 -> left

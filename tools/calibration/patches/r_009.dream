@@ -1,0 +1,15 @@
+the n0 is samplehold 1
+the n1 is hihat tune=0.56
+the n2 is chord spread=0.557
+the n3 is logistic samplerate=quarter
+n2 >| n0
+n3.pulse -> n0
+rocker -> n0.clock
+n0 -> n1.pitch
+n1 -> n2
+n2 -150> n2.type
+n1 -> n3.chaos
+n2 -> left
+n1 -> out
+n3 -> right
+n0 -> out

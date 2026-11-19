@@ -1,0 +1,32 @@
+the s1 is sine 
+the s2 is sine 
+the s3 is sine 
+the s4 is sine 
+the s5 is sine 
+the s6 is sine 
+the s7 is sine 
+the s8 is sine 
+the o1 is onepole 
+the o2 is onepole 
+the o3 is onepole 
+the o4 is onepole 
+the o5 is onepole 
+the o6 is onepole 
+the o7 is onepole 
+the o8 is onepole 
+s1 -50> o1
+value 20 -> o1
+s2 -50> o2
+value 20 -> o2
+s3 -50> o3
+value 20 -> o3
+s4 -50> o4
+value 20 -> o4
+s5 -50> o5
+value 20 -> o5
+s6 -50> o6
+value 20 -> o6
+s7 -50> o7
+value 20 -> o7
+s8 -50> o8
+value 20 -> o8

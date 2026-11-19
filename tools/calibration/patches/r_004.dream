@@ -1,0 +1,23 @@
+the n0 is freqshift samplerate=eighth
+the n1 is comparator ref=0.292
+the n2 is formant tune=1.18
+the n3 is vcmix level2=1.606 level3=1.539
+the n4 is gesture
+the n5 is choruslite 1
+the n6 is sine 2 tune=-0.33 samplerate=quarter
+n4 -75> n0.shift
+n2 -> n2.vowel
+n0.down -> n3.in4
+n3 -150> n3.level1
+n3 -> n3.level3
+n2 => n3.level4
+n2 -> n3.level4
+n1 -> n4
+n6 -> n5.depth
+n1 -> n6
+n6 -> n6.fm
+n2 -> out
+n4 -> out
+n3 -> out
+n6 -> out
+n3 -> leds

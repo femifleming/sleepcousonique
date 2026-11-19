@@ -1,0 +1,15 @@
+the n0 is euclid
+the n1 is drummap 1
+the n2 is rungler
+the n3 is freeze
+the n4 is adsr attack=0.168 sustain=1.032
+button1 ~> n0.hits
+n2 ?> n1.x
+n2.steps -> n1.y
+n3 -> n2.chaos
+fader2 -> n3.hold
+n4.end -> n3.hold
+n4.end -> n3.length
+n1.accent -> n4
+n2 -> right
+n1 -> left

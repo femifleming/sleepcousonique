@@ -21,8 +21,9 @@ You need: the SP-1, a USB-C data cable, and **Chrome or Edge** (the updater uses
 The bootloader is never touched, so the SP-1 can always come back: unplug, hold **T1 + T4**,
 plug in, and flash any `.bin` again: this one, Wakes, the tape looper or anything else.
 
-- Nothing sounds and the editor's load meter says **TOO HEAVY**: the dream is more than the
-  SP-1 can play. Send a lighter one (lite places, `samplerate=half`).
+- The sound breaks up and the editor's load meter says **too heavy**: the dream is more than
+  the SP-1 can play, so it leaves out a block now and then to keep the sound running (since
+  1.4 only as many as it must). Send a lighter one (lite places, `samplerate=half`).
 - Reflashing may clear the five dream slots on the SP-1: keep your `.dream` files.
 - **Windows:** the SP-1 shows up as a USB serial (COM) port with Windows' own driver; nothing
   to install. **macOS:** it appears as `/dev/cu.usbmodem…`.

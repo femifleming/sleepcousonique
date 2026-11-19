@@ -1,0 +1,17 @@
+the n0 is dcblock
+the n1 is follower samplerate=eighth
+the n2 is hum samplerate=quarter
+the n3 is vco tune=-1.79 att.sync=-1.03
+the n4 is pulsar att.formant=-1.64
+n1.gate -> n0
+n0 -> n1.attack
+n3.tri -> n1.release
+n4 -> n2
+fader4 -20> n3.fm
+n0 ?> n3.width
+rocker -> n3.sync
+value 20 -> n4
+n4 => n4.formant
+n0 -> out
+n1 -> right
+n4 -> right

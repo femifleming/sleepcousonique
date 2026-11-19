@@ -1,0 +1,44 @@
+the ck is clock
+the sn is sine 2
+the x1 is matrix
+the x2 is matrix
+the x3 is matrix
+the x4 is matrix
+the x5 is matrix
+the x6 is matrix
+the x7 is matrix
+x1 -> out
+x2 -> out
+x3 -> out
+x4 -> out
+x5 -> out
+x6 -> out
+x7 -> out
+sn -> x1.in1
+sn -> x1.in2
+sn -> x1.in3
+sn -> x1.in4
+sn -> x2.in1
+sn -> x2.in2
+sn -> x2.in3
+sn -> x2.in4
+sn -> x3.in1
+sn -> x3.in2
+sn -> x3.in3
+sn -> x3.in4
+sn -> x4.in1
+sn -> x4.in2
+sn -> x4.in3
+sn -> x4.in4
+sn -> x5.in1
+sn -> x5.in2
+sn -> x5.in3
+sn -> x5.in4
+sn -> x6.in1
+sn -> x6.in2
+sn -> x6.in3
+sn -> x6.in4
+sn -> x7.in1
+sn -> x7.in2
+sn -> x7.in3
+sn -> x7.in4

@@ -1,0 +1,15 @@
+the n0 is formant
+the n1 is randomwalk
+the n2 is pingpong time=1.74
+the n3 is svf cutoff=0.461
+n2.r -150> n0
+n0 -> n0.vowel
+n2.r ?> n1
+n2 -> n1.clock
+n1 ~> n2
+n1 ~> n2.time
+n1 -> n2.feedback
+n1 -> n3
+value 10 -> n3.cutoff
+n0 -> left
+n3 -> right

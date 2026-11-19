@@ -1,0 +1,17 @@
+the n0 is steprandom
+the n1 is tri
+the n2 is crossfade mix=0.917
+the n3 is quantizer
+the n4 is vcgate
+the n5 is vcgate samplerate=quarter
+the n6 is phasor
+the n7 is cvprocessor samplerate=half time=0.041
+the n8 is pingpong samplerate=quarter
+n1 -> n0
+n1 -> n3
+n1 -> n3.root
+n3 -> n4.levelb
+n1 -> n7.time
+n1 ~> n8.time
+n2 -> out
+n8 -> right

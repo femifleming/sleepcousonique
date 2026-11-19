@@ -7,10 +7,13 @@
 
 #define MAX_IN     10
 #define MAX_OUT    4
-#define MAX_NODES  64
-#define MAX_CORDS  224
+#define MAX_NODES  96
+#define MAX_CORDS  320
 #define MAX_STATE  24
-#define POOL_BYTES (80 * 1024)
+/* The house: one pool for everything a scene needs room for (delay lines, tables, tunings, and
+ * each place's outlet blocks). On the SP-1 it is what the chip's 256 KB leave: 80 KB until 1.2,
+ * more since the text is read where it lies and outlets take only the blocks they have. */
+#define POOL_BYTES (124 * 1024)
 #define NAME_LEN   20
 #define MAX_OPT    6     /* switches and params, set when the place is named */
 
@@ -59,7 +62,9 @@ struct node {
 	float    def[MAX_IN];
 	const float *direct[MAX_IN];  /* a lone plain wire: read the source's buffer itself */
 	uint16_t mixed;               /* bit per inlet that has to be summed each block      */
-	float    out[MAX_OUT][B];
+	uint8_t  dshort[MAX_IN];      /* a lone plain wire from a slow place whose outlet is kept short: its divisor (else 1) */
+	uint8_t  held;                /* a slow place: bit per outlet that someone reads at full length */
+	float   *out[MAX_OUT];         /* each outlet's block, from the pool (an outlet it doesn't have: a shared spare) */
 	float    s[MAX_STATE];
 	float    opt[MAX_OPT];         /* switch positions (0, 1, ...) or param values */
 	uint8_t  optset;              /* bit per option written in the dream */

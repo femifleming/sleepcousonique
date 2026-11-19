@@ -1,0 +1,27 @@
+the n0 is rectify
+the n1 is vcmix
+the n2 is crossfade 1
+the n3 is noise
+the n4 is dcblock
+the n5 is phasor samplerate=half
+the n6 is white
+the n7 is tri 3 tune=-1.43 samplerate=quarter
+the n8 is fm samplerate=quarter
+n0 -> n0
+n8.mod -> n1.in2
+n3.brown ?> n1.in3
+value 10 -> n1.in4
+n3 -> n1.level1
+n6 >| n1.level4
+n3 -> n1.level4
+n7 -> n2
+n0.half => n3
+n5 => n4
+n7 ~> n7
+n5.wrap -> n8.ratio
+n8 -> n8.index
+n3.brown -> n8.feedback
+n4 ?> n8.feedback
+n3 -> left
+n7 -> out
+n4 -> leds

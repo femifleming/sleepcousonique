@@ -1,0 +1,16 @@
+the n0 is dcblock samplerate=quarter
+the n1 is dualprocessor
+the n2 is chord 2 att.pitch=-0.56 att.type=-0.77
+the n3 is phaser 1 samplerate=half
+n2 -> n0
+play -> n1
+value 40 -> n1.rate1
+n2 -> n2
+n0 ~> n2.type
+n2 ~> n2.spread
+rocker ~> n3
+n3 -> left
+n2 -> out
+n1 -> left
+n0 -> left
+n0 -> leds

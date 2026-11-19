@@ -1,0 +1,16 @@
+the n0 is folder fold=0.163
+the n1 is decay samplerate=quarter
+the n2 is randomwalk
+the n3 is euclid
+the n4 is sympathetic tune=-1.43 att.decay=0.56
+n3.miss -> n0
+n0 ~> n1
+n0 -> n1.decay
+n2 -> n2
+n1 -> n3
+fader4 -> n3.rotate
+n3.miss => n4
+n3.step ?> n4.decay
+n4 -> left
+n2 -> left
+n0 -> leds

@@ -1,0 +1,11 @@
+the ck is clock
+the sn is sine 2
+the x1 is snare
+the x2 is snare
+the x3 is snare
+x1 -> out
+x2 -> out
+x3 -> out
+ck.eighth -> x1.strike
+ck.eighth -> x2.strike
+ck.eighth -> x3.strike

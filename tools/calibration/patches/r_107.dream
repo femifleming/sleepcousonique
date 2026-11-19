@@ -1,0 +1,18 @@
+the n0 is follow samplerate=half
+the n1 is highpass samplerate=quarter
+the n2 is pulsar tune=-0.27
+the n3 is svf
+the n4 is switch
+n4.step -> n0
+n4.step -> n1
+n1 ~> n1.cutoff
+n0 -> n1.res
+n0 ~> n3
+rocker -> n4
+n4.step -> n4.in2
+n3 -> n4.in3
+value 20 -> n4.reset
+n2 -> left
+n0 -> out
+n1 -> left
+n1 -> leds

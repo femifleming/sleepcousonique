@@ -1,0 +1,15 @@
+the n0 is pulsar att.pitch=-0.85
+the n1 is hihat
+the n2 is pulse tune=1.32 samplerate=quarter
+the n3 is pulsar tune=0.09 samplerate=half duty=0.587
+n3 => n0
+n0 -> n0
+n2 -> n0.duty
+n1 -> n1.decay
+n2 ?> n1.pitch
+n0 -> n2.width
+n1 -> n3.duty
+n2 -> right
+n1 -> right
+n3 -> out
+n0 -> left

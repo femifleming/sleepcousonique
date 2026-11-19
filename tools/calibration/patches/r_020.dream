@@ -1,0 +1,22 @@
+the n0 is lorenz samplerate=quarter rho=0.96
+the n1 is stepseq samplerate=half s2=0.753
+the n2 is mixer in6=0.642
+the n3 is reverblite
+the n4 is ringmod
+n1.step -35> n0
+n0.y -> n0.rho
+n4 -> n1.reset
+n2 ~> n1.s1
+n1.step -> n1.s2
+fader3 ~> n1.s6
+n4 ~> n1.s7
+n1.gate -35> n1.s8
+n1 -> n2.in2
+play ~> n2.in3
+n0.z -> n2.in6
+fader4 -> n3
+play -> n3.size
+n0.y -> n4.pitch
+n1 -> right
+n2 -> left
+n3 -> out
