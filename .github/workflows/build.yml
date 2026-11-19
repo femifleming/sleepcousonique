@@ -40,17 +40,6 @@ jobs:
           cmake --build build --config Release --parallel 4 --target Sleepcousonique ScqTests scqtool ScqSweep
           if [ "$RUNNER_OS" = "macOS" ]; then cmake --build build --config Release --parallel 4 --target SleepcousoniqueArray; fi
 
-      - name: Legacy versions (light, for old computers)
-        shell: bash
-        run: |
-          if [ "$RUNNER_OS" = "macOS" ]; then
-            cmake -B build-legacy -G Ninja -DCMAKE_BUILD_TYPE=Release -DSCQ_LEGACY=ON -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13 "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
-            cmake --build build-legacy --config Release --parallel 4 --target Sleepcousonique SleepcousoniqueArray
-          else
-            cmake -B build-legacy -A x64 -DSCQ_LEGACY=ON
-            cmake --build build-legacy --config Release --parallel 4 --target Sleepcousonique
-          fi
-
       - name: Test
         shell: bash
         run: |
@@ -73,7 +62,7 @@ jobs:
 
       - name: Package
         shell: bash
-        run: ci/package.sh "${{ matrix.name }}" build build-legacy
+        run: ci/package.sh "${{ matrix.name }}" build
 
       - uses: actions/upload-artifact@v4
         with:

@@ -171,20 +171,11 @@ Each output also has a live **spectrogram** (40 Hz to 20 kHz, newest on the righ
 
 The **look** button switches the Array between **faltung** (each SP-1 a block on a stage whose
 towers rise with its two outputs) and **modular** (each SP-1 a module strip with LED columns on
-grey marble, Windows controls). *Sleepcousonique Array Legacy* starts in the modular look.
+grey marble, Windows controls).
 
 ![the Array, faltung](fig/array-faltung.png)
 
 ![the Array, modular](fig/array-modular.png)
-
-![the Array, legacy](fig/array-legacy.png)
-
-**Legacy versions** — *Sleepcousonique Legacy* and *Sleepcousonique Array Legacy* — are the same
-apps drawn flat and redrawn only where something moved, for old computers (macOS 10.13 and
-later, Intel or Apple Silicon). Both start in the **modular** look and keep their own settings,
-apart from the normal apps. The Array Legacy has plain bars instead of the stage, history and
-spectrograms. Build them with `cmake -B build-legacy -G Ninja -DSCQ_LEGACY=ON
--DCMAKE_OSX_DEPLOYMENT_TARGET=10.13 -DCMAKE_BUILD_TYPE=Release`.
 
 The SP-1 follows the computer's clock (it resamples by a few hundred parts per million), so
 the units stay together. The delay is about 6 ms.

@@ -2,8 +2,8 @@
 
 | download | for |
 |---|---|
-| `sleepcousonique-macOS.zip` | the editor and **Sleepcousonique Array** for macOS 11+ (universal), their **Legacy** versions for macOS 10.13+, the firmware, manual and examples |
-| `sleepcousonique-Windows.zip` | the editor and its **Legacy** version for Windows 10/11 (64-bit), the firmware, manual and examples |
+| `sleepcousonique-macOS.zip` | the editor and **Sleepcousonique Array** for macOS 11+ (universal), the firmware, manual and examples |
+| `sleepcousonique-Windows.zip` | the editor for Windows 10/11 (64-bit), the firmware, manual and examples |
 | `sleepcousonique-sp1.bin` | the SP-1 firmware on its own |
 | `Sleepcousonique-Manual.pdf` | the manual |
 

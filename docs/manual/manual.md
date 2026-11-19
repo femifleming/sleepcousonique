@@ -79,7 +79,7 @@ editors were: Windows-grey chrome with raised and sunken edges, a grey marble ta
 as coloured module strips with a triangle and a bold name, round inputs and square outputs
 (red for sound, blue for currents, yellow for pulses), fat cables with a dark edge, grey knobs,
 cyan "on" buttons, LED meters and Tahoma type. It has one appearance (light or dark doesn't
-change it). The **Legacy** editor starts in this look.
+change it).
 
 ![modular](fig/look-modular.png)
 
@@ -247,7 +247,7 @@ as weather*) lists their outlets and shows a patch. This is what the editor does
 
 | where the dream plays | what `crowd` and `visitors` hear |
 |---|---|
-| the editor on macOS (11 or later; Legacy: 10.13 or later, where macOS asks from 10.15 on) | the Mac's Bluetooth: every device calling nearby |
+| the editor on macOS (11 or later) | the Mac's Bluetooth: every device calling nearby |
 | the editor on Windows | no listening yet: `crowd` holds its `rest=` count, `visitors` is silent (or a made-up room, below) |
 | the SP-1 on its own | the same: `crowd` holds `rest=`, `visitors` is silent. The SP-1's firmware never uses its Bluetooth chip (section 3) |
 
