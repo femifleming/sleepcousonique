@@ -20,6 +20,11 @@ the same C code the editor runs.
 You flash the firmware once. After that the editor sends your dreams over USB; changing a
 patch never needs a reflash.
 
+**Flashing is not sending.** Boot mode (**T1 + T4** held while plugging in) is *only* for
+flashing firmware with the Solderless updater in the browser. **send to SP-1** in the editor
+never uses boot mode: plug the SP-1 in normally, turn it on with **••**, and send. In boot mode
+the editor can't see the SP-1 at all.
+
 You need the SP-1, a USB-C data cable and **Chrome or Edge** (the updater uses WebUSB).
 
 1. Take `sleepcousonique-sp1.bin` from the release zip (or `firmware/dist/`, or build it,
@@ -33,9 +38,9 @@ You need the SP-1, a USB-C data cable and **Chrome or Edge** (the updater uses W
    plays the first night, and in the editor the scene bar says **SP-1 connected**, with its slot
    and scene.
 
-The editor doesn't flash anything: only the updater in the browser does, with the SP-1 in boot
-mode. **send to SP-1** sends a dream to an SP-1 that already runs this firmware, and only while
-it is on. If it is off the scene bar says *SP-1 is off (standby)* and a send tells you to turn it
+That's the last time you need boot mode. The editor doesn't flash anything: only the updater
+in the browser does, with the SP-1 in boot mode. **send to SP-1** sends a dream to an SP-1 that
+already runs this firmware, plugged in normally (no T1 + T4) and only while it is on. If it is off the scene bar says *SP-1 is off (standby)* and a send tells you to turn it
 on; if it runs other firmware the editor says so and asks you to flash it.
 
 On Windows the SP-1 appears as a USB serial (COM) port using Windows' own driver (usbser); on

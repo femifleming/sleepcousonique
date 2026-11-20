@@ -262,9 +262,21 @@ with a made-up room of, say, seven devices that each call about once a second:
 
 ## Sending a dream to the SP-1
 
-Connect the SP-1 (running the Sleepcousonique firmware, see section 3) by USB and press
-**send to SP-1** (⌘U). The editor finds it, sends the whole file, and the SP-1 starts playing
-it and keeps it in the playing slot. Nothing is reflashed. A dream with mistakes is not
-sent.
+Connect the SP-1 (running the Sleepcousonique firmware, see section 3) by USB **normally, with
+no buttons held**, turn it on with **••**, and press **send to SP-1** (⌘U, Ctrl+U on Windows).
+The editor finds it, sends the whole file, and the SP-1 starts playing it and keeps it in the
+playing slot. Nothing is reflashed. A dream with mistakes is not sent.
+
+**Sending is not flashing.** Don't hold **T1 + T4** to send: that is *boot mode*, used only
+once to flash the firmware from solderless.engineering in the browser. In boot mode the SP-1
+runs its bootloader, not Sleepcousonique, so the editor can't see it ("No SP-1 is plugged in").
+If you are in boot mode (T1 lit, nothing else), unplug, plug in again without holding anything,
+turn it on with **••**, and send.
+
+| | send to SP-1 (the editor) | flash the firmware (the browser) |
+|---|---|---|
+| puts on the SP-1 | a dream (your patch) | the Sleepcousonique firmware |
+| how often | every time you change a patch | once, and to update |
+| the SP-1 | on normally (••), no buttons held | boot mode: T1 + T4 while plugging in |
 
 ---

@@ -5,6 +5,27 @@ Sleepcousonique runs on a Teenage Engineering **SP-1** with its own firmware,
 after that the editor sends your dreams over USB and you never need to flash again to change
 a patch.
 
+## Flashing is not sending
+
+These are two different jobs. People mix them up, so read this first:
+
+| | **send to SP-1** (in the editor) | **flash the firmware** (this page) |
+|---|---|---|
+| what it does | puts a *dream* (your patch) on the SP-1 | installs the Sleepcousonique *firmware* |
+| how often | every time you change a patch | **once** (and again only to update the firmware) |
+| where | the Sleepcousonique editor | [solderless.engineering](https://solderless.engineering) in Chrome or Edge |
+| the SP-1 | **switched on normally** (hold ••), plugged in by USB, no buttons held | in **boot mode**: T1 + T4 held while plugging in |
+
+- **T1 + T4 (boot mode) is only for flashing, in the browser.** It starts the SP-1's bootloader,
+  not Sleepcousonique. In boot mode the editor cannot see the SP-1 at all, so **send to SP-1**
+  says "No SP-1 is plugged in".
+- **The editor never flashes.** Its **send to SP-1** does not install firmware and never needs
+  boot mode: plug the SP-1 in normally, turn it on with **••**, press send.
+- **Stuck in boot mode** (T1 lit, nothing else, the editor sees nothing)? Unplug, plug in
+  again *without* holding any buttons, hold **••** about a second to turn it on, and send.
+
+## Flashing the firmware (once)
+
 You need: the SP-1, a USB-C data cable, and **Chrome or Edge** (the updater uses WebUSB).
 
 1. **Turn the SP-1 off** and unplug it.
@@ -21,9 +42,10 @@ You need: the SP-1, a USB-C data cable, and **Chrome or Edge** (the updater uses
    SP-1** works. (While the SP-1 is off the scene bar says *SP-1 is off (standby)*, and a send
    tells you to turn it on: the firmware only listens while it plays.)
 
-The editor never flashes anything itself: flashing is only ever done by the updater in the
-browser, with the SP-1 in boot mode. The editor's **send to SP-1** sends a *dream* (your patch)
-to an SP-1 that already runs this firmware.
+After this you are done with boot mode. Every later **send to SP-1** is just: plug in normally
+(no T1 + T4), turn on with **••**, send. The editor never flashes anything itself: flashing is
+only ever done by the updater in the browser, with the SP-1 in boot mode. The editor's **send to
+SP-1** sends a *dream* (your patch) to an SP-1 that already runs this firmware.
 
 ## If something goes wrong
 
@@ -39,8 +61,11 @@ plug in, and flash any `.bin` again: this one, Wakes, the tape looper or anythin
   waits in standby.
 - **send to SP-1 says "not as Sleepcousonique" / "Flash sleepcousonique-sp1.bin"**: the SP-1
   answers, but runs other firmware (Wakes, the tape looper, the stock one). Flash it as above.
-- **send to SP-1 says "No SP-1 is plugged in"**: use a USB-C *data* cable (some are charge
-  only), plug straight into the computer rather than a hub, and turn the SP-1 on.
+- **send to SP-1 says "No SP-1 is plugged in"**: first, make sure the SP-1 is **not in boot
+  mode**. If you held T1 + T4 while plugging in (T1 lit, nothing else), that is the flashing
+  mode and the editor can't see it: unplug, plug in again without holding anything, hold **••**
+  to turn it on. Otherwise use a USB-C *data* cable (some are charge only), plug straight into
+  the computer rather than a hub, and turn the SP-1 on.
 - **send to SP-1 says "in use by another program"**: only one program at a time can hold the
   SP-1's port. Quit the other one: a second Sleepcousonique, a serial monitor (Arduino, PuTTY,
   screen), `tools/sp1fleet.py`, or a browser tab using Web Serial.

@@ -3,7 +3,8 @@
 # sleepcousonique
 
 A dream-journal patch language and modular editor for the Teenage Engineering **SP-1**.
-Patch it on the computer, flash the firmware once, then play the patch on the SP-1 alone:
+Patch it on the computer, flash the firmware once (boot mode, in the browser), send dreams from
+the editor as often as you like (no boot mode), then play the patch on the SP-1 alone:
 its faders, track buttons, rocker and LEDs do whatever your dream says.
 
 ![sleepcousonique](docs/screenshot.png)
@@ -57,6 +58,21 @@ fader1 -> hall.feedback
 Inspired by the dream journal at femishonuga.com, Peter Blasser's **Nabra** (knobless; cords
 with parts in them), **Buchla** and **Serge**, and the **Nord Modular** editor.
 
+> **Sending a dream is not flashing.** Two different jobs, done in two different places:
+>
+> | | **send to SP-1** (in the editor) | **flash the firmware** (solderless.engineering) |
+> |---|---|---|
+> | what it does | puts a *dream* (your patch) on the SP-1 | installs the Sleepcousonique *firmware* |
+> | how often | every time you change a patch | **once** (and again only to update the firmware) |
+> | where | the Sleepcousonique editor | the Solderless updater in Chrome or Edge |
+> | the SP-1 | **switched on normally** (hold ••), plugged in by USB | in **boot mode**: T1 + T4 held while plugging in |
+>
+> **Never hold T1 + T4 to send a dream.** T1 + T4 starts the SP-1's bootloader, which only the
+> browser updater can talk to: in boot mode Sleepcousonique isn't running, so the editor can't
+> see the SP-1 at all ("No SP-1 is plugged in"). The editor never flashes anything and never needs
+> boot mode. If you are in boot mode (T1 lit, nothing else), unplug, plug in again *without*
+> holding anything, hold •• to turn it on, and send.
+
 **[The manual (PDF)](docs/manual/Sleepcousonique-Manual.pdf)** · **[Flashing the SP-1](FLASHING.md)**
 
 ## Install
@@ -77,15 +93,22 @@ or download `sleepcousonique-macOS.zip` from [releases](https://github.com/femif
 Each zip holds the editor, the SP-1 firmware `sleepcousonique-sp1.bin`, the manual,
 `FLASHING.txt` and the example dreams.
 
-## Flash the SP-1
+## Flash the SP-1 (once)
 
+This is **only** for installing the firmware, not for sending dreams (see the box above).
 Once: turn the SP-1 off, hold **T1 + T4** and plug in USB (boot mode), open
 [solderless.engineering](https://solderless.engineering) in Chrome or Edge and flash
 `sleepcousonique-sp1.bin`. It restarts switched off (standby, charging): hold **••** for about a
-second to turn it on, then send dreams from the editor. Details, troubleshooting and recovery:
-[FLASHING.md](FLASHING.md); with an SP-1 in hand, [docs/HARDWARE-CHECK.md](docs/HARDWARE-CHECK.md). The bootloader
-is never touched, so T1 + T4 always brings the SP-1 back. Unofficial firmware, not affiliated
-with Teenage Engineering.
+second to turn it on.
+
+## Send dreams (every time)
+
+From then on, plug the SP-1 in **normally** (no buttons held), turn it on with **••**, and press
+**send to SP-1** (⌘U / Ctrl+U) in the editor. No browser, no boot mode, no T1 + T4.
+
+Details, troubleshooting and recovery: [FLASHING.md](FLASHING.md); with an SP-1 in hand,
+[docs/HARDWARE-CHECK.md](docs/HARDWARE-CHECK.md). The bootloader is never touched, so T1 + T4
+always brings the SP-1 back. Unofficial firmware, not affiliated with Teenage Engineering.
 
 | folder | what |
 |---|---|
