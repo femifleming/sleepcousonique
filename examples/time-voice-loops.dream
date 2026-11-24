@@ -1,0 +1,37 @@
+instrument wingie
+; voice loops — your own voice into the Wingie's microphones, onto tape, into the cistern
+; Mode 1 (held) punches into the tape loop; Mode 2 (held) freezes the spectrum
+; fader1 Mix: how worn the tape is; fader2 Decay: how long the cistern keeps it; fader3 Volume
+
+2026-11-24
+----------
+; six seconds of tape, two heads; what falls off it sings on in the cistern
+the tape is tapeloop seconds=6 gap=0.37
+the cistern is eis rate=0.2 depth=0.5
+the breath is specfreeze blend=0.1
+the level is vca
+
+mic.both -> tape
+mode1 -> tape.punch
+fader1 -> tape.age
+tape.left -> cistern
+fader2 -> cistern.feedback
+mic.both -> breath
+mode2 -> breath.freeze
+tape.left breath -> left
+tape.right breath -> right
+cistern.left -40> left
+cistern.right -40> right
+
+Deep listening
+--------------
+; a long room that only listens: hold Mode 2 and it rings on with nothing new let in
+the cave is cavern size=0.8 dark=0.6
+the wide is haas width=0.7
+mic.both -> cave
+mode2 -> cave.hold
+fader2 -> cave.size
+cave.left -> wide
+wide.left -> left
+wide.right -> right
+cave.right -50> right

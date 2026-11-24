@@ -1,0 +1,23 @@
+; the passing train — a horn going by, insects over the water, a cathedral that climbs
+; fader1 how far away the line is; fader2 how fast it passes; fader3 how much the cathedral climbs
+
+2026-11-24
+----------
+the horn is chord 2
+the line is doppler distance=0.3 speed=0.4
+the rain is rain 2
+the insects are swarm density=0.6 chaos=0.8 pitch=1
+the nave is shimmer samplerate=half size=0.7 shimmer=0.4 interval=12
+
+horn -> line
+fader1 -> line.distance
+fader2 -> line.speed
+line.left -> left
+line.right -> right
+rain -> insects
+insects.left -40> left
+insects.right -40> right
+line.left -> nave
+fader3 -> nave.shimmer
+nave.left -50> left
+nave.right -50> right
