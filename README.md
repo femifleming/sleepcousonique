@@ -2,7 +2,8 @@
 
 # sleepcousonique
 
-A dream-journal patch language and modular editor for the Teenage Engineering **SP-1**.
+A dream-journal patch language and modular editor for the Teenage Engineering **SP-1**,
+and (since 1.5.0) for Meng Qi's **Wingie2**: one editor, one language, switch instruments in the Device menu.
 Patch it on the computer, flash the firmware once (boot mode, in the browser), send dreams from
 the editor as often as you like (no boot mode), then play the patch on the SP-1 alone:
 its faders, track buttons, rocker and LEDs do whatever your dream says.
@@ -12,6 +13,25 @@ its faders, track buttons, rocker and LEDs do whatever your dream says.
 | faltung, dark | faltung, light | modular | journal, dark |
 |---|---|---|---|
 | ![](docs/themes/faltung-dark.png) | ![](docs/themes/faltung-light.png) | ![](docs/themes/modular.png) | ![](docs/themes/journal-dark.png) |
+
+**New in 1.5.0: the Wingie2, and a lot more processing.**
+- **Wingie mode.** `instrument wingie` at the top of a dream, and it plays on a Wingie2 running the
+  Sleepcousonique firmware: both microphones in, both keyboards (`keys1` is the bottom one, `keys2`
+  the top), the Mode buttons, the three knobs and the lights as places. Twelve slots on the Wingie,
+  picked from its panel. The editor draws the real Wingie, with its own CPU and memory meters
+  measured on one.
+- **237 places** (was 96): hi-fi granular (`grains`, `grainfreeze`, `particles`, `paulstretch`,
+  `stretch` …), spectral (`specfilter`, `specfreeze`, `specshift`, `harmonizer` …), time (`shimmer`,
+  `doppler`, `reverse`, `beauty`, `dub` …) and colour (`transient`, `eq`, `fuzz`, `autowah` …).
+  Any place can run at `samplerate=half` or `quarter` on both instruments to save work.
+- **New in the language:** pitch in units (`7st`, `-50ct`, `1oct`); `resolution=fine|audio` for
+  audio-rate pitch; the `slot` place, so a dream can change slot; a scene ignores pulses in its
+  first 0.1 s.
+- **Too heavy? It goes back** to the last dream that fit, on both instruments, instead of
+  stuttering.
+- **The SP-1's load meter** is measured place by place on 1.5.0 (522 patches): it's off by
+  about 2.5 points, where it was 13.7.
+- **Flash the SP-1 again** for 1.5.0; the Wingie firmware is new.
 
 **New in 1.4.1:** fixes for sending and installing. After flashing (or plugging it in while off)
 the SP-1 waits switched off, and the editor used to say "Flash the firmware first", which sent
@@ -90,16 +110,30 @@ or download `sleepcousonique-macOS.zip` from [releases](https://github.com/femif
 **Windows** (10/11, 64-bit): download `sleepcousonique-Windows.zip` from
 [releases](https://github.com/femifleming/sleepcousonique/releases), unzip, run `Sleepcousonique.exe`.
 
-Each zip holds the editor, the SP-1 firmware `sleepcousonique-sp1.bin`, the manual,
-`FLASHING.txt` and the example dreams.
+Each zip holds the editor, the SP-1 firmware `sleepcousonique-sp1.bin`, the Wingie firmware
+`sleepcousonique-wingie.bin`, both manuals, `FLASHING.txt` and the example dreams.
 
 ## Flash the SP-1 (once)
 
 This is **only** for installing the firmware, not for sending dreams (see the box above).
 Once: turn the SP-1 off, hold **T1 + T4** and plug in USB (boot mode), open
 [solderless.engineering](https://solderless.engineering) in Chrome or Edge and flash
-`sleepcousonique-sp1.bin`. It restarts switched off (standby, charging): hold **••** for about a
-second to turn it on.
+`sleepcousonique-sp1.bin`. It restarts switched off (standby, charging): hold **••** for about
+half a second to turn it on.
+
+## Flash the Wingie2 (once)
+
+Quit the editor, plug the Wingie in, and write `sleepcousonique-wingie.bin` at address 0 with
+esptool (`pip install esptool`):
+
+```
+esptool.py --chip esp32 --port /dev/cu.usbserial-XXXX --baud 460800 \
+  write_flash --flash_mode dio --flash_freq 80m --flash_size 4MB 0x0 sleepcousonique-wingie.bin
+```
+
+From the repository, `tools/flash_wingie.sh` does the same. It restarts playing **first light**.
+Meng Qi's web flasher puts the stock firmware back at any time (it also resets the stock
+settings: note them first). Chapter 1 of `Sleepcousonique-Wingie-Manual.pdf` has the details.
 
 ## Send dreams (every time)
 
@@ -115,6 +149,7 @@ always brings the SP-1 back. Unofficial firmware, not affiliated with Teenage En
 | `engine/` | the engine: freestanding C, shared by the editor and the SP-1 |
 | `app/` | the desktop editor (JUCE): journal, tapestry, SP-1 hands, sending over USB |
 | `firmware/` | the SP-1 firmware: the engine on Wakes' hardware layer (Zephyr 4.3.1) |
+| `firmware-wingie/` | the Wingie2 firmware: the engine on Meng Qi's Wingie2 hardware code (GPLv3) |
 | `examples/` | dreams |
 | `docs/` | the language, the places, the manual |
 | `tools/` | `scqtool` (check / stats / catalog), doc and embed scripts |
@@ -139,3 +174,7 @@ See [firmware/README.md](firmware/README.md).
 
 MIT (see LICENSE). The firmware's hardware layer is Wakes (Worldwave, MIT); its notices are kept in
 `firmware/`.
+
+The Wingie firmware (`firmware-wingie/`, and `sleepcousonique-wingie.bin`) is **GPLv3**: it is built
+on Meng Qi's Wingie2 firmware (GPLv3). See `firmware-wingie/LICENSE` and `NOTICE`; the zips carry
+them as `LICENSE-wingie-firmware.txt` and `NOTICE-wingie-firmware.txt`.

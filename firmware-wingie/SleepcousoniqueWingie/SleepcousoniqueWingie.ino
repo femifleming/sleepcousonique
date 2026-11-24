@@ -42,7 +42,7 @@ extern "C" {
 }
 #include "first_light.h"   // the dream a new Wingie starts with (generated from examples/wingie-first-light.dream)
 
-#define SCQ_WINGIE_VERSION "1.5.0-beta1"
+#define SCQ_WINGIE_VERSION "1.5.0"
 #define SLOTS 12
 #define RATE 48000
 #define BLOCK 64                                   // I2S frames per audio block (two engine blocks)

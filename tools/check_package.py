@@ -106,6 +106,17 @@ def main():
         check("sleepcousonique-sp1.bin" in files, "the firmware is in it")
         if "sleepcousonique-sp1.bin" in files:
             check_bin(files["sleepcousonique-sp1.bin"], "sleepcousonique-sp1.bin")
+        # the Wingie firmware: this release's, saying the same version, with its GPLv3 notice and manual
+        check("sleepcousonique-wingie.bin" in files, "the Wingie firmware is in it")
+        if "sleepcousonique-wingie.bin" in files:
+            w = files["sleepcousonique-wingie.bin"]
+            fw = cmake_var("SCQ_FIRMWARE_VERSION")
+            check(f"SLEEPCOUSONIQUE {fw}".encode() in w and b" WINGIE" in w, f"sleepcousonique-wingie.bin: answers HELLO as SLEEPCOUSONIQUE {fw} WINGIE")
+            check(w == (ROOT / "firmware-wingie" / "dist" / "sleepcousonique-wingie.bin").read_bytes(),
+                  "sleepcousonique-wingie.bin: is firmware-wingie/dist/sleepcousonique-wingie.bin byte for byte")
+        for f in ("LICENSE-wingie-firmware.txt", "NOTICE-wingie-firmware.txt", "Sleepcousonique-Wingie-Manual.pdf",
+                  "examples/wingie-first-light.dream"):
+            check(f in files, f"{f} is in it")
         for f in ("FLASHING.txt", "Sleepcousonique-Manual.pdf", "README.md", "LICENSE", "examples/first-night.dream"):
             check(f in files, f"{f} is in it")
         flashing = files.get("FLASHING.txt", b"").decode("utf-8", "replace")

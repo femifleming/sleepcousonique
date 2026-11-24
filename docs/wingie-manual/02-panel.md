@@ -26,7 +26,7 @@ switch and fader is a **hand**, and the dream says what each one does.
 
 | Do this | And |
 |---|---|
-| hold **both** Mode buttons, press a key on the **left** keyboard | play that slot: C is slot 1 … B is slot 12. The LEDs flash yellow |
+| hold **both** Mode buttons, press a key on the **bottom** keyboard | play that slot: C is slot 1 … B is slot 12. The LEDs flash yellow |
 | hold the **left** Mode, tap the **right** | the next scene |
 | hold the **right** Mode, tap the **left** | the previous scene |
 | hold **both** Mode buttons **at power-up** | slot 1 goes back to first light |

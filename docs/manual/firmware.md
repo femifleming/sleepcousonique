@@ -208,7 +208,7 @@ The SP-1 shows up as a USB serial port named *Sleepcousonique*. The editor speak
 protocol to it, which you can also type in a serial terminal:
 
 ```
-SCQ HELLO                    -> SLEEPCOUSONIQUE 1.5.0-beta2
+SCQ HELLO                    -> SLEEPCOUSONIQUE 1.5.0
 SCQ LOAD <bytes> <slot>      then exactly <bytes> of the .dream text, kept in slot 0-4
                              -> OK 0      or  ERR <why>
 SCQ TRY <bytes>              then the text: plays it without keeping it (no slot is written)

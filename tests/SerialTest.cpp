@@ -194,7 +194,7 @@ static void oneShot()
                "an SP-1 on older firmware that can't read a newer dream: told to update it: " + err);
     }
     {
-        Device d (FAKE_ON, "1.4.0");
+        Device d (FAKE_ON, "1.5.0");   // the firmware this editor comes with (SCQ_FIRMWARE_VERSION)
         d.f->old_mistakes = 1;
         use ({ { "COM3", &d } });
         auto err = serial::send (firstNight(), -1, port);
