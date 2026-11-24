@@ -1,0 +1,55 @@
+instrument wingie
+; wingie-fourbit — Four Bit Modulo Phase Triplex on the Wingie, and two other clocks that
+; aren't grids. fader1 Mix, fader2 Decay, fader3 Volume
+
+2026-11-24 four bit modulo
+--------------------------
+; a tap on mode1 takes 64 bits from the microphones (two seconds of listening); the violin,
+; piano and cello loops (64, 68, 72 steps) then drift apart. A tap on mode2 starts again.
+; keys1 tunes the violin, keys2 the cello; the piano sits between.
+the score is fourbit
+the violin is wingie 4.36 string        ; G above middle C
+the piano is wingie 2.75 bar            ; E
+the cello is wingie 1.09 string         ; C two octaves down
+the vol is quadvca
+
+mic.both -> score
+mode1.tap -> score.capture
+mode2.tap -> score.reset
+score.violin -> violin.strike
+score.piano -> piano.strike
+score.cello -> cello.strike
+keys1.pitch -> violin.pitch
+keys2.pitch -> cello.pitch
+fader2 -> violin.decay piano.decay cello.decay
+violin -> vol.in1
+cello -> vol.in2
+piano -60> vol.in1 vol.in2
+fader3 -> vol.cv1 vol.cv2
+vol.out1 -> left
+vol.out2 -> right
+score.violin -> lights.left
+score.cello -> lights.right
+
+2026-11-24 rollz and relabi
+---------------------------
+; five rollers in a ring strike the caves; a relabi wave decides how dramatic they are.
+; fader3 the speed, keys1 shifts the left cave, keys2 the right
+the ring is rollz 3
+the wave is relabi 0.5
+the low is cave 1
+the high is cave 2
+
+wave.sum -> ring.drama
+fader3 -> ring.speed
+ring.a ring.c -> low.strike
+ring.b ring.d -> high.strike
+keys1.pitch -> low.shift
+keys2.pitch -> high.shift
+fader2 -> low.decay high.decay
+mic.left -> low
+mic.right -> high
+low -> left
+high -> right
+ring.a -> lights.left
+ring.b -> lights.right
