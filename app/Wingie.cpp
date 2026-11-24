@@ -14,7 +14,7 @@ Colour wingieLamp (float v)
 }
 
 static const char* const noteName[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
-// the computer keyboard as two piano octaves (z row the left keyboard, q row the right), a and p Mode
+// the computer keyboard as two piano octaves (z row keys1, the Wingie's bottom keyboard; q row keys2, the top), a and p Mode
 static const int keyChar[2][12] = { { 'z', 's', 'x', 'd', 'c', 'v', 'g', 'b', 'h', 'n', 'j', 'm' },
                                     { 'q', '2', 'w', '3', 'e', 'r', '5', 't', '6', 'y', '7', 'u' } };
 static const int modeChar[2] = { 'a', 'p' };
@@ -274,7 +274,7 @@ void WingiePanel::paint (Graphics& g)
                 {
                     g.setColour ((th.modular || th.pop) && ! down ? Colours::black.withAlpha (0.45f) : Colour (0xff1d1b19).withAlpha (0.5f));
                     g.setFont (th.pop ? art::label (8) : art::mono (8.5f));
-                    g.drawText (k == 0 ? "C" + String (s + 1) : String (noteName[k]), r.withTrimmedTop (r.getHeight() - 14), Justification::centred);
+                    g.drawText (k == 0 ? String (s == 0 ? "C bot" : "C top") : String (noteName[k]), r.withTrimmedTop (r.getHeight() - 14), Justification::centred, true);   // keys1 is the bottom keyboard on the Wingie, keys2 the top (checked on hardware)
                 }
             }
         art::drawLoop (g, keysLoop[s].getCentre(), false, art::blue);

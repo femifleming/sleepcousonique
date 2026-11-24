@@ -5,7 +5,7 @@
 // as places (mic, keys1 keys2, key, mode1 mode2, octave1 octave2, source, fader1-3, lights).
 // Pins, codec setup and I2S are Meng Qi's (Wingie2 firmware, GPLv3).
 //
-// Panel:      both Mode buttons held + a left key n      -> dream slot n (12 slots)
+// Panel:      both Mode buttons held + a key on the bottom keyboard n      -> dream slot n (12 slots)
 //             hold left Mode, tap right Mode             -> next scene
 //             hold right Mode, tap left Mode             -> previous scene
 //             (while both are down the dream sees neither Mode button nor the keys)
@@ -308,7 +308,7 @@ static void controlTask(void *) {
     }
     if (sourceMuted && now - sourceAt > 55) { sourceMuted = false; ac.SetVolumeHeadphone(volumeLevel); }
 
-    // Mode combos: both down -> slot by a left key; one held + tap the other -> scene
+    // Mode combos: both down -> slot by a key on the bottom keyboard; one held + tap the other -> scene
     bool m0 = modeState[0], m1 = modeState[1];
     if (m0 && m1) {
       if (!both) { both = true; comboUsed = false; }

@@ -13,7 +13,7 @@ unless it says `instrument wingie`; the editor writes and removes that line for 
   `fader4` on the Wingie; `keys1`, `mic` on the SP-1), the status line says how many lines to
   change, and the journal marks them.
 - **File ▸ New dream for the Wingie** starts a fresh one: a comb rung by the microphones and
-  tuned by the left keyboard, with Mix, Decay and Volume patched.
+  tuned by the bottom keyboard, with Mix, Decay and Volume patched.
 - **Device ▸ Patch for the SP-1 / Patch for the Wingie** does the same as the switch.
 
 The place browser (right-click the tapestry, or the field of cells and *find a place* at the
@@ -24,8 +24,8 @@ when you point at them.
 
 ### The Wingie's panel
 
-Along the bottom, the editor draws the Wingie: the **left keyboard** on the left, the
-**right keyboard** on the right (each with its **mode** button, its **−1 0 +1** octave switch and
+Along the bottom, the editor draws the Wingie: the **bottom keyboard** on the left, the
+**top keyboard** on the right (each with its **mode** button, its **−1 0 +1** octave switch and
 its LED), and in the middle the **mic | line** switch and the three faders **mix**, **decay**
 and **volume**.
 
@@ -33,8 +33,8 @@ and **volume**.
 
 | You | The Wingie |
 |---|---|
-| click a key, or type `z s x d c v g b h n j m` | left keyboard, C to B |
-| type `q 2 w 3 e r 5 t 6 y 7 u` | right keyboard, C to B |
+| click a key, or type `z s x d c v g b h n j m` | bottom keyboard, C to B |
+| type `q 2 w 3 e r 5 t 6 y 7 u` | top keyboard, C to B |
 | type `a` / `p` | left / right Mode button |
 | click −1, 0, +1 | the octave switches |
 | click mic / line | the source switch |

@@ -850,7 +850,7 @@ static void run_keys(node *n, const float *const in[MAX_IN])
 	n->s[0] = (float)held; n->s[1] = last; n->s[2] = pt;
 }
 
-/* key — one key: key 1-12 are the left keyboard C..B, 13-24 the right. 1 while held, a pulse on press */
+/* key — one key: key 1-12 are keys1 (the Wingie's bottom keyboard) C..B, 13-24 keys2 (the top). 1 while held, a pulse on press */
 static void run_key(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
@@ -1058,13 +1058,13 @@ P("fader",   FAM_HANDS, PF_SINGLE | PF_COUNTED, 20, 1, "", "", "out", run_fader,
 P("mic",     FAM_HANDS, PF_SINGLE | PF_WINGIE, 20, 0, "", "", "left right both", run_mic, 0, 0,
   "the Wingie's microphones (or line in, by its source switch): left, right and both mixed"),
 P("keys",    FAM_HANDS, PF_SINGLE | PF_COUNTED | PF_WINGIE, 30, 1, "", "", "pitch gate trig key", run_keys, 0, 0,
-  "a Wingie keyboard: keys1 left, keys2 right (an octave up). pitch of the last key in octaves with the octave switch, gate while any is held, trig on each press, key 0 (C) to 1 (B)"),
+  "a Wingie keyboard: keys1 the bottom keyboard, keys2 the top (an octave up). pitch of the last key in octaves with the octave switch, gate while any is held, trig on each press, key 0 (C) to 1 (B)"),
 P("key",     FAM_HANDS, PF_WINGIE, 20, 1, "", "", "out trig", run_key, 0, 0,
-  "one Wingie key: key 1-12 the left keyboard C to B, 13-24 the right; 1 while held, trig on press"),
+  "one Wingie key: key 1-12 the bottom keyboard C to B, 13-24 the top; 1 while held, trig on press"),
 P("mode",    FAM_HANDS, PF_SINGLE | PF_COUNTED | PF_WINGIE, 20, 1, "", "", "out tap", run_mode, 0, 0,
-  "the Wingie's Mode buttons: mode1 left, mode2 right; 1 while held, tap pulses on a quick press"),
+  "the Wingie's Mode buttons: mode1 is L.MODE (it goes with keys1), mode2 R.MODE (with keys2); 1 while held, tap pulses on a quick press"),
 P("octave",  FAM_HANDS, PF_SINGLE | PF_COUNTED | PF_WINGIE, 20, 1, "", "", "out", run_octave, 0, 0,
-  "the Wingie's octave switches: octave1 left, octave2 right; -1, 0 or 1"),
+  "the Wingie's octave switches: octave1 the left one (for keys1), octave2 the right (for keys2); -1, 0 or 1"),
 P("source",  FAM_HANDS, PF_SINGLE | PF_WINGIE, 20, 0, "", "", "out", run_source, 0, 0,
   "the Wingie's source switch: 0 microphones, 1 line in"),
 P("button",  FAM_HANDS, PF_SINGLE | PF_COUNTED | PF_SP1, 20, 1, "", "", "out", run_button, 0, 0,

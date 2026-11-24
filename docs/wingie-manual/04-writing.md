@@ -8,7 +8,7 @@ attenuverters, lucid groups, scenes and drift. This chapter is what's different.
 
 ```dream
 instrument wingie
-; a comb rung by the room, tuned by the left keyboard
+; a comb rung by the room, tuned by the bottom keyboard
 
 2026-11-24
 ----------
@@ -31,9 +31,9 @@ The Wingie's hands are always there; use them by name, never `the x is keys`:
 the chime is wingie 2.18 bar
 the hush is vca
 mic.both -> chime                ; the room rings it
-keys1.pitch -> chime.pitch       ; the left keyboard tunes it
+keys1.pitch -> chime.pitch       ; the bottom keyboard tunes it
 keys1.trig -> chime.strike       ; every key strikes it too
-key13 -> hush.gain               ; the right keyboard's C opens it while held
+key13 -> hush.gain               ; the top keyboard's C opens it while held
 mode1.tap -> chime.strike        ; a quick press of the left Mode button
 octave2 ~> chime.decay           ; the right octave switch: longer or shorter
 fader3 -> hush.gain
@@ -42,7 +42,7 @@ chime -> lights.left
 mic.both -> lights.right
 ```
 
-![wingie-bird.dream in the faltung look (dark): strings on the left keyboard, a membrane on the right.](fig/bird-faltung-dark.png)
+![wingie-bird.dream in the faltung look (dark): strings on the bottom keyboard, a membrane on the right.](fig/bird-faltung-dark.png)
 
 ### Pitch units
 
@@ -122,8 +122,8 @@ places, its own memory (the 70 KB is per scene). On the Wingie:
 the next is slot 7
 the walk is slot
 mode2.tap -> next.go          ; the right Mode button: slot 7
-key24 -> walk.next            ; the right keyboard's B: the next slot
-key23 -> walk.back            ; the right keyboard's A#: the one before
+key24 -> walk.next            ; the top keyboard's B: the next slot
+key23 -> walk.back            ; the top keyboard's A#: the one before
 mic.both -> out
 ```
 

@@ -41,7 +41,7 @@ room.room -> lights.left lights.right
 2026-11-24 metastaseis
 ----------------------
 ; nine resonances glide from a unison to a cluster and back, a tap on mode1 each way;
-; the left keys set where the unison stands, fader3 the dust, mode2 held staggers them
+; the bottom keys set where the unison stands, fader3 the dust, mode2 held staggers them
 the mass is metastaseis 20 chordb=cluster cycle=off
 the mix is crossfade
 

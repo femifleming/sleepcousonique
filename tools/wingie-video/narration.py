@@ -72,21 +72,21 @@ BEFORE = [
                R("lights", "red · purple · yellow · white",
                  "The two lights are the dream's own: `lights.left` and `lights.right`, red at rest, then purple, "
                  "yellow and white as what comes in climbs.", hl=["led1", "led2"]),
-               R("keys1", "left keyboard · c to b",
-                 "Meng Qi's left keyboard is `keys1`: its pitch in octaves, a gate, a trigger, and which key.",
+               R("keys1", "bottom keyboard · c to b",
+                 "The bottom keyboard is `keys1`: its pitch in octaves, a gate, a trigger, and which key.",
                  hl=KEYS1),
-               R("keys2", "right keyboard · an octave up",
-                 "The right keyboard is `keys2`, an octave higher. One key alone is `key1` to `key24`.",
+               R("keys2", "top keyboard · an octave up",
+                 "The top keyboard is `keys2`, an octave higher. One key alone is `key1` to `key24`.",
                  hl=KEYS2),
                R("midi", "trs midi in",
                  "And the MIDI jack on the edge feeds the `midi`, `midicc` and `midiclock` places.", hl=[])],
          kind="panel"),
     dict(code="sl03", title="slots and scenes", sub="both mode buttons and a key",
-         desc="Hold both Mode buttons and press a key on the left keyboard: C is slot 1, B is slot 12. Hold one Mode "
+         desc="Hold both Mode buttons and press a key on the bottom keyboard: C is slot 1, B is slot 12. Hold one Mode "
               "button and tap the other for the next or previous scene.",
          say="Slots and scenes. The Wingie keeps twelve dreams, and every dream can have up to sixteen scenes.",
          rows=[R("both + key", "slot 1 … 12",
-                 "Hold both Mode buttons and press a key on the left keyboard: C is slot one, B is slot twelve. "
+                 "Hold both Mode buttons and press a key on the bottom keyboard: C is slot one, B is slot twelve. "
                  "The lights flash yellow.", hl=["mode1", "mode2", "keys1"]),
                R("left + tap right", "next scene",
                  "Hold the left Mode button and tap the right one for the next scene.", hl=["mode1", "mode2"]),
@@ -125,14 +125,14 @@ BEFORE = [
                  "Send to Wingie puts the dream into the slot that is playing, and it plays at once. The Device menu "
                  "sends to any of the twelve slots.", box=(8, 6, 132, 34))], kind="shot"),
     dict(code="hp05", title="hands on screen", sub="play the wingie from the computer", shot="editor-journal-dark.png", crop=(0, 700, 975, 180),
-         desc="Click the keys or type them: z row for the left keyboard, q row for the right, a and p for "
+         desc="Click the keys or type them: z row for the bottom keyboard, q row for the top, a and p for "
               "the Mode buttons. Listen feeds the computer's microphone in.",
          say="The Wingie, on screen.",
-         rows=[R("left keys", "z s x d c v g b h n j m",
-                 "Click the keys, or type the bottom row of the computer keyboard, z to m, for the left keyboard.",
+         rows=[R("bottom keys", "z s x d c v g b h n j m",
+                 "Click the keys, or type the bottom row of the computer keyboard, z to m, for the bottom keyboard.",
                  box=(15, 708, 222, 160)),
-               R("right keys", "q 2 w 3 e r 5 t 6 y 7 u",
-                 "The q row plays the right keyboard. A and P are the two Mode buttons.", box=(395, 708, 222, 160)),
+               R("top keys", "q 2 w 3 e r 5 t 6 y 7 u",
+                 "The q row plays the top keyboard. A and P are the two Mode buttons.", box=(395, 708, 222, 160)),
                R("faders · source", "mix · decay · volume · mic | line",
                  "Drag the faders; click mic or line. Drag a fader, a keyboard or the microphones onto a place on "
                  "the tapestry, and it's patched.", box=(243, 708, 145, 132)),

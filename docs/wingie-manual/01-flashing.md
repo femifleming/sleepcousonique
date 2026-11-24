@@ -47,8 +47,8 @@ A new Wingie (or an empty slot) plays **first light**, two scenes:
 
 | scene | what it does |
 |---|---|
-| first light | the left microphone rings sympathetic strings tuned by the left keyboard, the right microphone strings an octave up tuned by the right one; **Mix** is the small room's size, **Decay** how long the strings ring, **Volume** how much goes into the room. The left LED follows the microphones, the right one the room |
-| the dark | the microphones ring a comb tuned by the left keyboard, through a filter bank whose second and fifth bands are **Mix** and **Volume**; **Decay** is the comb's ring |
+| first light | the left microphone rings sympathetic strings tuned by the bottom keyboard, the right microphone strings an octave up tuned by the top one; **Mix** is the small room's size, **Decay** how long the strings ring, **Volume** how much goes into the room. The left LED follows the microphones, the right one the room |
+| the dark | the microphones ring a comb tuned by the bottom keyboard, through a filter bank whose second and fifth bands are **Mix** and **Volume**; **Decay** is the comb's ring |
 
 ### Twelve slots
 

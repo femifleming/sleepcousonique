@@ -337,10 +337,10 @@ Every processing place works on both. The *hands* differ:
 | on the Wingie | what it gives |
 |---|---|
 | `mic` | `left`, `right`, `both`: the two microphones (or line in, by the source switch) |
-| `keys1`, `keys2` | a keyboard: `pitch` of the last key (octaves; keys2 an octave up; the octave switch adds), `gate`, `trig`, `key` (0 C .. 1 B) |
-| `key1` .. `key24` | one key: 1-12 the left keyboard C to B, 13-24 the right. `out` while held, `trig` on press |
-| `mode1`, `mode2` | the Mode buttons: `out` while held, `tap` on a quick press |
-| `octave1`, `octave2` | the octave switches: -1, 0 or 1 |
+| `keys1`, `keys2` | the bottom keyboard and the top one: `pitch` of the last key (octaves; keys2 an octave up; the octave switch adds), `gate`, `trig`, `key` (0 C .. 1 B) |
+| `key1` .. `key24` | one key: 1-12 the bottom keyboard C to B, 13-24 the top. `out` while held, `trig` on press |
+| `mode1`, `mode2` | the Mode buttons, L.MODE and R.MODE: `out` while held, `tap` on a quick press |
+| `octave1`, `octave2` | the octave switches, left (for `keys1`) and right (for `keys2`): -1, 0 or 1 |
 | `source` | 0 microphones, 1 line in |
 | `fader1` `fader2` `fader3` | the faders, labelled Mix, Decay and Volume (they are yours: nothing is fixed to them) |
 | `lights` | `left`, `right`: the two LEDs. They glow red at rest and climb through purple and yellow to white |
@@ -348,7 +348,7 @@ Every processing place works on both. The *hands* differ:
 The SP-1's own hands (`button1`-`4`, `rocker`, `play`, `dots`, `leds`, `fader4`) are errors in a
 Wingie dream, and the Wingie's in an SP-1 dream.
 
-On the Wingie: hold both Mode buttons and press a left key to play that slot (12 slots); hold one
+On the Wingie: hold both Mode buttons and press a key on the bottom keyboard to play that slot (12 slots); hold one
 Mode button and tap the other for the next (right) or previous (left) scene. While both are held
 the dream sees neither Mode button nor the keys.
 

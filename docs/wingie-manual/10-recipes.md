@@ -48,7 +48,7 @@ lucier.room -> lights.left
 ### BATH
 
 Two tapes in warm water. The microphones go into a Cocoquantus whose petals rock the tapes; the
-left keyboard tunes strings under it, and a cavern holds everything. Scene two drains the
+bottom keyboard tunes strings under it, and a cavern holds everything. Scene two drains the
 water: just the strings and the petals.
 
 ```dream
@@ -179,7 +179,7 @@ halo.right -> right
 
 ### Mycenae at the bus stop
 
-Xenakis by the roadside. GENDY storms on the left keyboard while particles scatter what the
+Xenakis by the roadside. GENDY storms on the bottom keyboard while particles scatter what the
 microphones hear; scene two sends the room through Metastaseis glissandi.
 
 ```dream
@@ -257,7 +257,7 @@ floor.sub -> lights.right
 ### Four bit, three players, twelve slots
 
 Four Bit Modulo Phase Triplex on three Wingie resonators: the left Mode button captures 64 bits from
-the room, and the three loops drift apart. The right keyboard's B asks the Wingie for the next slot: a dream
+the room, and the three loops drift apart. The top keyboard's B asks the Wingie for the next slot: a dream
 that leads to the next one.
 
 ```dream

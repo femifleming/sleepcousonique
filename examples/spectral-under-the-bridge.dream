@@ -24,7 +24,7 @@ arch -> lights.right
 the tonal skeleton
 ------------------
 ; only the strongest partials of the traffic, sung again as sines, then each one echoed at its
-; own time. Hold Mode 2 to freeze the skeleton; the left keys transpose it.
+; own time. Hold Mode 2 to freeze the skeleton; the bottom keys transpose it.
 the bones are resynth 2
 the echoes are spectraldelay 1 curve=rising
 the field is ambi

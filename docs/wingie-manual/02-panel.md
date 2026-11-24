@@ -12,8 +12,8 @@ switch and fader is a **hand**, and the dream says what each one does.
 | Mix fader | `fader1` | 0 to 1 |
 | Decay fader | `fader2` | 0 to 1 |
 | Volume fader | `fader3` | 0 to 1 |
-| left keyboard (`keys1`, C to B) | `keys1`, `key1` … `key12` | `keys1.pitch` of the last key in octaves, `gate`, `trig`, `key` (0 for C … 1 for B) |
-| right keyboard (`keys2`, C to B) | `keys2`, `key13` … `key24` | the same, an octave up |
+| bottom keyboard (`keys1`, C to B) | `keys1`, `key1` … `key12` | `keys1.pitch` of the last key in octaves, `gate`, `trig`, `key` (0 for C … 1 for B) |
+| top keyboard (`keys2`, C to B) | `keys2`, `key13` … `key24` | the same, an octave up |
 | the two LEDs right of the faders | `lights.left`, `lights.right` | red at rest, then purple, yellow and white as what comes in climbs to 1 |
 | line in, out, MIDI in (TRS) and USB-C on the edge | `mic` (line), `out`, `midi` `midicc` `midiclock` | the MIDI jack feeds the MIDI-to-CV places, as the SP-1's USB-MIDI does |
 
@@ -37,8 +37,10 @@ button you pressed first stays held, as far as the dream knows, and is let go on
 been down 0.65 s (longer than a tap); the second button never shows at all. A single Mode button
 pressed on its own belongs to the dream (`mode1.tap`, `mode2.out`).
 
-> **Which keyboard is which.** `keys1` is Meng Qi's *left* keyboard (the left channel's) and
-> `keys2` his *right*, as the stock firmware names them. The editor draws them side by side.
+> **Which keyboard is which.** `keys1` is the Wingie's **bottom** keyboard and `keys2` the **top**
+> one (checked on a Wingie: the top row's C to E arrive as `keys2`). The stock firmware calls them
+> the left and right channel's keyboards; on the instrument they sit one above the other. The editor
+> draws them side by side, `keys1` on the left, with their C keys marked *bot* and *top*.
 
 ### The LEDs
 
