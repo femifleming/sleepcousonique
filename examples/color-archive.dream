@@ -1,0 +1,67 @@
+; color-archive — records, radios and pedals: the colour places one scene at a time.
+; •• + the rocker rides between the scenes
+
+the record from the basement
+----------------------------
+; a seventh chord pressed in 1972, played until the grooves gave out. fader1 age, fader2 the speed
+; the warp wobbles at (as if someone leans on the platter)
+the chords is chord 2 type=0.7
+the press is vinyl age=0.6
+the tired is exciter amount=0.3
+
+chords -> press -> tired -> out leds
+fader1 -> press.age
+
+the shortwave after midnight
+----------------------------
+; a voice that isn't there: a formant singer through a dying radio. fader1 turns the dial
+; (the station is in the middle), fader2 how far it drifts on its own
+the singer is formant 2
+the mouth is smoothrandom 1
+the set is radio
+the wall is limiter ceiling=0.7
+
+mouth -> singer.vowel
+singer -> set -> wall -> out leds
+fader1 -> set.tune
+fader2 -> set.drift
+
+the pedalboard
+--------------
+; a bass line through an envelope filter into a starved fuzz (fader1 is the battery: down kills
+; it), then the Chloe struck by the beat. fader2 is the Chloe's cutoff, fader3 its resonance
+the clock is clock 4
+the line is seq 8: 0 0 12 0 3 0 7 5
+the bass is vco 1
+the fuzz is fuzz drive=0.7
+the wah is autowah sensitivity=0.6 resonance=0.7
+the chloe is chloe mode=low drive=0.4
+the wall is limiter ceiling=0.8
+
+clock.eighth -> line.next chloe.gate
+line -> bass.pitch
+bass.saw -> wah -> fuzz -> chloe -> wall -> out leds
+fader1 -200> fuzz.bias
+-100 -> fuzz.bias                  ; fader1 at the bottom is -1: starved; halfway is the sweet spot
+fader2 -> chloe.cutoff
+fader3 -> chloe.resonance
+
+the ring on the bench
+---------------------
+; a bell rung through a diode ring and a shaky sample clock. fader1 the leak, fader2 the rate,
+; fader3 the jitter
+the clock is clock 2
+the bell is bell 3
+the ring is diode 5
+the floor is decimate hold=zero
+the hits is onset
+the step is steprandom
+
+clock.beat -> bell.strike
+bell -> ring -> floor -> out leds
+floor -> hits
+hits.pulse -> step.clock
+step -> bell.pitch
+fader1 -> ring.leak
+fader2 -> floor.rate
+fader3 -> floor.jitter

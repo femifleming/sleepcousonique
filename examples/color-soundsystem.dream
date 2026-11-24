@@ -1,0 +1,54 @@
+; color-soundsystem — a dub sound system in the bus garage, built from the desk's tools:
+; the skank sliced in time and its echo spread wide, the mixer's kills on the faders,
+; the Leslie, and the limiter at the end of the night
+
+the bus garage
+--------------
+; fader1 kills and lifts the lows, fader2 the highs (0.5 is flat), fader3 the kick's attack,
+; fader4 the echo's feedback. The skank only speaks on the offbeat, and its echo is spread wide
+; while the drums and the bass stay in the middle
+the clock is clock 4
+the kick is kick
+the chords is chord 4 samplerate=half
+the skank is slicer pattern=offbeat len=0.5
+the pedal is drive type=od drive=0.3 tone=0.6
+the echo is delay 6 feedback=0.5 samplerate=half   ; a darker echo, and half the work
+the air is widener width=0.9
+the punch is transient
+the desk is eq
+the wall is limiter ceiling=0.85
+
+clock.beat -> kick.strike
+clock.eighth -> skank.clock
+chords -> skank -> pedal -> echo -> air
+kick -> punch -> desk -> wall
+pedal -40> wall
+fader1 -> desk.low
+fader2 -> desk.high
+fader3 -> punch.attack
+fader4 -> echo.feedback
+wall -> left right leds
+air.left -60> left
+air.right -60> right
+
+the organ in the back room
+--------------------------
+; a chord through the Leslie: hold PLAY for fast, let go and the drum takes its time to slow.
+; fader1 how hard the valve amp is pushed, fader2 the tremolo on the bass
+the clock is clock 3
+the organ is chord 4 type=0.6
+the amp is drive type=crunch
+the leslie is rotary
+the bass is vco 1
+the throb is tremolo type=harmonic stereo=on shape=0.4
+the wall is limiter ceiling=0.8
+
+play -> leslie.fast
+organ -> amp -> leslie
+fader1 -> amp.drive
+bass.sine -> throb
+fader2 -> throb.depth
+leslie.left -> left
+leslie.right -> right
+throb.left -50> left
+throb.right -50> right
