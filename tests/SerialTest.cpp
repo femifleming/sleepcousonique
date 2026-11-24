@@ -34,14 +34,15 @@ struct Device
     juce::uint32 last = now();
     bool unplugged = false;
     int logLines = 30;
-    explicit Device (int mode, const char* version = "1.4.0") { fake_init (f.get(), mode, version); }
+    int opens = 0;
+    explicit Device (int mode, const char* version = "1.4.0", bool wingie = false) { fake_init (f.get(), mode, version); if (wingie) fake_wingie (f.get()); }
     void tick() { auto t = now(); fake_tick (f.get(), t - last); last = t; }
 };
 
 struct FakeWire : serial::Wire
 {
     Device& d;
-    explicit FakeWire (Device& x) : d (x) { const juce::ScopedLock sl (d.lock); d.tick(); fake_open (d.f.get(), d.logLines); }
+    explicit FakeWire (Device& x) : d (x) { const juce::ScopedLock sl (d.lock); d.tick(); ++d.opens; fake_open (d.f.get(), d.logLines); }
     int read (char* buf, int n, int timeoutMs) override
     {
         auto until = now() + (juce::uint32) timeoutMs;
@@ -318,6 +319,118 @@ static void link()
     }
 }
 
+// ------------------------------------------------------------------------------------------ the Wingie
+
+static juce::String wingieDream()
+{
+    return "instrument wingie\n2026-11-24\n----------\nthe ring is comb 2\nmic.both -> ring\nkeys1.pitch -> ring.pitch\n"
+           "fader2 -> ring.decay\nring -> out\nring -> lights.right\n";
+}
+
+static void wingie()
+{
+    std::printf ("\n-- the Wingie --\n");
+    const juce::String wport = "/dev/cu.usbserial-1410";
+    {
+        // what the Wingie says, word by word
+        serial::Link::Measured m;
+        CHECK (serial::Link::parseReport ("SCQ engine avg=12% max=20%  places=7 scene=1 slot=1  load=12.3 peak=20.1 dropped=0 of 750 "
+                                          "mem=12000/126976 core1=4% heap=123456 inL=-42 inR=-40 outL=-18 outR=-19", m)
+               && m.avg == 12 && m.peak == 20 && std::abs (m.load - 12.3f) < 0.01f && std::abs (m.loadPeak - 20.1f) < 0.01f
+               && m.dropped == 0 && m.blocks == 750 && m.memUsed == 12000 && m.memTotal == 126976 && m.core1 == 4
+               && m.heap == 123456 && m.inL == -42 && m.inR == -40 && m.outL == -18 && m.outR == -19 && ! m.over,
+               "a Wingie's report: CPU, load, dropped blocks, pool, control core, heap and the four levels");
+        serial::Link::Measured s;
+        CHECK (serial::Link::parseReport ("SCQ engine avg=41% max=57%  places=12 scene=1 slot=1  load=41.0 peak=57.0 dropped=3 of 7500 mem=20000/126976", s)
+               && s.avg == 41 && s.peak == 57 && s.dropped == 3 && s.over && s.core1 == -1 && s.heap == -1 && s.inL == -100,
+               "an SP-1's report reads as before (no Wingie extras; dropped blocks are too heavy)");
+        serial::Link::WHands h;
+        CHECK (serial::Link::parseWHands ("SCQ WHANDS 4095 0 2048 a05 fff 3 -1 1 1 2 12 00 ff", h)
+               && h.fader[0] > 0.99f && h.fader[1] == 0.0f && std::abs (h.fader[2] - 0.5f) < 0.01f && h.keys[0] == 0xa05
+               && h.keys[1] == 0xfff && h.mode == 3 && h.octave[0] == -1 && h.octave[1] == 1 && h.source == 1
+               && h.scene == 2 && h.slot == 12 && h.lamp[0] == 0.0f && h.lamp[1] > 0.99f,
+               "a Wingie's hands: three faders, both keyboards, Mode, octaves, source, scene, slot and its two lights");
+        CHECK (! serial::Link::parseWHands ("SCQ WHANDS 4095 0", h), "  and a cut-off line is ignored");
+    }
+    {
+        Device d (FAKE_ON, "0.1.0", true);
+        FakeWire w (d);
+        auto h = serial::greet (w);
+        CHECK (h.what == serial::Hello::sleepcousonique && h.device == serial::wingie && h.version == "0.1.0",
+               "a Wingie that has just reset (its port was opened) answers a later HELLO as a Wingie (" + h.version + ")");
+    }
+    juce::String port;
+    {
+        Device d (FAKE_ON, "0.1.0", true);
+        use ({ { wport, &d } });
+        auto err = serial::send (wingieDream(), 9, port, 1);
+        CHECK (err.isEmpty() && same (*d.f, wingieDream()) && d.f->last_slot == 9 && port == wport,
+               "a dream for the Wingie goes to a Wingie, into slot 10 of its 12: " + err);
+        err = serial::send (firstNight(), -1, port, 0);
+        CHECK (err.contains ("for the SP-1") && err.contains ("is a Wingie") && d.f->dreams == 1,
+               "a dream for the SP-1 isn't sent to the Wingie, and says why: " + err);
+        err = serial::send (firstNight(), -1, port);
+        CHECK (err.contains ("No SP-1") && d.f->dreams == 1, "a send for whichever answers (the command line's --send) leaves the Wingie alone: " + err);
+        err = serial::describeReply ("ERR 1 mistakes", "0.1.0", serial::wingie);
+        CHECK (err.contains ("Wingie found 1 mistake") && err.contains ("SP-1"), "a dream the Wingie refuses comes back in words: " + err);
+        err = serial::send (wingieDream(), -1, port, 1);
+        CHECK (err.isEmpty(), "and still takes the next dream for it");
+    }
+    {
+        Device d (FAKE_ON, "1.4.0");
+        use ({ { "/dev/cu.usbmodem101", &d } });
+        auto err = serial::send (wingieDream(), -1, port, 1);
+        CHECK (err.contains ("for the Wingie") && err.contains ("is an SP-1") && d.f->dreams == 0,
+               "a dream for the Wingie isn't sent to an SP-1: " + err);
+        CHECK (serial::describeReply ("ERR 1 mistakes", "1.4.0").contains ("SP-1 found 1 mistake"), "the SP-1's own words are unchanged");
+    }
+    {
+        Device w (FAKE_ON, "0.1.0", true);
+        use ({ { wport, &w } });
+        serial::Link sp1only;                    // the Array's kind of link: never opens a Wingie's port (it would reset it)
+        juce::Thread::sleep (1200);
+        CHECK (! sp1only.connected() && w.opens == 0, "a link for SP-1s only leaves the Wingie's port alone");
+    }
+    {
+        Device d (FAKE_ON, "0.1.0", true);
+        use ({ { wport, &d } });
+        serial::Link l (true);
+        CHECK (waitFor ([&] { return l.connected(); }, 5000), "the editor's link finds a Wingie");
+        CHECK (l.device() == serial::wingie && l.version() == "0.1.0" && l.port() == wport, "and knows it is a Wingie");
+        CHECK (waitFor ([&] { return l.whands().count > 3; }, 2000), "and follows its hands (SCQ WHANDS)");
+        auto h = l.whands();
+        CHECK (h.fader[0] > 0.99f && h.keys[0] == 0x011 && h.keys[1] == 0x800 && h.mode == 1 && h.octave[0] == -1
+               && h.octave[1] == 1 && h.source == 0 && h.scene == 2 && h.lamp[1] > 0.99f, "faders, keys, Mode, octaves, scene and lights read right");
+        CHECK (waitFor ([&] { return l.measured().count >= 2; }, 3500), "its report comes every second");
+        auto m = l.measured();
+        CHECK (m.avg >= 30 && m.peak > m.avg && m.core1 >= 4 && m.heap > 100000 && m.memTotal == 126976 && m.inL > -99 && m.outR == -19,
+               "and the link reads its CPU, control core, heap, pool and levels");
+        auto err = l.send (wingieDream(), 7, 0, 1);
+        CHECK (err.isEmpty() && d.f->last_slot == 7 && same (*d.f, wingieDream()), "a dream for the Wingie goes over the link into slot 8: " + err);
+        CHECK (waitFor ([&] { return l.whands().slot == 8; }, 2000), "and its hands then say slot 8");
+        err = l.send (firstNight(), -1, 0, 0);
+        CHECK (err.contains ("is a Wingie") && d.f->dreams == 1, "a dream for the SP-1 isn't sent over a Wingie's link: " + err);
+    }
+    {
+        Device other (FAKE_OTHER, "0.0.0", true);
+        use ({ { wport, &other } });
+        serial::Link l (true);
+        CHECK (waitFor ([&] { return l.note().contains ("not as Sleepcousonique"); }, 6000), "a CH340 device with other firmware is named: " + l.note());
+        juce::Thread::sleep (3500);
+        CHECK (other.opens == 1, "and isn't opened (reset) again and again (" + juce::String (other.opens) + " opening)");
+    }
+    {
+        Device sp (FAKE_ON, "1.4.0"), w (FAKE_ON, "0.1.0", true);
+        use ({ { "/dev/cu.usbmodem101", &sp }, { wport, &w } });
+        serial::Link l (true);
+        CHECK (waitFor ([&] { return l.connected(); }, 5000) && l.device() == serial::sp1, "an SP-1 and a Wingie: the SP-1 comes first, as before");
+        auto err = l.send (wingieDream(), -1, 0, 1);
+        CHECK (err.contains ("is an SP-1") && sp.f->dreams == 0, "and a Wingie dream isn't sent to it: " + err);
+        err = l.send (firstNight(), -1, 0, 0);
+        CHECK (err.isEmpty() && sp.f->loads == 1, "an SP-1 dream is");
+    }
+}
+
 #if JUCE_MAC || JUCE_LINUX
 // the same pretend SP-1 behind a pseudo-terminal: the editor opens it as it would /dev/cu.usbmodem101
 struct Pty : juce::Thread
@@ -432,6 +545,7 @@ int main (int argc, char** argv)
     protocol();
     oneShot();
     link();
+    wingie();
    #if JUCE_MAC || JUCE_LINUX
     pty();
    #endif

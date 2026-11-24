@@ -29,6 +29,8 @@ struct PlaceInfo
     bool att = false;    // an attenuverter knob on every inlet (sources, and places with a pitch inlet)
     std::vector<float> defs;   // each inlet's default
     bool tune = false;   // a base pitch knob (places with a pitch inlet)
+    int only = -1;       // hands only one instrument has (the catalog's I lines): 0 the SP-1, 1 the Wingie; -1 both
+    bool on (int instrument) const { return only < 0 || only == instrument; }
 };
 
 struct NodeInfo
@@ -83,6 +85,8 @@ public:
     int errors = 0;
 
     void readDescription (const char* describe, const char* messages);
+    int instrument() const { return instrumentOf (text); }
+    void setInstrument (int i) { auto t = withInstrument (text, i); if (t != text) { text = t; dirty = true; } }
 
     const NodeInfo* node (int id) const;
     const NodeInfo* nodeNamed (const juce::String&) const;
@@ -127,4 +131,14 @@ private:
 };
 
 juce::String fmt (float v);
+
+// Which instrument a dream is for, as the engine reads it: an `instrument wingie` (or sp1) line
+// anywhere outside a note; without one, the SP-1. 0 = SCQ_SP1, 1 = SCQ_WINGIE.
+int instrumentOf (const juce::String& text);
+// The text with its instrument line set: `instrument wingie` at the top (after the opening notes),
+// or none at all for the SP-1 (the default). Every other line is left as it was.
+juce::String withInstrument (const juce::String& text, int instrument);
+// A new dream: a sine for the SP-1; for the Wingie, its microphones through a resonator tuned by
+// the left keys, the three faders as Mix, Decay and Volume, and the two lights.
+juce::String starterDream (int instrument, const juce::String& date);
 }

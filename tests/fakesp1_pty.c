@@ -1,4 +1,4 @@
-/* fakesp1 [on|standby|other|silent|stall] [version] [--log N] [--old N] [--save FILE]
+/* fakesp1 [on|standby|other|silent|stall] [version] [--log N] [--old N] [--save FILE] [--wingie]
  *
  * A pretend SP-1 (tests/fakesp1.c) behind a pseudo-terminal: prints the port's path on the first
  * line, then plays the SP-1's side of the USB serial link until it is killed (or, with --once,
@@ -31,7 +31,7 @@ static struct fake_sp1 f;
 
 int main(int argc, char **argv)
 {
-	int mode = FAKE_ON, log_lines = 20, once = 0;
+	int mode = FAKE_ON, log_lines = 20, once = 0, wingie = 0;
 	const char *version = "1.4.0", *save = NULL;
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "on")) mode = FAKE_ON;
@@ -43,11 +43,15 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--old") && i + 1 < argc) f.old_mistakes = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--save") && i + 1 < argc) save = argv[++i];
 		else if (!strcmp(argv[i], "--once")) once = 1;
+		else if (!strcmp(argv[i], "--wingie")) wingie = 1;   /* a pretend Wingie instead */
 		else version = argv[i];
 	}
 	int old = f.old_mistakes;
 	fake_init(&f, mode, version);
 	f.old_mistakes = old;
+	if (wingie) {
+		fake_wingie(&f);
+	}
 
 	int m = posix_openpt(O_RDWR | O_NOCTTY);
 	if (m < 0 || grantpt(m) || unlockpt(m)) {

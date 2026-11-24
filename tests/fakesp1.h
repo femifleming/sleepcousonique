@@ -28,6 +28,7 @@ enum fake_mode {
 
 #define FAKE_OUT_CAP  (64 * 1024)
 #define FAKE_TEXT     (16 * 1024)       /* SCQ_MAX_TEXT: the firmware's staging buffer */
+#define FAKE_SLOTS    12                /* the SP-1 has 5, the Wingie 12 */
 
 struct fake_sp1 {
 	int      mode;
@@ -46,11 +47,19 @@ struct fake_sp1 {
 	/* what happened, for the tests */
 	int      dreams, loads, tries, hellos, taken;   /* dreams: every one received, kept or not */
 	int      last_len, last_slot, last_errors;
-	char     slots[5][FAKE_TEXT];
-	int      slot_len[5];
+	char     slots[FAKE_SLOTS][FAKE_TEXT];
+	int      slot_len[FAKE_SLOTS];
+	/* a pretend Wingie (fake_wingie): HELLO says WINGIE, 12 slots, its hands as SCQ WHANDS, a
+	 * report every second with core1/heap/levels, and opening the port resets it (it doesn't
+	 * hear anything for boot_ms) */
+	int      wingie;
+	uint32_t boot_ms;
+	int      measures;                  /* SCQ MEASURE asked */
 };
 
 void fake_init(struct fake_sp1 *f, int mode, const char *version);
+/* the same, as a Wingie (call before fake_open) */
+void fake_wingie(struct fake_sp1 *f);
 /* the host opened the port (DTR rose): the banner and a stored log of `log_lines` lines */
 void fake_open(struct fake_sp1 *f, int log_lines);
 /* host -> device; returns how many bytes it took (FAKE_STALL stops taking them) */
