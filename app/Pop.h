@@ -5,7 +5,9 @@
 
 // The openprocess look's own parts (after the poppsphere bundle's browser and parameter list).
 
-// The place browser: four grids of colour squares, sources / shapes / spaces / currents.
+// The place browser: grids of colour squares, sources / shapes / spaces / currents, and the hands
+// of the instrument the dream is for (the SP-1's or the Wingie's; never the other's). A search
+// field finds a place by its name or what it does (the rest fade); return adds the first.
 // Hover names a place; click puts it on the tapestry.
 class PlaceBrowser : public juce::Component
 {
@@ -13,6 +15,7 @@ public:
     PlaceBrowser();
     std::function<void (const juce::String& place)> onAdd;
     std::function<void (const juce::String& text)> onHover;
+    void setInstrument (int instrument);      // 0 the SP-1, 1 the Wingie
     void paint (juce::Graphics&) override;
     void resized() override;
     void mouseMove (const juce::MouseEvent&) override;
@@ -22,8 +25,13 @@ public:
 private:
     struct Cell { juce::String name, help; int family = 0, index = 0; juce::Rectangle<float> r; };
     std::vector<Cell> cells;
-    juce::Rectangle<float> grids[4];
-    int hover = -1;
+    juce::Rectangle<float> grids[5], countArea;
+    int hover = -1, instrument = 0;
+    juce::TextEditor search;
+    juce::String filter;
+    void build();
+    bool matches (const Cell&) const;
+    void pick (const Cell&);
     int cellAt (juce::Point<float>) const;
 };
 

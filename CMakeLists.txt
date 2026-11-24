@@ -66,7 +66,8 @@ juce_add_gui_app(Sleepcousonique
     BUNDLE_ID "com.sleepcousonique.editor${SCQ_ID_SUFFIX}"
     DOCUMENT_EXTENSIONS dream
     ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/app/icon/icon.png"
-    MICROPHONE_PERMISSION_ENABLED FALSE
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "A dream for the Wingie hears the computer's microphone as the Wingie's, only while you turn listening on."
     BLUETOOTH_PERMISSION_ENABLED TRUE
     BLUETOOTH_PERMISSION_TEXT "A dream with a crowd in it listens for the Bluetooth devices nearby: how many there are and how strong. Nothing about them is kept or sent.")
 
@@ -89,6 +90,7 @@ target_sources(Sleepcousonique PRIVATE
     app/Pop.cpp
     app/Timeline.cpp
     app/Radio.cpp
+    app/Wingie.cpp
     app/MainComponent.cpp)
 if(APPLE)
     # the room: CoreBluetooth hears the devices nearby (the crowd and visitors places)

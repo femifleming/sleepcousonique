@@ -2,6 +2,8 @@
 #include "Art.h"
 #include "Scales.h"
 #include "Router.h"
+#include "Wingie.h"
+#include "scq.h"
 
 using namespace juce;
 using namespace scq;
@@ -10,12 +12,26 @@ static const char* HAND_ROWS[] = { "fader1", "fader2", "fader3", "fader4", "butt
                                    "rocker", "rocker.up", "rocker.down", "play", "dots" };
 static const char* EAR_ROWS[]  = { "left", "right", "out", "leds", "leds.track", "leds.play",
                                    "scene.next", "scene.back", "scene.miss" };
+// the Wingie's: its three faders, the two keyboards, Mode, octave and source switches, the microphones
+static const char* WINGIE_HAND_ROWS[] = { "fader1", "fader2", "fader3", "keys1", "keys1.gate", "keys1.trig", "keys1.key",
+                                          "keys2", "keys2.gate", "keys2.trig", "keys2.key", "mode1", "mode1.tap", "mode2",
+                                          "mode2.tap", "octave1", "octave2", "source", "mic", "mic.right", "mic.both" };
+static const char* WINGIE_EAR_ROWS[] = { "left", "right", "out", "lights", "lights.right", "scene.next", "scene.back", "scene.miss" };
 static constexpr float BW = 168, HEAD = 46, ROW = 17;
 
-static int rowIndex (const char* const* rows, int n, const String& t)
+static int rowIndex (const std::vector<String>& rows, const String& t)
 {
-    for (int i = 0; i < n; ++i) if (t == rows[i]) return i;
+    for (int i = 0; i < (int) rows.size(); ++i) if (t == rows[(size_t) i]) return i;
     return -1;
+}
+
+// how a row is labelled on the board: an outlet 0 by its own name too ("keys1" is keys1.pitch)
+static String rowLabel (const String& t)
+{
+    if (t.startsWith ("keys") && ! t.contains (".")) return t + ".pitch";
+    if (t == "mic") return "mic.left";
+    if (t == "lights") return "lights.left";
+    return t;
 }
 
 Tapestry::Tapestry (Document& d, Host& h) : doc (d), host (h)
@@ -88,14 +104,32 @@ void Tapestry::layout()
         return it != doc.positions.end() ? it->second : def;
     };
 
-    Board hands;
-    hands.node = -1; hands.key = "@hands"; hands.title = "SP-1"; hands.sub = "hands"; hands.family = Hands;
-    hands.help = "the SP-1's faders, track buttons, rocker, PLAY and dots";
-    for (auto* r : HAND_ROWS)
+    instrument = doc.instrument();
+    const bool wingie = instrument == SCQ_WINGIE;
+    handRows.clear(); earRows.clear();
+    if (wingie)
     {
-        String t (r);
-        int sig = t.startsWith ("fader") || t == "rocker" ? Flow : Pulse;
-        hands.outs.push_back ({ t, t, sig });
+        for (auto* r : WINGIE_HAND_ROWS) handRows.push_back (r);
+        for (auto& n : doc.nodes)                        // single keys (the k is key 5): theirs too
+            if (n.place == "key") { handRows.push_back (n.name); handRows.push_back (n.name + ".trig"); }
+        for (auto* r : WINGIE_EAR_ROWS) earRows.push_back (r);
+    }
+    else
+    {
+        for (auto* r : HAND_ROWS) handRows.push_back (r);
+        for (auto* r : EAR_ROWS) earRows.push_back (r);
+    }
+
+    Board hands;
+    hands.node = -1; hands.key = "@hands"; hands.title = wingie ? "Wingie" : "SP-1"; hands.sub = "hands"; hands.family = Hands;
+    hands.help = wingie ? "the Wingie's faders (Mix, Decay, Volume), its two keyboards, Mode, octave and source switches, and its microphones"
+                        : "the SP-1's faders, track buttons, rocker, PLAY and dots";
+    for (auto& t : handRows)
+    {
+        int sig = t.startsWith ("fader") || t == "rocker" || t.startsWith ("octave") || t == "source" ? Flow : Pulse;
+        if (wingie && (t.startsWith ("keys") && (! t.contains (".") || t.endsWith (".key")))) sig = Flow;
+        if (wingie && t.startsWith ("mic")) sig = Sound;
+        hands.outs.push_back ({ rowLabel (t), t, sig });
     }
     hands.r = { 0, 0, 120, HEAD + ROW * (float) hands.outs.size() + 8 };
     hands.r.setPosition (pos ("@hands", { 30, 40 }));
@@ -174,9 +208,10 @@ void Tapestry::layout()
     }
 
     Board ears;
-    ears.node = -2; ears.key = "@ears"; ears.title = "SP-1"; ears.sub = "out, leds, scene"; ears.family = Ears;
-    ears.help = "the outputs (left, right, out = both), the eight LEDs and scene changes";
-    for (auto* r : EAR_ROWS) ears.ins.push_back ({ r, r, 0 });
+    ears.node = -2; ears.key = "@ears"; ears.title = wingie ? "Wingie" : "SP-1"; ears.sub = wingie ? "out, lights, scene" : "out, leds, scene"; ears.family = Ears;
+    ears.help = wingie ? "the outputs (left, right, out = both), the two lights and scene changes"
+                       : "the outputs (left, right, out = both), the eight LEDs and scene changes";
+    for (auto& t : earRows) ears.ins.push_back ({ rowLabel (t), t, 0 });
     ears.r = { 0, 0, 132, HEAD + ROW * (float) ears.ins.size() + 8 };
     ears.r.setPosition (pos ("@ears", { maxX + 90, 40 }));
     boards.push_back (ears);
@@ -255,21 +290,23 @@ bool Tapestry::endpoint (int nodeId, int port, bool out, int& board, int& row) c
     auto* n = doc.node (nodeId);
     auto* p = n ? findPlace (n->place) : nullptr;
     if (! p) return false;
-    if (p->family == Hands)
+    // an instrument's own hands and ears: outlet / inlet 0 by the place's name, the rest name.port
+    // (rocker.up, leds.track, keys1.gate, mic.both, lights.right); a scene change always names its inlet
+    if (p->family == Hands && ! p->name.startsWith ("midi"))
     {
         String t = n->name;
-        if (p->name == "rocker" && port > 0) t = port == 1 ? "rocker.up" : "rocker.down";
+        if (port > 0 && port < p->outs.size()) t << "." << p->outs[port];
         board = 0;
-        row = rowIndex (HAND_ROWS, 13, t);
+        row = rowIndex (handRows, t);
         return row >= 0;
     }
     if (p->family == Ears)
     {
         String t = n->name;
-        if (p->name == "leds" && port > 0) t = port == 1 ? "leds.track" : "leds.play";
-        if (p->name == "scene") t = port == 0 ? "scene.next" : (port == 1 ? "scene.back" : "scene.miss");
+        if (p->name == "scene") t = "scene." + p->ins[port];
+        else if (port > 0 && port < p->ins.size()) t << "." << p->ins[port];
         board = (int) boards.size() - 1;
-        row = rowIndex (EAR_ROWS, 9, t);
+        row = rowIndex (earRows, t);
         return row >= 0 && ! out;
     }
     for (int i = 0; i < (int) boards.size(); ++i)
@@ -572,7 +609,20 @@ void Tapestry::paint (Graphics& g)
                     g.setColour (art::gold);
                     g.drawRoundedRectangle (r.expanded (1.5f), 6, 2.6f);
                 }
-            if (b.node == -2)   // the lamp's eight LEDs, live
+            if (b.node == -2 && instrument == SCQ_WINGIE)   // the Wingie's two lights, live: red, purple, yellow, white
+                for (int k = 0; k < 2; ++k)
+                {
+                    float v = host.lamp (k);
+                    auto c = Rectangle<float> (8, 8).withCentre ({ r.getX() + 96, r.getY() + HEAD + ROW * (float) (3 + k) + 8 });
+                    auto col = wingieLamp (v);
+                    g.setColour (Colour (0xff2a2a2a)); g.fillEllipse (c.expanded (1));
+                    if (light < 0.999f)
+                    {
+                        g.setColour (col.withAlpha (0.3f * (1.0f - light) * 1.5f)); g.fillEllipse (c.expanded (7));
+                    }
+                    g.setColour (col); g.fillEllipse (c);
+                }
+            if (b.node == -2 && instrument != SCQ_WINGIE)   // the lamp's eight LEDs, live
                 for (int k = 0; k < 8; ++k)
                 {
                     float v = host.lamp (k);
@@ -1168,6 +1218,18 @@ void Tapestry::canvasMenu (Point<float> d)
         ids.push_back (p.name);
     }
     for (int f = 0; f < 4; ++f) m.addSubMenu (names[f], fams[f]);
+    // the hands of the instrument this dream is for (the other's are left out)
+    PopupMenu handsMenu;
+    std::vector<String> handIds;
+    static const StringArray always { "fader", "keys", "mode", "octave", "source", "mic", "button", "rocker", "play", "dots" };
+    for (auto& p : catalog())
+    {
+        if (p.family != Hands || ! p.on (doc.instrument())) continue;
+        handsMenu.addItem (3000 + (int) handIds.size(), p.name.paddedRight (' ', 12) + p.help.substring (0, 70)
+                                                         + (always.contains (p.name) ? "   (always there)" : ""));
+        handIds.push_back (p.name);
+    }
+    m.addSubMenu (doc.instrument() == SCQ_WINGIE ? "the Wingie's hands" : "the SP-1's hands", handsMenu);
     m.addSeparator();
     m.addItem (1000, "paste", SystemClipboard::getTextFromClipboard().isNotEmpty());
     m.addItem (1001, "find my patch (fit everything in view)");
@@ -1177,8 +1239,24 @@ void Tapestry::canvasMenu (Point<float> d)
             find.addItem (2000 + i, boards[(size_t) i].key + (boards[(size_t) i].key != boards[(size_t) i].title ? "   (" + boards[(size_t) i].title + ")" : String()));
     m.addSubMenu ("find...", find);
     lastMouse = d;
-    m.showMenuAsync ({}, [this, ids, d] (int r)
+    m.showMenuAsync ({}, [this, ids, d, handIds] (int r)
     {
+        if (r >= 3000 && r - 3000 < (int) handIds.size())
+        {
+            auto h = handIds[(size_t) (r - 3000)];
+            if (always.contains (h))           // part of the instrument: used by its name, never placed
+            {
+                if (onStatus) onStatus (h + " is always there: drag its loop from the hands panel onto an inlet, or write  "
+                                        + (h == "keys" ? "keys1.pitch" : h == "mic" ? "mic.both" : h == "fader" || h == "button" || h == "mode" || h == "octave" ? h + "1" : h)
+                                        + " -> place.inlet");
+                return;
+            }
+            auto name = doc.addPlace (h);
+            doc.setPosition (doc.scene, name, d);
+            doc.writePositions();
+            edited (true);
+            return;
+        }
         if (r >= 2000) { centreOn (r - 2000); return; }
         if (r >= 1 && r <= (int) ids.size())
         {

@@ -107,6 +107,9 @@ private:
     scq::Document& doc;
     Host& host;
     std::vector<Board> boards;
+    // the instrument's hands (outlets) and ears (inlets), as the journal names them: the SP-1's or the Wingie's
+    std::vector<juce::String> handRows, earRows;
+    int instrument = 0;
     juce::Image canvasImg;
     float zoom = 1.0f;
     juce::Point<float> pan { -20, -20 };
