@@ -952,6 +952,8 @@ static void run_scene(node *n, const float *const in[MAX_IN])
 #include "scq_wingie_places.inc"
 #include "scq_proc_time.inc"
 #include "scq_proc_color.inc"
+#include "scq_proc_grain.inc"
+#include "scq_proc_spectral.inc"
 
 #define P(name, fam, flags, cost, nat, ins, defs, outs, run, init, mem, help) \
 	{ name, fam, flags, cost, nat, ins, defs, outs, run, init, mem, help }
@@ -1022,6 +1024,8 @@ P("value",   FAM_CURRENT, 0, 20, 0, "", "", "out", run_value, 0, 0,
 #include "scq_wingie_places_table.inc"
 #include "scq_proc_time_table.inc"
 #include "scq_proc_color_table.inc"
+#include "scq_proc_grain_table.inc"
+#include "scq_proc_spectral_table.inc"
 P("midi",    FAM_HANDS, 0, 30, 0, "", "", "pitch gate velocity trig", run_midi, 0, 0,
   "MIDI to CV: pitch (octaves from middle C), gate, velocity, trig on each note; channel=0 is any, voice=1-4 picks one voice of a chord (0 = mono, last note)"),
 P("midicc",  FAM_HANDS, 0, 22, 0, "", "", "out", run_midicc, 0, 0,
@@ -1111,6 +1115,8 @@ static const struct { const char *place, *opts; } OPTS[] = {
 #include "scq_wingie_places_opts.inc"
 #include "scq_proc_time_opts.inc"
 #include "scq_proc_color_opts.inc"
+#include "scq_proc_grain_opts.inc"
+#include "scq_proc_spectral_opts.inc"
 	{ "quantizer",  "scale=nature|justmajor|justminor|justpentatonic|otonal|utonal|chromatic|major|minor|dorian|phrygian|lydian|mixolydian|locrian|harmonicminor|melodicminor|majorpentatonic|minorpentatonic|blues|wholetone|diminished|quartertone|tet19|tet22|tet31|tet53|bohlenpierce|alpha|beta|gamma|slendro|pelog|rast|bayati|partch|justchromatic|pythagorean|meantone|werckmeister" },
 };
 
