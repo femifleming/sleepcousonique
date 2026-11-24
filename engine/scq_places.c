@@ -948,6 +948,10 @@ static void run_scene(node *n, const float *const in[MAX_IN])
 #include "scq_more_simple.inc"
 #include "scq_midi.inc"
 #include "scq_room.inc"
+/* the Wingie collection (2026-11-24): its resonator, the Coco, the fish ideas, and a lot of processing */
+#include "scq_wingie_places.inc"
+#include "scq_proc_time.inc"
+#include "scq_proc_color.inc"
 
 #define P(name, fam, flags, cost, nat, ins, defs, outs, run, init, mem, help) \
 	{ name, fam, flags, cost, nat, ins, defs, outs, run, init, mem, help }
@@ -1015,6 +1019,9 @@ P("ducker",  FAM_CURRENT, PF_DRIFT, 140, 1, "in side", "0 0", "out lfo", run_duc
 P("value",   FAM_CURRENT, 0, 20, 0, "", "", "out", run_value, 0, 0,
   "a fixed value: value 40 is 0.40"),
 #include "scq_more_table.inc"
+#include "scq_wingie_places_table.inc"
+#include "scq_proc_time_table.inc"
+#include "scq_proc_color_table.inc"
 P("midi",    FAM_HANDS, 0, 30, 0, "", "", "pitch gate velocity trig", run_midi, 0, 0,
   "MIDI to CV: pitch (octaves from middle C), gate, velocity, trig on each note; channel=0 is any, voice=1-4 picks one voice of a chord (0 = mono, last note)"),
 P("midicc",  FAM_HANDS, 0, 22, 0, "", "", "out", run_midicc, 0, 0,
@@ -1101,6 +1108,9 @@ static const struct { const char *place, *opts; } OPTS[] = {
 	{ "midicc",     "channel=0 cc=1" },
 	{ "midiclock",  "div=6" },
 	{ "crowd",      "max=20 rest=0" },
+#include "scq_wingie_places_opts.inc"
+#include "scq_proc_time_opts.inc"
+#include "scq_proc_color_opts.inc"
 	{ "quantizer",  "scale=nature|justmajor|justminor|justpentatonic|otonal|utonal|chromatic|major|minor|dorian|phrygian|lydian|mixolydian|locrian|harmonicminor|melodicminor|majorpentatonic|minorpentatonic|blues|wholetone|diminished|quartertone|tet19|tet22|tet31|tet53|bohlenpierce|alpha|beta|gamma|slendro|pelog|rast|bayati|partch|justchromatic|pythagorean|meantone|werckmeister" },
 };
 

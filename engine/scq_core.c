@@ -1762,7 +1762,7 @@ const char *scq_describe(void)
 	return G.desc;
 }
 
-static char catalog_buf[49152];
+static char catalog_buf[98304];
 const char *scq_catalog(void)
 {
 	static const char *fam[] = { "source", "shape", "space", "current", "hands", "ears" };
@@ -1785,6 +1785,9 @@ const char *scq_catalog(void)
 			sb_c(&s, '\n');
 		}
 		if (*pl->defs) { sb_s(&s, "D "); sb_s(&s, pl->name); sb_c(&s, ' '); sb_s(&s, pl->defs); sb_c(&s, '\n'); }   /* the inlets' defaults */
+		if (pl->flags & (PF_SP1 | PF_WINGIE)) {   /* hands that only one instrument has */
+			sb_s(&s, "I "); sb_s(&s, pl->name); sb_s(&s, (pl->flags & PF_WINGIE) ? " wingie\n" : " sp1\n");
+		}
 	}
 	return catalog_buf;
 }
