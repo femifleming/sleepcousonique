@@ -57,7 +57,10 @@ private:
     bool following = false;                          // a Wingie is connected and its hands drive this
 
     juce::Rectangle<float> board[2], keybed[2], modeBtn[2], octSw[2], lampR[2], faderR[3], faderLoop[3],
-                           keysLoop[2], modeLoop[2], sourceSw, listenBtn, micLoop, mapArea;
+                           keysLoop[2], modeLoop[2], sourceSw, listenBtn, micLoop, mapArea, face;
+    // the face, measured from Meng Qi's photo of the Wingie2 (780 x 902 of it): a point there, and its scale
+    juce::Point<float> at (float x, float y) const { return { face.getX() + x * unit, face.getY() + y * unit }; }
+    float unit = 1.0f;
     std::vector<std::pair<juce::String, juce::Rectangle<float>>> mapRows;
     enum class Drag { None, Key, Mode, Fader } drag = Drag::None;
     int dragSide = 0, dragIndex = -1;

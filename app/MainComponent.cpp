@@ -417,7 +417,7 @@ void MainComponent::resized()
 
     statusArea = r.removeFromBottom (24);
     {
-        auto handsRow = r.removeFromBottom (176);
+        auto handsRow = r.removeFromBottom (shownInstrument == SCQ_WINGIE ? 300 : 176);   // the Wingie's face is nearly square
         hands.setBounds (handsRow);
         wingieMeters.setBounds (handsRow.removeFromRight (jmin (470, handsRow.getWidth() * 2 / 5)));
         wingiePanel.setBounds (handsRow);
@@ -478,7 +478,7 @@ void MainComponent::resizedPop()
     stripArea = r.removeFromBottom (60);
     meters = stripArea;
     statusArea = {};
-    auto handsArea = r.removeFromBottom (150);
+    auto handsArea = r.removeFromBottom (shownInstrument == SCQ_WINGIE ? 290 : 150);
     auto tlArea = showTimeline ? r.removeFromBottom (70) : Rectangle<int>();
     timeline.setVisible (showTimeline);
     if (showTimeline) timeline.setBounds (tlArea.withTrimmedLeft (104));
@@ -873,6 +873,7 @@ void MainComponent::syncInstrument()
     wingiePanel.setVisible (w);
     wingieMeters.setVisible (w);
     browser.setInstrument (i);
+    resized();                            // the Wingie's panel is taller (its face is nearly square)
     if (w) wingiePanel.reset();           // the faders are shared (fader1-3): each panel puts back its own
     else
     {

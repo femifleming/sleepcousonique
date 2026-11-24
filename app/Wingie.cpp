@@ -90,71 +90,57 @@ void WingiePanel::setFader (int i, float v)
 
 void WingiePanel::resized()
 {
-    const bool pop = art::theme().pop;
-    auto r = getLocalBounds().toFloat().reduced (14, pop ? 8.0f : 10.0f);
-    auto body = r.removeFromLeft (jmin (r.getWidth() * 0.64f, 700.0f));
-    const float cw = jmin (170.0f, body.getWidth() * 0.26f);
-    const float half = (body.getWidth() - cw) * 0.5f;
-    board[0] = body.removeFromLeft (half).reduced (2, 0);
-    board[1] = body.removeFromRight (half).reduced (2, 0);
-    auto centre = body.reduced (8, 0);
-
+    // the Wingie as it is (Meng Qi's photo of the Wingie2, in its own pixels: 780 wide, 902 high):
+    // grilles and the Line In / Microphone switch at the top, L.Octave R.Octave, L.Mode R.Mode,
+    // the Mix Decay Volume faders, the two lights by Volume, and the two keyboards one above the
+    // other — keys2 the top, keys1 the bottom — each a row of black buttons over a row of white
+    auto r = getLocalBounds().toFloat().reduced (10, 8);
+    const float fh = r.getHeight(), fw = fh * 780.0f / 902.0f;
+    face = r.removeFromLeft (fw);
+    unit = fw / 780.0f;
+    auto circle = [this] (float x, float y, float rad) { return Rectangle<float> (2 * rad * unit, 2 * rad * unit).withCentre (at (x, y)); };
+    sourceSw = Rectangle<float> (26 * unit, 46 * unit).withCentre (at (171, 134));
     for (int s = 0; s < 2; ++s)
     {
-        auto b = board[s].reduced (8, 6);
-        auto top = b.removeFromTop (22);
-        b.removeFromTop (6);
-        b.removeFromBottom (2);
-        keybed[s] = b;
-        // the left board: light, Mode, octave from the outer edge in; the right board mirrored
-        auto take = [&] (float w) { return s == 0 ? top.removeFromLeft (w) : top.removeFromRight (w); };
-        lampR[s] = take (18).withSizeKeepingCentre (13, 13);
-        take (8);
-        modeBtn[s] = take (58);
-        take (10);
-        octSw[s] = take (66).withSizeKeepingCentre (66, 16);
-        keysLoop[s] = Rectangle<float> (14, 14).withCentre ({ s == 0 ? top.getRight() - 8 : top.getX() + 8, top.getCentreY() });
+        const float x = s == 0 ? 78.0f : 183.0f;
+        octSw[s] = Rectangle<float> (26 * unit, 46 * unit).withCentre (at (x, 290));
+        modeBtn[s] = circle (x, 442, 30);
         modeLoop[s] = {};
+        lampR[s] = circle (s == 0 ? 595.0f : 702.0f, 442, 11);
+        const float y = s == 1 ? 586.0f : 780.0f;        // keys2 on top, keys1 below
+        keybed[s] = Rectangle<float> (at (44, y - 78), at (736, y + 78));
+        board[s] = keybed[s];
+        keysLoop[s] = Rectangle<float> (14, 14).withCentre ({ face.getRight() + 16, at (0, y).y + 8 });   // just outside the face, by its keyboard
     }
-
-    auto c = centre;
-    sourceSw = c.removeFromTop (20).withSizeKeepingCentre (jmin (c.getWidth(), 120.0f), 18);
-    c.removeFromTop (6);
-    auto bottom = c.removeFromBottom (22);
-    listenBtn = bottom.withTrimmedRight (40);
-    micLoop = Rectangle<float> (14, 14).withCentre ({ bottom.getRight() - 30, bottom.getCentreY() });
-    c.removeFromBottom (16);                             // the faders' names
-    const float fw = c.getWidth() / 3;
     for (int i = 0; i < 3; ++i)
     {
-        auto col = Rectangle<float> (c.getX() + fw * (float) i, c.getY() + 12, fw, c.getHeight() - 12);
-        faderR[i] = col.withSizeKeepingCentre (jmin (22.0f, fw - 18), col.getHeight());
-        faderLoop[i] = Rectangle<float> (12, 12).withCentre ({ faderR[i].getRight() + 9, col.getY() - 4 });
+        const float x = 286.0f + 104.0f * (float) i;
+        faderR[i] = Rectangle<float> (at (x - 14, 147), at (x + 14, 437));
+        faderLoop[i] = Rectangle<float> (12, 12).withCentre (at (x + 30, 140));
     }
-    r.removeFromLeft (pop ? 24.0f : 20.0f);
-    mapArea = r;
+    micLoop = Rectangle<float> (14, 14).withCentre (at (80, 210));
+
+    r.removeFromLeft (40);                               // room for the keyboards' loops and names
+    auto top = r.removeFromTop (24);
+    listenBtn = top.removeFromRight (jmin (150.0f, top.getWidth() * 0.4f)).reduced (0, 2);
+    mapArea = r.withTop (r.getY() - 24);
 }
 
 Rectangle<float> WingiePanel::keyRect (int side, int k) const
 {
-    static const int whiteOf[12] = { 0, -1, 1, -1, 2, 3, -1, 4, -1, 5, -1, 6 };
-    static const int blackAfter[12] = { -1, 0, -1, 1, -1, -1, 3, -1, 4, -1, 5, -1 };
-    auto bed = keybed[side];
-    const float ww = bed.getWidth() / 7;
-    if (whiteOf[k] >= 0) return { bed.getX() + ww * (float) whiteOf[k], bed.getY(), ww, bed.getHeight() };
-    const float cx = bed.getX() + ww * (float) (blackAfter[k] + 1);
-    return { cx - ww * 0.32f, bed.getY(), ww * 0.64f, bed.getHeight() * 0.58f };
+    static const float x[12] = { 78, 130, 182, 234, 286, 390, 442, 494, 546, 598, 650, 702 };
+    const float y = (side == 1 ? 586.0f : 780.0f) + (isBlack (k) ? -46.0f : 46.0f);
+    return Rectangle<float> (60 * unit, 60 * unit).withCentre (at (x[k], y));
 }
 
 int WingiePanel::keyAt (Point<float> p, int& side) const
 {
     for (int s = 0; s < 2; ++s)
-    {
-        if (! keybed[s].contains (p)) continue;
-        side = s;
-        for (int k = 0; k < 12; ++k) if (isBlack (k) && keyRect (s, k).contains (p)) return k;
-        for (int k = 0; k < 12; ++k) if (! isBlack (k) && keyRect (s, k).contains (p)) return k;
-    }
+        for (int k = 0; k < 12; ++k)
+        {
+            auto r = keyRect (s, k);
+            if (r.getCentre().getDistanceFrom (p) <= r.getWidth() * 0.5f + 2) { side = s; return k; }
+        }
     return -1;
 }
 
@@ -169,21 +155,46 @@ void WingiePanel::paint (Graphics& g)
     const auto ink = th.pop ? th.chromeText : art::ink;
     const auto held = th.pop ? th.checkA : art::gold;
 
-    // the two boards (the Wingie's wooden halves)
-    for (int s = 0; s < 2; ++s)
+    // the face: the Wingie's aluminium, as it is in Meng Qi's photo
     {
-        auto b = board[s];
-        if (th.modular) { g.setColour (th.button); g.fillRect (b); art::bevel (g, b, true); }
-        else if (th.pop) { g.setColour (th.chromeText.withAlpha (0.35f)); g.strokePath (art::slant (b, 10.0f), PathStrokeType (1.0f)); }
+        auto f = face;
+        if (th.modular) { g.setColour (th.button); g.fillRect (f); art::bevel (g, f, true); }
+        else if (th.pop) { g.setColour (th.chromeText.withAlpha (0.35f)); g.strokePath (art::slant (f, 12.0f), PathStrokeType (1.0f)); }
         else
         {
-            g.setColour (Colour (0x30000000)); g.fillRoundedRectangle (b.translated (0, 2), 9);
-            g.setColour (th.cardSp1); g.fillRoundedRectangle (b, 9);
-            g.setColour (th.dark ? Colour (0x40ffffff) : Colour (0x40000000)); g.drawRoundedRectangle (b, 9, 1);
+            g.setColour (Colour (0x30000000)); g.fillRoundedRectangle (f.translated (0, 2), 8);
+            g.setColour (th.cardSp1); g.fillRoundedRectangle (f, 8);
+            g.setColour (th.dark ? Colour (0x40ffffff) : Colour (0x40000000)); g.drawRoundedRectangle (f, 8, 1);
         }
+        // the two grilles: a diamond of holes each
+        g.setColour (th.dark || th.pop ? Colour (0xff0c0b0a) : Colour (0xff3a3632));
+        for (float gx : { 80.0f, 702.0f })
+            for (int row = -3; row <= 3; ++row)
+                for (int col = -3; col <= 3; ++col)
+                    if (std::abs (row) + std::abs (col) <= 3 && ((row + col) & 1) == 0)
+                        g.fillEllipse (Rectangle<float> (7 * unit, 7 * unit).withCentre (at (gx + 21.0f * (float) col, 137 + 21.0f * (float) row)));
     }
+    auto silk = [&] (const String& t, float x, float y, float w = 120)   // the panel's printed words
+    {
+        g.setColour (th.pop ? th.chromeDim : ink.withAlpha (0.8f));
+        g.setFont (th.pop ? art::label (jmax (7.5f, 17 * unit)) : art::mono (jmax (7.5f, 18 * unit)));
+        g.drawText (t, Rectangle<float> (w * unit, 22 * unit).withCentre (at (x, y)), Justification::centred, false);
+    };
+    // a toggle: a dark collar and a lever up, centred or down (pos +1, 0, -1)
+    auto toggle = [&] (Rectangle<float> r, int pos)
+    {
+        auto collar = Rectangle<float> (r.getWidth(), r.getWidth()).withCentre (r.getCentre());
+        g.setColour (Colour (0xff2b2826)); g.fillEllipse (collar);
+        g.setColour (Colour (0xff6e6a64)); g.drawEllipse (collar, 1.0f);
+        auto c = r.getCentre();
+        const auto tip = c.translated (0, -(float) pos * r.getHeight() * 0.42f + (pos == 0 ? -r.getHeight() * 0.05f : 0.0f));
+        g.setColour (Colour (0xffdcdad4)); g.drawLine ({ c, tip }, jmax (2.0f, r.getWidth() * 0.18f));
+        g.fillEllipse (Rectangle<float> (r.getWidth() * 0.32f, r.getWidth() * 0.32f).withCentre (tip));
+    };
+    silk ("LINE IN", 171, 92); silk ("MIC", 171, 182);
+    toggle (sourceSw, source == 1 ? 1 : -1);
 
-    // the lights: red underneath, then purple, yellow, white
+    // the lights, in their holes by Volume: red underneath, then purple, yellow, white
     for (int s = 0; s < 2; ++s)
     {
         const float v = following ? hwLamp[s] : host.lamp (s);
@@ -192,146 +203,79 @@ void WingiePanel::paint (Graphics& g)
         g.setColour (col.withAlpha (0.25f + 0.25f * v)); g.fillEllipse (l.expanded (4 + 3 * v));
         g.setColour (th.ledOff); g.fillEllipse (l.expanded (1.5f));
         g.setColour (col); g.fillEllipse (l);
-        g.setColour (Colour (0xffe5251f).withAlpha (0.8f)); g.drawEllipse (l, 1.4f);   // the red underneath
-        g.setColour (Colours::white.withAlpha (0.35f)); g.fillEllipse (l.reduced (3.5f).translated (-1.5f, -1.5f));
+        g.setColour (Colour (0xffe5251f).withAlpha (0.8f)); g.drawEllipse (l, 1.2f);   // the red underneath
+        g.setColour (Colours::white.withAlpha (0.35f)); g.fillEllipse (l.reduced (l.getWidth() * 0.3f).translated (-1, -1));
     }
 
-    // Mode buttons
-    g.setFont (th.pop ? art::label (9.5f) : art::mono (10));
+    // L.Octave R.Octave (up is an octave up) and L.Mode R.Mode, round, as on the panel
     for (int s = 0; s < 2; ++s)
     {
+        const float x = s == 0 ? 78.0f : 183.0f;
+        silk (s == 0 ? "L.OCT" : "R.OCT", x, 250);
+        toggle (octSw[s], octave[s]);
+        silk (s == 0 ? "L.MODE" : "R.MODE", x, 398);
         auto r = modeBtn[s];
         const bool down = modeBy[s] != 0;
-        if (th.modular) { g.setColour (down ? th.checkA : th.button); g.fillRect (r); g.setColour (Colours::black); g.drawRect (r, 1.0f); art::bevel (g, r.reduced (1), ! down); }
-        else if (th.pop)
-        {
-            auto p = art::slant (r, 6.0f);
-            if (down) { g.setColour (held); g.fillPath (p); }
-            g.setColour (ink.withAlpha (0.8f)); g.strokePath (p, PathStrokeType (1.0f));
-        }
+        if (th.modular) { g.setColour (down ? th.checkA : th.button); g.fillEllipse (r); g.setColour (Colours::black); g.drawEllipse (r, 1.0f); }
         else
         {
-            g.setColour (Colour (0x40000000)); g.fillRoundedRectangle (r.translated (0, 1.5f), 4);
-            g.setColour (down ? th.button.darker (0.25f) : th.button); g.fillRoundedRectangle (r, 4);
-            g.setColour (th.dark ? Colour (0x55ffffff) : Colour (0x55000000)); g.drawRoundedRectangle (r, 4, 1);
+            g.setColour (Colour (0x40000000)); g.fillEllipse (r.translated (0, 1.5f));
+            g.setColour (down ? held : Colour (0xffd0cdc6)); g.fillEllipse (r);
+            g.setColour (Colour (0x60000000)); g.drawEllipse (r, 1.0f);
         }
-        g.setColour (down && th.pop && th.dark ? th.window : ink);
-        g.drawText ("mode", r, Justification::centred);
     }
 
-    // octave switches: -1 / 0 / +1
+    // the two keyboards: round buttons, the black row over the white, keys2 on top, keys1 below
     for (int s = 0; s < 2; ++s)
     {
-        auto r = octSw[s];
-        const float cw = r.getWidth() / 3;
-        g.setColour (th.pop ? th.rail : (th.dark ? Colour (0x22ffffff) : Colour (0x22000000)));
-        if (th.modular) { g.setColour (Colours::white); g.fillRect (r); art::bevel (g, r, false); }
-        else g.fillRoundedRectangle (r, th.pop ? 0.0f : 3.0f);
-        auto thumb = Rectangle<float> (r.getX() + cw * (float) (octave[s] + 1), r.getY(), cw, r.getHeight()).reduced (1);
-        if (th.modular) { g.setColour (th.button); g.fillRect (thumb); art::bevel (g, thumb, true); }
-        else { g.setColour (octave[s] != 0 ? held : ink.withAlpha (0.75f)); g.fillRoundedRectangle (thumb, th.pop ? 0.0f : 2.5f); }
-        g.setFont (th.pop ? art::label (8.5f) : art::mono (9));
-        const char* lab[3] = { "-1", "0", "+1" };
-        for (int k = 0; k < 3; ++k)
+        for (int k = 0; k < 12; ++k)
         {
-            const bool on = k == octave[s] + 1;
-            g.setColour (on ? (th.modular ? Colours::black : (octave[s] != 0 && ! th.dark ? art::ink : (th.pop ? th.window : (th.dark ? art::night : art::paper)))) : ink.withAlpha (0.7f));
-            g.drawText (lab[k], Rectangle<float> (r.getX() + cw * (float) k, r.getY(), cw, r.getHeight()), Justification::centred);
-        }
-        g.setColour (th.chromeDim);
-        g.drawText ("oct", octSw[s].translated (0, 0).withWidth (24).translated (s == 0 ? octSw[s].getWidth() + 2 : -26.0f, 0), Justification::centred);
-    }
-
-    // the keyboards: whites, then blacks over them
-    for (int s = 0; s < 2; ++s)
-    {
-        for (int pass = 0; pass < 2; ++pass)
-            for (int k = 0; k < 12; ++k)
+            auto r = keyRect (s, k);
+            const bool down = keyBy[s][k] != 0, blk = isBlack (k);
+            if (th.modular)
             {
-                if (isBlack (k) != (pass == 1)) continue;
-                auto r = keyRect (s, k);
-                const bool down = keyBy[s][k] != 0;
-                if (pass == 0) r = r.reduced (1.0f, 0);
-                if (th.modular)
-                {
-                    g.setColour (down ? th.checkA : (pass ? Colours::black : Colours::white)); g.fillRect (r);
-                    g.setColour (Colours::black); g.drawRect (r, 1.0f);
-                    if (! down && pass == 0) art::bevel (g, r.reduced (1), true);
-                }
-                else if (th.pop)
-                {
-                    g.setColour (down ? held : (pass ? Colour (0xff1e1d1b) : Colour (0xfff2efe6))); g.fillRect (r);
-                    g.setColour (th.chromeText.withAlpha (0.6f)); g.drawRect (r, 1.0f);
-                }
-                else
-                {
-                    auto face = pass ? Colour (0xff2a2622) : (th.dark ? Colour (0xffe9e1cf) : art::cream);
-                    g.setColour (Colour (0x30000000)); g.fillRoundedRectangle (r.translated (0, 1.5f), 3);
-                    g.setColour (down ? held : face); g.fillRoundedRectangle (r, 3);
-                    g.setColour (Colour (0x50000000)); g.drawRoundedRectangle (r, 3, 0.8f);
-                }
-                if (! isBlack (k))
-                {
-                    g.setColour ((th.modular || th.pop) && ! down ? Colours::black.withAlpha (0.45f) : Colour (0xff1d1b19).withAlpha (0.5f));
-                    g.setFont (th.pop ? art::label (8) : art::mono (8.5f));
-                    g.drawText (k == 0 ? String (s == 0 ? "C bot" : "C top") : String (noteName[k]), r.withTrimmedTop (r.getHeight() - 14), Justification::centred, true);   // keys1 is the bottom keyboard on the Wingie, keys2 the top (checked on hardware)
-                }
+                g.setColour (down ? th.checkA : (blk ? Colours::black : Colours::white)); g.fillEllipse (r);
+                g.setColour (Colours::black); g.drawEllipse (r, 1.0f);
             }
+            else
+            {
+                g.setColour (Colour (0x38000000)); g.fillEllipse (r.translated (0, 1.5f));
+                g.setColour (down ? held : (blk ? Colour (0xff121110) : (th.dark ? Colour (0xffe6e3dc) : Colour (0xffefece6)))); g.fillEllipse (r);
+                g.setColour (Colour (0x55000000)); g.drawEllipse (r, 0.8f);
+            }
+            if (! blk && unit * 60 >= 18)
+            {
+                g.setColour (down ? Colours::black.withAlpha (0.6f) : Colour (0xff1d1b19).withAlpha (0.45f));
+                g.setFont (th.pop ? art::label (jmax (7.0f, 15 * unit)) : art::mono (jmax (7.0f, 15 * unit)));
+                g.drawText (String (noteName[k]), r, Justification::centred, false);
+            }
+        }
+        // which keyboard is which: written in the margin, by the loop you drag it from
+        auto lb = keysLoop[s];
+        g.setColour (th.pop ? th.chromeDim : ink.withAlpha (0.7f));
+        g.setFont (th.pop ? art::label (jmax (7.5f, 16 * unit)) : art::mono (jmax (7.5f, 16 * unit)));
+        g.setFont (th.pop ? art::label (9) : art::mono (9));
+        g.drawText (s == 0 ? "keys1" : "keys2", Rectangle<float> (40, 12).withCentre (lb.getCentre().translated (2, -15)), Justification::centred, false);
         art::drawLoop (g, keysLoop[s].getCentre(), false, art::blue);
     }
 
-    // source switch: microphones / line in
-    {
-        auto r = sourceSw;
-        const float hw = r.getWidth() / 2;
-        g.setFont (th.pop ? art::label (9) : art::mono (9.5f));
-        for (int k = 0; k < 2; ++k)
-        {
-            auto c = Rectangle<float> (r.getX() + hw * (float) k, r.getY(), hw, r.getHeight());
-            const bool on = source == k;
-            if (th.modular) { g.setColour (on ? th.checkA : th.button); g.fillRect (c); art::bevel (g, c.reduced (0.5f), ! on); }
-            else
-            {
-                g.setColour (on ? held : (th.pop ? th.rail : (th.dark ? Colour (0x22ffffff) : Colour (0x22000000))));
-                g.fillRoundedRectangle (c.reduced (0.5f), th.pop ? 0.0f : 3.0f);
-            }
-            g.setColour (on && th.pop && th.dark ? th.window : ink);
-            g.drawText (k ? "line" : "mic", c, Justification::centred);
-        }
-    }
-
-    // Mix, Decay, Volume
-    static const char* const fname[3] = { "mix", "decay", "volume" };
+    // Mix, Decay, Volume: long slots, as on the panel
+    static const char* const fname[3] = { "MIX", "DECAY", "VOLUME" };
     for (int i = 0; i < 3; ++i)
     {
         auto r = faderR[i];
         const float y = r.getBottom() - fader[i] * r.getHeight();
-        if (th.modular)
-        {
-            auto groove = r.withSizeKeepingCentre (4, r.getHeight());
-            g.setColour (Colours::white); g.fillRect (groove); art::bevel (g, groove, false);
-            auto thumb = Rectangle<float> (r.getWidth(), 10).withCentre ({ r.getCentreX(), y });
-            g.setColour (th.button); g.fillRect (thumb); art::bevel (g, thumb, true);
-        }
-        else if (th.pop)
-        {
-            auto track = r.withSizeKeepingCentre (12, r.getHeight());
-            g.setColour (th.rail); g.drawRect (track, 1.0f);
-            g.setColour (th.checkA); g.fillRect (track.withTop (y));
-            g.setColour (th.chromeText); g.drawLine (track.getX() - 4, y, track.getRight() + 4, y, 1.8f);
-        }
+        auto slot = r.withSizeKeepingCentre (jmax (4.0f, 16 * unit), r.getHeight());
+        g.setColour (Colour (0xff121110)); g.fillRoundedRectangle (slot, slot.getWidth() * 0.5f);
+        auto cap = Rectangle<float> (26 * unit, 40 * unit).withCentre ({ r.getCentreX(), y });
+        if (th.modular) { g.setColour (th.button); g.fillRect (cap); art::bevel (g, cap, true); }
         else
         {
-            auto slot = r.withSizeKeepingCentre (4, r.getHeight());
-            g.setColour (th.faderSlot); g.fillRoundedRectangle (slot, 2);
-            auto cap = Rectangle<float> (r.getWidth(), 12).withCentre ({ r.getCentreX(), y });
-            g.setColour (Colour (0x40000000)); g.fillRoundedRectangle (cap.translated (0, 2), 3);
-            g.setColour (th.faderCap); g.fillRoundedRectangle (cap, 3);
-            g.setColour (Colour (0xff8a8880)); g.drawHorizontalLine ((int) cap.getCentreY(), cap.getX() + 3, cap.getRight() - 3);
+            g.setColour (Colour (0x40000000)); g.fillEllipse (cap.translated (0, 2));
+            g.setColour (th.pop ? th.checkA : Colour (0xfff4f1ea)); g.fillEllipse (cap);
+            g.setColour (Colour (0x50000000)); g.drawEllipse (cap, 0.8f);
         }
-        g.setColour (ink);
-        g.setFont (th.pop ? art::label (9) : art::mono (9.5f));
-        g.drawText (fname[i], Rectangle<float> (r.getCentreX() - 30, r.getBottom() + 3, 60, 12), Justification::centred);
+        silk (fname[i], 286.0f + 104.0f * (float) i, 462);
         art::drawLoop (g, faderLoop[i].getCentre(), false, art::blue);
     }
 
@@ -370,7 +314,7 @@ void WingiePanel::paint (Graphics& g)
     auto area = mapArea;
     g.setColour (th.pop ? th.chromeText : art::umber);
     g.setFont (th.pop ? art::sans (12.5f, true) : art::hand (13));
-    auto head = area.removeFromTop (18);
+    auto head = area.removeFromTop (24).withTrimmedRight (listenBtn.getWidth() + 10);
     g.drawText ("what your hands do in this scene", head, Justification::left);
     if (following)
     {
@@ -431,13 +375,13 @@ void WingiePanel::mouseDown (const MouseEvent& e)
     for (int s = 0; s < 2; ++s)
     {
         if (modeBtn[s].contains (p)) { drag = Drag::Mode; dragSide = s; setMode (s, true, 0); return; }
-        if (octSw[s].expanded (2, 4).contains (p))
+        if (octSw[s].expanded (6, 4).contains (p))      // a toggle: click above its middle to move it up, below to move it down
         {
-            setOctave (s, jlimit (0, 2, (int) ((p.x - octSw[s].getX()) / (octSw[s].getWidth() / 3))) - 1);
+            setOctave (s, jlimit (-1, 1, octave[s] + (p.y < octSw[s].getCentreY() ? 1 : -1)));
             return;
         }
     }
-    if (sourceSw.contains (p)) { setSource (p.x >= sourceSw.getCentreX() ? 1 : 0); return; }
+    if (sourceSw.expanded (6, 4).contains (p)) { setSource (p.y < sourceSw.getCentreY() ? 1 : 0); return; }   // up: line in, down: microphones
     if (listenBtn.contains (p)) { if (onListen) onListen (! host.listening()); repaint(); return; }
     for (int i = 0; i < 3; ++i)
         if (faderR[i].expanded (10, 8).contains (p)) { drag = Drag::Fader; dragIndex = i; mouseDrag (e); return; }
