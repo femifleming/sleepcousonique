@@ -39,8 +39,8 @@ pressed on its own belongs to the dream (`mode1.tap`, `mode2.out`).
 
 > **Which keyboard is which.** `keys1` is the Wingie's **bottom** keyboard and `keys2` the **top**
 > one (checked on a Wingie: the top row's C to E arrive as `keys2`). The stock firmware calls them
-> the left and right channel's keyboards; on the instrument they sit one above the other. The editor
-> draws them side by side, `keys1` on the left, with their C keys marked *bot* and *top*.
+> the left and right channel's keyboards; on the instrument they sit one above the other, and the
+> editor draws them the same way: `keys2` on top, `keys1` below.
 
 ### The LEDs
 

@@ -113,10 +113,10 @@ BEFORE = [
                  "File, New dream for the Wingie, starts one: a comb rung by the microphones, tuned by the left "
                  "keyboard.", box=(0, 80, 550, 290)),
                R("journal", "the dream as text",
-                 "On the left, the journal: the dream as text.", box=(0, 80, 550, 550)),
+                 "On the left, the journal: the dream as text.", box=(0, 80, 550, 420)),
                R("tapestry", "the same dream as boards",
                  "On the right, the tapestry: the same dream, as boards and cords. The Wingie's hands are one "
-                 "board, and its outputs and lights another.", box=(550, 80, 890, 550)),
+                 "board, and its outputs and lights another.", box=(550, 80, 890, 420)),
                R("status", "wingie connected · slot · scene",
                  "Up here, whether a Wingie is connected, and which slot and scene it plays. When the Wingie has "
                  "to go back to a lighter dream, the status line says so.",
@@ -124,46 +124,47 @@ BEFORE = [
                R("send to wingie", "into the slot that plays",
                  "Send to Wingie puts the dream into the slot that is playing, and it plays at once. The Device menu "
                  "sends to any of the twelve slots.", box=(8, 6, 132, 34))], kind="shot"),
-    dict(code="hp05", title="hands on screen", sub="play the wingie from the computer", shot="editor-journal-dark.png", crop=(0, 700, 975, 180),
+    dict(code="hp05", title="hands on screen", sub="play the wingie from the computer", shot="editor-journal-dark.png", crop=(0, 578, 965, 300),
          desc="Click the keys or type them: z row for the bottom keyboard, q row for the top, a and p for "
               "the Mode buttons. Listen feeds the computer's microphone in.",
          say="The Wingie, on screen.",
          rows=[R("bottom keys", "z s x d c v g b h n j m",
                  "Click the keys, or type the bottom row of the computer keyboard, z to m, for the bottom keyboard.",
-                 box=(15, 708, 222, 160)),
+                 box=(18, 800, 234, 64)),
                R("top keys", "q 2 w 3 e r 5 t 6 y 7 u",
-                 "The q row plays the top keyboard. A and P are the two Mode buttons.", box=(395, 708, 222, 160)),
-               R("faders · source", "mix · decay · volume · mic | line",
-                 "Drag the faders; click mic or line. Drag a fader, a keyboard or the microphones onto a place on "
-                 "the tapestry, and it's patched.", box=(243, 708, 145, 132)),
+                 "The q row plays the top keyboard. A and P are the two Mode buttons.", box=(18, 738, 234, 64)),
+               R("faders · toggles", "mix · decay · volume · line in | mic · oct",
+                 "Drag the faders. Click the top half of a toggle to move it up, the bottom half to move it down: "
+                 "line in up, microphones down. Drag from a little loop, by a fader, a grille or a keyboard, "
+                 "onto a place on the tapestry, and it's patched.", box=(18, 598, 200, 140)),
                R("listen", "the computer's microphone",
                  "In the simulation, the microphones are silent until you press listen: then the computer's "
-                 "microphone is the Wingie's. Wear headphones.", box=(243, 840, 110, 30)),
+                 "microphone is the Wingie's. Wear headphones.", box=(808, 584, 154, 24)),
                R("patch map", "what your hands do in this scene",
                  "The patch map lists every hand and where it goes in the scene that's playing.",
-                 box=(630, 708, 335, 130)),
+                 box=(288, 584, 520, 136)),
                R("wingie live", "the panel follows the real one",
                  "With a Wingie plugged in, the panel follows it: its keys, faders, switches, scene and slot.",
-                 box=(15, 708, 600, 160))], kind="shot"),
-    dict(code="mt06", title="the meters", sub="what the wingie measures, every second", shot="editor-journal-dark.png", crop=(965, 700, 475, 180),
+                 box=(8, 582, 252, 290))], kind="shot"),
+    dict(code="mt06", title="the meters", sub="what the wingie measures, every second", shot="editor-journal-dark.png", crop=(965, 578, 475, 300),
          desc="The editor's estimate, and what the Wingie reports once a second: CPU, control core, heap, "
               "pool, dropped blocks, levels, and a minute of history.",
          say="The meters.",
          rows=[R("load", "the estimate, this scene",
                  "Load is the editor's estimate for the scene, from costs measured on a real Wingie: ok, tight "
-                 "past eighty-five percent, too heavy past a hundred.", box=(975, 728, 220, 40)),
+                 "past eighty-five percent, too heavy past a hundred.", box=(975, 603, 220, 40)),
                R("cpu", "measured: average and peak",
                  "CPU is what the Wingie itself measures, the average and the peak. With no Wingie plugged in, as "
-                 "here, it says not connected.", box=(975, 768, 220, 40)),
+                 "here, it says not connected.", box=(975, 643, 220, 45)),
                R("core · heap · pool", "the second core · free memory · the pool",
                  "The control core, the free heap, and the pool: the engine's memory, seventy kilobytes a scene. "
                  "Until a Wingie reports, the pool is the editor's estimate.",
-                 box=(975, 812, 225, 32)),
+                 box=(975, 688, 225, 30)),
                R("dropped", "late blocks",
-                 "Dropped counts blocks that were late. Any at all is a stutter you hear.", box=(1090, 826, 110, 18)),
+                 "Dropped counts blocks that were late. Any at all is a stutter you hear.", box=(1068, 701, 124, 17)),
                R("history", "a minute of reports",
                  "The graph is the last minute: the average filled, the peaks as a line, the estimate dashed.",
-                 box=(1200, 726, 236, 118)),
+                 box=(1200, 600, 236, 240)),
                R("levels", "in l · in r · out l · out r",
                  "And the levels in and out, in decibels.", box=(1200, 842, 236, 26))], kind="shot"),
     dict(code="wr07", title="writing a wingie dream", sub="what's different",

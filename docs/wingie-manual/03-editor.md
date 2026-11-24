@@ -3,7 +3,7 @@
 The Sleepcousonique editor writes dreams for both instruments. A dream is for the SP-1
 unless it says `instrument wingie`; the editor writes and removes that line for you.
 
-![The editor in Wingie mode with a new dream for the Wingie: the journal on the left, the tapestry on the right, the Wingie's panel, the patch map and the meters along the bottom.](fig/editor-journal-dark.png)
+![The editor in Wingie mode with first light (examples/wingie-first-light.dream): the journal on the left, the tapestry on the right, the Wingie's panel, the patch map and the meters along the bottom.](fig/editor-journal-dark.png)
 
 ### Switching to the Wingie
 
@@ -24,28 +24,30 @@ when you point at them.
 
 ### The Wingie's panel
 
-Along the bottom, the editor draws the Wingie: the **bottom keyboard** on the left, the
-**top keyboard** on the right (each with its **mode** button, its **−1 0 +1** octave switch and
-its LED), and in the middle the **mic | line** switch and the three faders **mix**, **decay**
-and **volume**.
+Along the bottom left, the editor draws the Wingie2 as it is, from Meng Qi's photo: the two
+microphone grilles, the **Line In / Mic** toggle, the **L.OCT** and **R.OCT** toggles, the round
+**L.MODE** and **R.MODE** buttons, the **Mix**, **Decay** and **Volume** slots with the two lights
+beside Volume, and the two keyboards as round buttons, black row over white: `keys2` on top,
+`keys1` below, as on the instrument.
 
-![The panel, the patch map and the meters, close up.](fig/crop-panel.png)
+![The panel as the real Wingie2, with the keys2 and keys1 loops outside its right edge, and the patch map with the listen button at its top right, close up.](fig/crop-panel.png)
 
 | You | The Wingie |
 |---|---|
 | click a key, or type `z s x d c v g b h n j m` | bottom keyboard, C to B |
 | type `q 2 w 3 e r 5 t 6 y 7 u` | top keyboard, C to B |
 | type `a` / `p` | left / right Mode button |
-| click −1, 0, +1 | the octave switches |
-| click mic / line | the source switch |
+| click the upper or lower half of an octave toggle | moves it up or down a step (−1, 0, +1) |
+| click the Line In / Mic toggle | up: line in, down: microphones |
 | drag a fader | Mix, Decay, Volume (the status line shows its value) |
 
 The computer keyboard plays the Wingie only while you aren't typing in the journal. The
 editor has no slots, so the slot combination (both Mode buttons and a key) means nothing
 there: `a` and `p` are just the two Mode buttons, seen by the dream.
 
-**Patch from the panel.** Drag a fader, a keyboard or the microphones (the little loops beside
-them) onto a place on the tapestry, and the hand is patched into it.
+**Patch from the panel.** Drag from the little loops onto a place on the tapestry, and the hand
+is patched into it: one above each fader, one under the left grille for the microphones, and,
+just outside the face's right edge, one for each keyboard, labelled `keys2` and `keys1`.
 
 **The patch map**, *what your hands do in this scene*, lists every hand and where it goes in
 the scene that is playing: `fader2 → ring.decay`, `keys1 → ring.pitch`, a dash for a hand the
@@ -57,7 +59,7 @@ and the dream in the editor follows the real one's scene.
 
 ### Listen: the computer's microphone as the Wingie's
 
-`mic` is silent in the simulation until you **listen**: the **listen** button under the faders
+`mic` is silent in the simulation until you **listen**: the **listen** button at the top right of the patch map
 (or **Device ▸ Listen to the computer's microphone as the Wingie's**) feeds the computer's
 input into `mic.left`, `mic.right` and `mic.both`. **Sound settings…** chooses which input.
 Wear headphones: a resonator listening to its own speaker feeds back, exactly as the real
@@ -65,7 +67,7 @@ Wingie does. Listening turns off by itself when the dream is for the SP-1.
 
 ### The meters
 
-![The patch map and WINGIE cpu and load: the estimate, what the Wingie measures (here: not connected), its 70 KB pool, and a minute of history.](fig/crop-meters.png)
+![WINGIE cpu and load: the estimate, what the Wingie measures (here: not connected), its 70 KB pool, and a minute of history.](fig/crop-meters.png)
 
 | Meter | What it says |
 |---|---|
@@ -81,7 +83,7 @@ Wingie does. Listening turns off by itself when the dream is for the SP-1.
 Without a Wingie the top corner says *estimate only: plug in a Wingie to measure*; with one,
 *measured on* and its port.
 
-![first light in the journal look (light), no Wingie plugged in: the estimate only, levels from the simulation.](fig/editor-journal-light.png)
+![wingie-ground.dream in the journal look (light), no Wingie plugged in: the estimate only, levels from the simulation.](fig/editor-journal-light.png)
 
 ### Sending, and the twelve slots
 
