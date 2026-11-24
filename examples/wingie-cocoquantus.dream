@@ -1,0 +1,55 @@
+instrument wingie
+; wingie-cocoquantus — the Wingie into a Cocoquantus, in one box (the BATH chain)
+; fader1 Mix, fader2 Decay, fader3 the cocos' clock
+
+2026-11-24 bath
+---------------
+; the resonator rings on the microphones and the keys; both sides go into the two Cocos,
+; whose five petals wobble the clocks and swing the sound across. mode1 held freezes the
+; loops, a tap on mode2 skips the heads. The petal lights the LEDs.
+the bird is wingie 2.18 string
+the bath is cocoquantus 0.8 auto=flip
+the mix is crossfade
+the sway is relabi 1
+
+mic.both -> bird
+keys1.pitch -> bird.pitch
+keys1.trig keys2.trig -> bird.strike
+fader2 -> bird.decay
+bird.odd -> bath
+bird.even -> bath.right
+fader3 -> bath.rate
+sway.sum -> bath.petals
+55 -> bath.feedback
+mode1 -> bath.freeze
+mode2.tap -> bath.skip
+bird -> mix.a
+bath -> mix.b
+fader1 -> mix.mix
+mix -> left
+bath.right -40> right
+mix -60> right
+bath.petal -> lights.left
+sway.strength -> lights.right
+
+2026-11-24 coco alone
+---------------------
+; one Coco on the microphones: the keys are its clock (left slower, right faster),
+; a tap on mode1 flips it, mode2 skips. fader1 feedback, fader2 pan, fader3 volume
+the coco is coco 1.4
+the vol is quadvca
+
+mic.both -> coco
+keys1.key -> coco.rate
+mode1.tap -> coco.flip
+mode2.tap -> coco.skip
+mode1 -> coco.freeze
+fader1 -> coco.feedback
+fader2 -> coco.pan
+coco.verso -> vol.in1
+coco.inverso -> vol.in2
+fader3 -> vol.cv1 vol.cv2
+vol.out1 -> left
+vol.out2 -> right
+coco.verso -> lights.left
+coco.inverso -> lights.right
