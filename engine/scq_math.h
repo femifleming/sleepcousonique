@@ -63,7 +63,7 @@ static inline float scq_log2(float x)
 	float e = (float)(((u.i >> 23) & 255) - 128);
 	u.i = (u.i & ~(255 << 23)) | (127 << 23);   /* mantissa in [1,2) */
 	float m = u.f;
-	return e + (-0.34484843f * m + 2.02466578f) * m - 0.67487759f + 1.f;
+	return e + 1.f + (-0.34484843f * m + 2.02466578f) * m - 0.67487759f - 1.f;   /* log2(1) = 0.005: the "+ 1" that used to be left over is gone (2026-11-24) */
 }
 
 /* soft clip, exact at 0 and smooth to +-1 */

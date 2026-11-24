@@ -156,7 +156,7 @@ static void run_additive(node *n, const float *const in[MAX_IN])
 		float f = f0 * h * (1.f + stretch * (h - 1.f));
 		float a = 0.f;
 		if (f < 0.45f * SR) {
-			a = scq_exp2(-tilt * 4.f * scq_log2(h));
+			a = scq_exp2(-tilt * 4.f * (scq_log2(h) + 1.f));   /* + 1: as it always sounded (scq_log2 was one too high) */
 			if ((k & 1) == 1) a *= 1.f - odd;          /* even harmonics fall away */
 			top = k + 1;
 		}

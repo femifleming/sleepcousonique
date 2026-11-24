@@ -322,6 +322,12 @@ void MainComponent::timerCallback()
         remember();                  // a burst of typing is one step
         compile();
     }
+    {   // the slot place: the computer has no slots, so say what the instrument would do
+        int to = -1, step = 0;
+        if (scq_wanted_slot (&to, &step))
+            status (to >= 0 ? "the dream asks for slot " + String (to + 1) + " (on the instrument it plays that slot)"
+                            : String ("the dream asks for the ") + (step > 0 ? "next" : "previous") + " slot (on the instrument it goes there)");
+    }
     if (auto note = host.roomNote(); note != roomShown)   // the crowd: someone came or went
     {
         roomShown = note;

@@ -123,37 +123,46 @@ def estimate(text):
     m = re.search(r'^M \d+ \d+ ([\d.]+)', out, re.M)
     return float(m.group(1)) if m else None
 
+def copies_dream(p, n):
+    """n copies of the place, fed one shared clock and sound, each heard quietly"""
+    L = ['instrument wingie', 'the clk is clock', 'the src is vco 3', 'src -1> out']
+    for k in range(n):
+        L.append(f'the x{k} is {p["name"]}')
+        for i in p['ins']:
+            if i in AUDIO: L.append(f'src -> x{k}.{i}')
+            elif i in PULSE: L.append(f'clk.eighth -> x{k}.{i}')
+        L.append(f'x{k} -5> out')
+    return '\n'.join(L) + '\n'
+
 def cmd_places(P, out):
+    """each place's cost: four copies of it against the same dream without them, so the place
+    stands well above the measurement's noise (one copy alone hides in it)"""
     base = None
-    P.send('instrument wingie\nthe x is value 0\nx -> out\n')
-    mm = P.measure(600); base = mm['avg']
-    print(f'empty dream: {base} cycles a block ({100 * base / mm["budget"]:.1f}% of the Wingie)')
+    if P.send(copies_dream(dict(name='', ins=[]), 0)).startswith('OK'):
+        base = P.measure(800)['avg']
+    print(f'harness alone (clock, vco, out): {base} cycles a block')
     rows, ratios = [], []
     with open(out, 'w') as f:
-        f.write('place,sp1_cycles,wingie_cycles,ratio,avg,max,budget,dropped,mem\n')
+        f.write('place,sp1_cycles,wingie_cycles,ratio,copies,avg,max,budget,dropped,mem\n')
         for p in catalog():
-            if p['fam'] in ('hands', 'ears') or p['sp1'] or p['name'] in ('value', 'crowd', 'visitors'): continue
-            r = P.send(place_dream(p))
-            if not r.startswith('OK'):
-                print(f'{p["name"]:14s} refused: {r}'); continue
-            m = P.measure(600)
-            if not m: print(f'{p["name"]:14s} no measurement'); continue
-            # clock + vco 3 + out are in every dream: measure them once below and subtract
-            rows.append((p, m))
-            time.sleep(0.05)
-        P.send(place_dream(dict(name='dcblock', ins=['in'], outs=['out'])))
-        harness = P.measure(600)['avg']
-        hcyc = harness / BLOCK
-        for p, m in rows:
-            wcyc = max(1.0, (m['avg'] - harness) / BLOCK + 20)   # +20: dcblock itself, roughly
+            if p['fam'] in ('hands', 'ears') or p['sp1'] or p['name'] in ('value', 'crowd', 'visitors', 'slot'): continue
+            got = None
+            for n in (4, 2, 1):
+                r = P.send(copies_dream(p, n))
+                if r.startswith('OK'):
+                    m = P.measure(800)
+                    if m: got = (n, m); break
+            if not got:
+                print(f'{p["name"]:14s} would not fit even once: {r}'); continue
+            n, m = got
+            wcyc = max(1.0, (m['avg'] - base) / (n * BLOCK))
             ratio = wcyc / max(1, p['cost'])
             ratios.append(ratio)
-            f.write(f'{p["name"]},{p["cost"]},{wcyc:.0f},{ratio:.2f},{m["avg"]},{m["max"]},{m["budget"]},{m["dropped"]},{m["mem"]}\n')
-            print(f'{p["name"]:14s} SP-1 {p["cost"]:4d}  Wingie {wcyc:6.0f} cycles/sample  x{ratio:.2f}  peak {100*m["max"]/m["budget"]:.1f}%  dropped {m["dropped"]}')
+            f.write(f'{p["name"]},{p["cost"]},{wcyc:.0f},{ratio:.2f},{n},{m["avg"]},{m["max"]},{m["budget"]},{m["dropped"]},{m["mem"]}\n')
+            print(f'{p["name"]:14s} SP-1 {p["cost"]:4d}  Wingie {wcyc:6.0f} cycles/sample (x{n})  ratio {ratio:.2f}  dropped {m["dropped"]}')
     if ratios:
-        print(f'\nWingie cycles / SP-1 cycles: median {statistics.median(ratios):.2f}, '
-              f'quartiles {statistics.quantiles(ratios, n=4)}')
-        print(f'harness (clock + vco + out + dcblock): {hcyc:.0f} cycles/sample')
+        print(f'\nWingie cycles / SP-1 cycles: median {statistics.median(ratios):.2f}')
+        print(f'empty dream: {round(base / BLOCK)} cycles/sample')
 
 def cmd_dreams(P, out, files):
     with open(out, 'w') as f:
