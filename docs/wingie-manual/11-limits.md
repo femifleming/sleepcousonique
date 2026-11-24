@@ -17,8 +17,9 @@
 ### Memory is usually the limit
 
 Measured on the user's Wingie: an empty dream uses **2.8 %** of the processor, first light about
-**30 %**, four reverbs **38 %**. The processor has room. The memory pool runs out first: a grain,
-time or spectral place keeps a tape, and two of them rarely fit one scene. What to do:
+**30 %**, four reverbs **38 %**. For most dreams the processor has room and the memory pool runs
+out first: a grain, time or spectral place keeps a tape, and two of them rarely fit one scene.
+What to do:
 
 - **one big tape a scene**, and the light places around it;
 - **shorter natures**: a grain or time place's nature is its tape in tenths of a second;
@@ -29,6 +30,15 @@ time or spectral place keeps a tape, and two of them rarely fit one scene. What 
 When a scene doesn't fit, the check says *the house is full: no room for …* in the editor, and
 the scene never reaches the Wingie.
 
+### …except for the heaviest spectral places
+
+A few spectral places are heavy even on the Wingie: `specfilter` takes about 60 %, `morph` 86 %,
+and `harmonizer` more than all of it (129 %): run it at `samplerate=half`. `paulstretch` at full
+rate takes about 71 % and still glitches now and then; at `samplerate=half` it takes 40 % with no
+late blocks, so that is how the examples run it. Keep a scene under about **85 %** on the load
+meter: past that it may glitch, and a dream that goes on missing its deadline falls back to the
+last one that fit. (The language guide's chapter *The Wingie's limits* has the same figures.)
+
 ### What things cost
 
 Measured on a Wingie (engine/scq_costs_wingie.h), beside the SP-1's figures. The median place
@@ -37,13 +47,13 @@ sample, so most dreams have more room on the Wingie; places without a measuremen
 at the SP-1's figure times <!-- scale -->. The table is read from the engine when this manual is
 made, so it follows new measurements.
 
-<!-- costs sine vco reverb reverblite comb sympathetic wingie cave listen cocoquantus relabi rollz dust grains stretch paulstretch psola harmonizer specfreeze shimmer cavern eis tapeloop dub limiter -->
+<!-- costs sine vco reverb reverblite comb sympathetic wingie cave listen cocoquantus relabi rollz dust grains stretch paulstretch psola specfilter morph specshift formantshift harmonizer specfreeze shimmer cavern eis tapeloop dub limiter -->
 
 ### The report
 
 Once a second the Wingie sends one line over USB, which the editor's meters read (for example):
 
-    SCQ engine avg=31% max=44%  places=12 scene=1 slot=3  load=31.2 peak=44.0 dropped=0 of 1500
+    SCQ engine avg=31% max=44%  places=12 scene=1 slot=3  load=31.2 peak=44.0 dropped=0 of 750
     mem=40128/71668 core1=4% heap=122880 inL=-38 inR=-41 outL=-18 outR=-19
 
 | field | |

@@ -10,7 +10,9 @@
 | the microphones are silent in the editor | press **listen** (and choose the input in **Sound settings…**); without it `mic` is silence in the simulation |
 | the editor says the house is full | the scene needs more than the Wingie's 70 KB: shorter natures, `samplerate=half`, or move a place to another scene (chapter 11) |
 | a key also plays a note when I change slot | press the two Mode buttons first, then the key: while both are down, the dream sees no keys |
-| it changed to another dream by itself | too heavy: it went back to the last dream that fit (purple flashing). Lighten the scene, or watch **dropped** in the meters |
+| it changed to another dream by itself | too heavy: it went back to the last dream that fit (purple flashing; the editor's status line says *the Wingie: too heavy …*). Lighten the scene, or watch **dropped** in the meters |
+| the LEDs flickered fast and white after a send | the dream had mistakes; the Wingie kept the one it had. The journal shows them |
+| a warning: *resolution is only for full rate* | `resolution=` and a lower `samplerate=` on one place: the resolution is ignored |
 | it changed slot by itself | the dream has a `slot` place and something pulsed it |
 | send says the connected device is an SP-1 | the dream is for the Wingie and the editor found an SP-1, or the other way round: switch the dream (SP-1 / Wingie) or plug in the other instrument |
 | send refused: too long | a slot keeps 16 KB of text; long comments and tuning lines count |

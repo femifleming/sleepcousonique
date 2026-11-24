@@ -35,11 +35,11 @@ you like.
 
 1. Flash the firmware (chapter 1). The Wingie wakes up playing **first light**: the
    microphones ring two sets of sympathetic strings.
-2. Play the keys: the upper keyboard tunes the left strings, the lower one the right.
+2. Play the keys: the left keyboard tunes the left strings, the right keyboard the right.
    **Decay** (the middle fader) is how long they ring.
 3. In the editor, **File ▸ New dream for the Wingie**, write a few lines, and press
    **send to Wingie**. It plays at once and stays in the slot.
-4. Hold **both Mode buttons** and press a key on the upper keyboard: C is slot 1, B is
+4. Hold **both Mode buttons** and press a key on the left keyboard: C is slot 1, B is
    slot 12.
 5. Hold the **left Mode** button and tap the **right** one: the next scene of the dream.
 

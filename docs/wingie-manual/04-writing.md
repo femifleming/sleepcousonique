@@ -8,7 +8,7 @@ attenuverters, lucid groups, scenes and drift. This chapter is what's different.
 
 ```dream
 instrument wingie
-; a comb rung by the room, tuned by the upper keyboard
+; a comb rung by the room, tuned by the left keyboard
 
 2026-11-24
 ----------
@@ -31,9 +31,9 @@ The Wingie's hands are always there; use them by name, never `the x is keys`:
 the chime is wingie 2.18 bar
 the hush is vca
 mic.both -> chime                ; the room rings it
-keys1.pitch -> chime.pitch       ; the upper keyboard tunes it
+keys1.pitch -> chime.pitch       ; the left keyboard tunes it
 keys1.trig -> chime.strike       ; every key strikes it too
-key13 -> hush.gain               ; the lower C opens it while held
+key13 -> hush.gain               ; the right keyboard's C opens it while held
 mode1.tap -> chime.strike        ; a quick press of the left Mode button
 octave2 ~> chime.decay           ; the right octave switch: longer or shorter
 fader3 -> hush.gain
@@ -82,8 +82,8 @@ mic.both -> chime -> out
 ```
 
 It costs that place's once-a-block work 8 (`fine`) or 32 (`audio`) times over (here the
-resonator at `audio` would be too heavy; `fine` is plenty), and it can't be combined with a
-lower samplerate. Use it where you hear the steps.
+resonator at `audio` would be too heavy; `fine` is plenty), and it only works at full rate:
+with a lower `samplerate=` it is ignored, and the check warns. Use it where you hear the steps.
 
 ### Samplerate: half the rate, twice the tape
 
@@ -122,8 +122,8 @@ places, its own memory (the 70 KB is per scene). On the Wingie:
 the next is slot 7
 the walk is slot
 mode2.tap -> next.go          ; the right Mode button: slot 7
-key24 -> walk.next            ; the lower B: the following slot
-key23 -> walk.back            ; the lower A#: the one before
+key24 -> walk.next            ; the right keyboard's B: the next slot
+key23 -> walk.back            ; the right keyboard's A#: the one before
 mic.both -> out
 ```
 
@@ -140,7 +140,7 @@ seconds:
    fitted yet);
 3. else **first light**, which always fits.
 
-The LEDs flash purple, and the Wingie says which over USB (in a serial monitor at 115200):
-*SCQ too heavy for the Wingie: back to scene 2, the last that fit*. Before sending, the editor
+The LEDs flash purple, and the editor's status line says which, as the Wingie reports it:
+*the Wingie: too heavy for the Wingie: back to scene 2, the last that fit*. Before sending, the editor
 asks first when its estimate is over 100 %. A scene whose memory doesn't fit at all never plays: the check
 says *the house is full* before it is sent.

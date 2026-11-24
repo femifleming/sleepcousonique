@@ -51,12 +51,13 @@ mode1 -> replay.hold
 
 Paul Nasca's extreme stretch: windows of 2048 (nature 1) or 4096 samples (nature 2) given random
 phases, half over the next. `stretch` 0 to 1 is 1× to 1000×; `hold` stops time and lets the window
-breathe. About 60 KB: alone in its scene.
+breathe. About 60 KB: alone in its scene. On the Wingie run it at `samplerate=half` (40 % of
+the processor, against 71 % and the odd glitch at full rate).
 
 <!-- place paulstretch -->
 
 ```dream
-the glacier is paulstretch 2
+the glacier is paulstretch 2 samplerate=half
 mic.both -> glacier -> out
 fader1 -> glacier.stretch
 mode1 -> glacier.hold
@@ -101,12 +102,13 @@ swallows.right -> right
 
 A pulse into `capture` holds the last moment as a seamless drone of overlapping grains; `drift`
 wanders where they read (and up to half a semitone of pitch); `blend` from what comes in to what
-is held. Clouds' freeze, done clean.
+is held. Clouds' freeze, done clean. Heavy at full rate on the Wingie (about 90 %): the example
+runs it at `samplerate=half`.
 
 <!-- place grainfreeze -->
 
 ```dream
-the photo is grainfreeze 6
+the photo is grainfreeze 3 samplerate=half    ; 0.6 s of tape, half the memory and work
 mic.both -> photo
 mode1.tap -> photo.capture
 fader1 -> photo.blend
@@ -205,12 +207,13 @@ platter.right -> right
 *Dreamt: a cathedral of sand.*
 
 Dozens of 10–35 ms grains reading a long delay at random times, fed back and gently darkened;
-`size` is the reach and the decay, 0.5 to 16 s.
+`size` is the reach and the decay, 0.5 to 16 s. At `samplerate=half` on the Wingie: it's
+heavy at full rate.
 
 <!-- place granularverb -->
 
 ```dream
-the sand is granularverb 6
+the sand is granularverb 3 samplerate=half
 mic.both -> sand
 fader1 -> sand.size
 fader2 -> sand.density

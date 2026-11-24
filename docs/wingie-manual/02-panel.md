@@ -12,8 +12,8 @@ switch and fader is a **hand**, and the dream says what each one does.
 | Mix fader | `fader1` | 0 to 1 |
 | Decay fader | `fader2` | 0 to 1 |
 | Volume fader | `fader3` | 0 to 1 |
-| upper keyboard (left, C to B) | `keys1`, `key1` … `key12` | `keys1.pitch` of the last key in octaves, `gate`, `trig`, `key` (0 for C … 1 for B) |
-| lower keyboard (right, C to B) | `keys2`, `key13` … `key24` | the same, an octave up |
+| left keyboard (`keys1`, C to B) | `keys1`, `key1` … `key12` | `keys1.pitch` of the last key in octaves, `gate`, `trig`, `key` (0 for C … 1 for B) |
+| right keyboard (`keys2`, C to B) | `keys2`, `key13` … `key24` | the same, an octave up |
 | the two LEDs right of the faders | `lights.left`, `lights.right` | red at rest, then purple, yellow and white as what comes in climbs to 1 |
 | line in, out, MIDI in (TRS) and USB-C on the edge | `mic` (line), `out`, `midi` `midicc` `midiclock` | the MIDI jack feeds the MIDI-to-CV places, as the SP-1's USB-MIDI does |
 
@@ -26,23 +26,31 @@ switch and fader is a **hand**, and the dream says what each one does.
 
 | Do this | And |
 |---|---|
-| hold **both** Mode buttons, press an **upper** key | play that slot: C is slot 1 … B is slot 12. The LEDs flash yellow |
+| hold **both** Mode buttons, press a key on the **left** keyboard | play that slot: C is slot 1 … B is slot 12. The LEDs flash yellow |
 | hold the **left** Mode, tap the **right** | the next scene |
 | hold the **right** Mode, tap the **left** | the previous scene |
 | hold **both** Mode buttons **at power-up** | slot 1 goes back to first light |
 
-While both Mode buttons are down, the dream sees neither Mode button nor any key, so
-choosing a slot never plays a note in the dream you're leaving. A single Mode button pressed
-on its own belongs to the dream (`mode1.tap`, `mode2.out`).
+While both Mode buttons are down, the dream sees no keys, so choosing a slot never plays a
+note in the dream you're leaving. Nor does a combination give the dream a stray tap: the Mode
+button you pressed first stays held, as far as the dream knows, and is let go only once it has
+been down 0.65 s (longer than a tap); the second button never shows at all. A single Mode button
+pressed on its own belongs to the dream (`mode1.tap`, `mode2.out`).
+
+> **Which keyboard is which.** `keys1` is Meng Qi's *left* keyboard (the left channel's) and
+> `keys2` his *right*, as the stock firmware names them. The editor draws them side by side.
 
 ### The LEDs
 
 The two LEDs are the dream's own (`lights.left`, `lights.right`): anything patched in lights
-them, red at rest, purple past a quarter, yellow past a half, white past three quarters. Two
+them, red at rest, purple past a quarter, yellow past a half, white past three quarters. A few
 things borrow them for a moment:
 
-- **a short yellow flash**: a new slot is playing (from the panel, from the editor, or because
-  the dream asked with `slot`);
+- **a short white blink**: a dream has arrived from the editor and is kept in its slot;
+- **a fast white flicker, about a second**: a dream arrived with mistakes, and the Wingie goes on
+  playing the one it had;
+- **a short yellow flash**: a new slot is playing (from the panel, or because the dream asked
+  with `slot`);
 - **purple flashing for about a second**: the dream was too heavy, and the Wingie went back to
   the last one that fit (chapter 4).
 

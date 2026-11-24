@@ -3,7 +3,7 @@
 The Sleepcousonique editor writes dreams for both instruments. A dream is for the SP-1
 unless it says `instrument wingie`; the editor writes and removes that line for you.
 
-![The editor in Wingie mode, connected to a Wingie: the journal on the left, the tapestry on the right, the Wingie's panel, the patch map and the meters along the bottom.](fig/connected-journal-dark.png)
+![The editor in Wingie mode with a new dream for the Wingie: the journal on the left, the tapestry on the right, the Wingie's panel, the patch map and the meters along the bottom.](fig/editor-journal-dark.png)
 
 ### Switching to the Wingie
 
@@ -13,7 +13,7 @@ unless it says `instrument wingie`; the editor writes and removes that line for 
   `fader4` on the Wingie; `keys1`, `mic` on the SP-1), the status line says how many lines to
   change, and the journal marks them.
 - **File ▸ New dream for the Wingie** starts a fresh one: a comb rung by the microphones and
-  tuned by the upper keyboard, with Mix, Decay and Volume patched.
+  tuned by the left keyboard, with Mix, Decay and Volume patched.
 - **Device ▸ Patch for the SP-1 / Patch for the Wingie** does the same as the switch.
 
 The place browser (right-click the tapestry, or the field of cells and *find a place* at the
@@ -24,8 +24,8 @@ when you point at them.
 
 ### The Wingie's panel
 
-Along the bottom, the editor draws the Wingie: the **upper keyboard** on the left, the
-**lower keyboard** on the right (each with its **mode** button, its **−1 0 +1** octave switch and
+Along the bottom, the editor draws the Wingie: the **left keyboard** on the left, the
+**right keyboard** on the right (each with its **mode** button, its **−1 0 +1** octave switch and
 its LED), and in the middle the **mic | line** switch and the three faders **mix**, **decay**
 and **volume**.
 
@@ -33,8 +33,8 @@ and **volume**.
 
 | You | The Wingie |
 |---|---|
-| click a key, or type `z s x d c v g b h n j m` | upper keyboard, C to B |
-| type `q 2 w 3 e r 5 t 6 y 7 u` | lower keyboard, C to B |
+| click a key, or type `z s x d c v g b h n j m` | left keyboard, C to B |
+| type `q 2 w 3 e r 5 t 6 y 7 u` | right keyboard, C to B |
 | type `a` / `p` | left / right Mode button |
 | click −1, 0, +1 | the octave switches |
 | click mic / line | the source switch |
@@ -65,7 +65,7 @@ Wingie does. Listening turns off by itself when the dream is for the SP-1.
 
 ### The meters
 
-![WINGIE cpu and load: the estimate, what the Wingie measures, its memory, and a minute of history.](fig/crop-meters.png)
+![The patch map and WINGIE cpu and load: the estimate, what the Wingie measures (here: not connected), its 70 KB pool, and a minute of history.](fig/crop-meters.png)
 
 | Meter | What it says |
 |---|---|
@@ -81,7 +81,7 @@ Wingie does. Listening turns off by itself when the dream is for the SP-1.
 Without a Wingie the top corner says *estimate only: plug in a Wingie to measure*; with one,
 *measured on* and its port.
 
-![Unplugged, in the journal look (light): the estimate only, levels from the simulation.](fig/unplugged-journal-light.png)
+![first light in the journal look (light), no Wingie plugged in: the estimate only, levels from the simulation.](fig/editor-journal-light.png)
 
 ### Sending, and the twelve slots
 
@@ -93,9 +93,12 @@ Without a Wingie the top corner says *estimate only: plug in a Wingie to measure
 - Scales from the scales folder go along inside the dream as `tuning` lines (the Wingie has no
   files of its own).
 - A slot keeps 16 KB of text; a longer dream is refused before it is sent.
-- If the Wingie finds mistakes it keeps playing what it played before, and the editor shows them.
+- When a dream arrives, the Wingie's LEDs blink white. If it finds mistakes, the LEDs flicker
+  fast and white, it keeps playing what it played before, and the editor shows the mistakes.
+- If the Wingie has to go back to a lighter dream (chapter 4), the status line says so:
+  *the Wingie: too heavy …*.
 
 The status line at the top right says *wingie / connected*, with the slot and scene that are
 playing.
 
-![The faltung look (light) in Wingie mode: the place browser with *find a place* at the top, the instrument switch beside the view buttons.](fig/connected-faltung-light.png)
+![The faltung look (light) in Wingie mode: the place browser with *find a place* at the top, the instrument switch beside the view buttons.](fig/editor-faltung-light.png)

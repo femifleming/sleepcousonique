@@ -26,12 +26,12 @@ fader1 -> stairwell.mix
 
 The magnitudes of `a` on the phases of `b`, `blend` how far; `smooth` makes it `a`'s spectral
 envelope on `b`'s fine structure: a vocoder without bands. Here the left microphone speaks
-through the right.
+through the right. On the Wingie, `samplerate=half` (at full rate it takes about 86 %).
 
 <!-- place morph -->
 
 ```dream
-the skin is morph
+the skin is morph samplerate=half
 mic.left -> skin.a
 mic.right -> skin.b
 fader1 -> skin.blend
@@ -43,12 +43,13 @@ skin -> out
 *Dreamt: the same voice, a floor up.*
 
 Peaks moved with their shapes and phases locked (Laroche–Dolson); `stretch` pulls the partials
-apart like a stiff string, or squeezes them together.
+apart like a stiff string, or squeezes them together. Half rate on the Wingie keeps it well
+under the limit.
 
 <!-- place specshift -->
 
 ```dream
-the floor is specshift
+the floor is specshift samplerate=half
 mic.both -> floor -> out
 keys1.pitch -> floor.shift
 fader1 -> floor.stretch

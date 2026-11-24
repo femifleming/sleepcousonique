@@ -72,33 +72,37 @@ BEFORE = [
                R("lights", "red · purple · yellow · white",
                  "The two lights are the dream's own: `lights.left` and `lights.right`, red at rest, then purple, "
                  "yellow and white as what comes in climbs.", hl=["led1", "led2"]),
-               R("keys1", "upper keyboard · c to b",
-                 "The upper keyboard is `keys1`: its pitch in octaves, a gate, a trigger, and which key.",
+               R("keys1", "left keyboard · c to b",
+                 "Meng Qi's left keyboard is `keys1`: its pitch in octaves, a gate, a trigger, and which key.",
                  hl=KEYS1),
-               R("keys2", "lower keyboard · an octave up",
-                 "The lower keyboard is `keys2`, an octave higher. One key alone is `key1` to `key24`.",
+               R("keys2", "right keyboard · an octave up",
+                 "The right keyboard is `keys2`, an octave higher. One key alone is `key1` to `key24`.",
                  hl=KEYS2),
                R("midi", "trs midi in",
                  "And the MIDI jack on the edge feeds the `midi`, `midicc` and `midiclock` places.", hl=[])],
          kind="panel"),
     dict(code="sl03", title="slots and scenes", sub="both mode buttons and a key",
-         desc="Hold both Mode buttons and press an upper key: C is slot 1, B is slot 12. Hold one Mode "
+         desc="Hold both Mode buttons and press a key on the left keyboard: C is slot 1, B is slot 12. Hold one Mode "
               "button and tap the other for the next or previous scene.",
          say="Slots and scenes. The Wingie keeps twelve dreams, and every dream can have up to sixteen scenes.",
          rows=[R("both + key", "slot 1 … 12",
-                 "Hold both Mode buttons and press a key on the upper keyboard: C is slot one, B is slot twelve. "
+                 "Hold both Mode buttons and press a key on the left keyboard: C is slot one, B is slot twelve. "
                  "The lights flash yellow.", hl=["mode1", "mode2", "keys1"]),
                R("left + tap right", "next scene",
                  "Hold the left Mode button and tap the right one for the next scene.", hl=["mode1", "mode2"]),
                R("right + tap left", "previous scene",
                  "Hold the right one and tap the left for the scene before.", hl=["mode2", "mode1"]),
-               R("both held", "the dream sees nothing",
-                 "While both are down, the dream sees neither Mode button nor any key, so choosing a slot never "
-                 "plays a note.", hl=["mode1", "mode2"]),
+               R("both held", "no notes · no stray taps",
+                 "While both are down, the dream sees no keys, so choosing a slot never plays a note. And the "
+                 "Mode button you pressed first stays held for the dream until it has been down longer than a "
+                 "tap, so a combination never gives the dream a stray tap.", hl=["mode1", "mode2"]),
+               R("white", "a dream arrived · mistakes",
+                 "When a dream arrives from the editor, the lights blink white. A fast white flicker means it "
+                 "had mistakes, and the Wingie goes on playing the dream it had.", hl=["led1", "led2"]),
                R("at power-up", "slot 1 → first light",
                  "Hold both while you power up, and slot one goes back to first light.", hl=["mode1", "mode2"])],
          kind="slots"),
-    dict(code="ed04", title="the editor", sub="wingie mode", shot="connected-journal-dark.png",
+    dict(code="ed04", title="the editor", sub="wingie mode", shot="editor-journal-dark.png",
          desc="One switch makes a dream a Wingie dream. The journal and the tapestry are the same dream; "
               "the Wingie sits along the bottom.",
          say="The editor in Wingie mode.",
@@ -106,7 +110,7 @@ BEFORE = [
                  "The switch at the top says which instrument the dream is for. It writes the line, instrument "
                  "Wingie, at the top of the dream, or takes it away.", box=(148, 6, 126, 34)),
                R("file menu", "new dream for the wingie",
-                 "File, New dream for the Wingie, starts one: a comb rung by the microphones, tuned by the upper "
+                 "File, New dream for the Wingie, starts one: a comb rung by the microphones, tuned by the left "
                  "keyboard.", box=(0, 80, 550, 290)),
                R("journal", "the dream as text",
                  "On the left, the journal: the dream as text.", box=(0, 80, 550, 550)),
@@ -114,20 +118,21 @@ BEFORE = [
                  "On the right, the tapestry: the same dream, as boards and cords. The Wingie's hands are one "
                  "board, and its outputs and lights another.", box=(550, 80, 890, 550)),
                R("status", "wingie connected · slot · scene",
-                 "Up here, whether a Wingie is connected, and which slot and scene it plays.",
-                 box=(1150, 50, 290, 26)),
+                 "Up here, whether a Wingie is connected, and which slot and scene it plays. When the Wingie has "
+                 "to go back to a lighter dream, the status line says so.",
+                 box=(1240, 50, 200, 26)),
                R("send to wingie", "into the slot that plays",
                  "Send to Wingie puts the dream into the slot that is playing, and it plays at once. The Device menu "
                  "sends to any of the twelve slots.", box=(8, 6, 132, 34))], kind="shot"),
-    dict(code="hp05", title="hands on screen", sub="play the wingie from the computer", shot="connected-journal-dark.png", crop=(0, 700, 975, 180),
-         desc="Click the keys or type them: z row for the upper keyboard, q row for the lower, a and p for "
+    dict(code="hp05", title="hands on screen", sub="play the wingie from the computer", shot="editor-journal-dark.png", crop=(0, 700, 975, 180),
+         desc="Click the keys or type them: z row for the left keyboard, q row for the right, a and p for "
               "the Mode buttons. Listen feeds the computer's microphone in.",
          say="The Wingie, on screen.",
-         rows=[R("upper keys", "z s x d c v g b h n j m",
-                 "Click the keys, or type the bottom row of the computer keyboard, z to m, for the upper keyboard.",
+         rows=[R("left keys", "z s x d c v g b h n j m",
+                 "Click the keys, or type the bottom row of the computer keyboard, z to m, for the left keyboard.",
                  box=(15, 708, 222, 160)),
-               R("lower keys", "q 2 w 3 e r 5 t 6 y 7 u",
-                 "The q row plays the lower keyboard. A and P are the two Mode buttons.", box=(395, 708, 222, 160)),
+               R("right keys", "q 2 w 3 e r 5 t 6 y 7 u",
+                 "The q row plays the right keyboard. A and P are the two Mode buttons.", box=(395, 708, 222, 160)),
                R("faders · source", "mix · decay · volume · mic | line",
                  "Drag the faders; click mic or line. Drag a fader, a keyboard or the microphones onto a place on "
                  "the tapestry, and it's patched.", box=(243, 708, 145, 132)),
@@ -139,8 +144,8 @@ BEFORE = [
                  box=(630, 708, 335, 130)),
                R("wingie live", "the panel follows the real one",
                  "With a Wingie plugged in, the panel follows it: its keys, faders, switches, scene and slot.",
-                 box=(850, 710, 115, 20))], kind="shot"),
-    dict(code="mt06", title="the meters", sub="what the wingie measures, every second", shot="connected-journal-dark.png", crop=(965, 700, 475, 180),
+                 box=(15, 708, 600, 160))], kind="shot"),
+    dict(code="mt06", title="the meters", sub="what the wingie measures, every second", shot="editor-journal-dark.png", crop=(965, 700, 475, 180),
          desc="The editor's estimate, and what the Wingie reports once a second: CPU, control core, heap, "
               "pool, dropped blocks, levels, and a minute of history.",
          say="The meters.",
@@ -148,9 +153,11 @@ BEFORE = [
                  "Load is the editor's estimate for the scene, from costs measured on a real Wingie: ok, tight "
                  "past eighty-five percent, too heavy past a hundred.", box=(975, 728, 220, 40)),
                R("cpu", "measured: average and peak",
-                 "CPU is what the Wingie itself measures: the average and the peak.", box=(975, 768, 220, 40)),
+                 "CPU is what the Wingie itself measures, the average and the peak. With no Wingie plugged in, as "
+                 "here, it says not connected.", box=(975, 768, 220, 40)),
                R("core · heap · pool", "the second core · free memory · the pool",
-                 "The control core, the free heap, and the pool: the engine's memory, seventy kilobytes a scene.",
+                 "The control core, the free heap, and the pool: the engine's memory, seventy kilobytes a scene. "
+                 "Until a Wingie reports, the pool is the editor's estimate.",
                  box=(975, 812, 225, 32)),
                R("dropped", "late blocks",
                  "Dropped counts blocks that were late. Any at all is a stutter you hear.", box=(1090, 826, 110, 18)),
@@ -175,7 +182,8 @@ BEFORE = [
                  "down, one O C T an octave.", hl=[]),
                R("resolution", "fine · audio",
                  "Resolution fine reads a place's controls every four samples, audio every sample: true "
-                 "audio-rate F M, at eight or thirty-two times the cost.", hl=[]),
+                 "audio-rate F M, at eight or thirty-two times the cost. It only works at full rate; with a "
+                 "lower samplerate the check warns and ignores it.", hl=[]),
                R("memory", "70 kb a scene",
                  "On the Wingie, memory runs out before the processor. Each scene has seventy kilobytes. A grain "
                  "or time place's nature is its tape in tenths of a second: six is point six seconds, about "
@@ -199,11 +207,15 @@ BEFORE = [
                R("2", "the dream before",
                  "Else, to the dream that was playing before.", hl=["led1", "led2"]),
                R("3", "first light",
-                 "Else, to first light, which always fits. The lights flash purple, and the Wingie says which over "
-                 "USB.", hl=["led1", "led2"]),
+                 "Else, to first light, which always fits. The lights flash purple, and the editor's status line "
+                 "says which.", hl=["led1", "led2"]),
                R("2.8 %", "an empty dream",
                  "Measured on a Wingie: an empty dream costs two point eight percent of the processor, first light "
                  "about thirty, four reverbs thirty-eight.", hl=[]),
+               R("85 %", "the heavy spectral places",
+                 "A few spectral places are heavy even here: morph about eighty-six percent, and the harmonizer "
+                 "more than all of it, so run it at samplerate half. Keep a scene under about eighty-five "
+                 "percent.", hl=[]),
                R("the house is full", "memory, checked before sending",
                  "Memory is checked before a dream is sent: a scene that doesn't fit is a mistake, the house is "
                  "full, and never reaches the Wingie.", hl=[])], kind="heavy"),
