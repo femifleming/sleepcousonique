@@ -1,0 +1,38 @@
+instrument wingie
+; first light: the Wingie's microphones ring two sets of sympathetic strings.
+; the keys tune them (left an octave below right), fader1 (Mix) is how much the
+; small room holds, fader2 (Decay) how long the strings ring, fader3 (Volume) how
+; loud the room is. The left LED follows what the mics hear, the right one the room.
+
+first light
+-----------
+the low is sympathetic 2
+the high is sympathetic 4
+the room is reverblite 2
+mic.left -> low
+mic.right -> high
+keys1.pitch -> low.pitch
+keys2.pitch -> high.pitch
+fader2 -> low.decay high.decay
+low -> left
+high -> right
+low high ~> room
+fader1 -> room.size
+fader3 -> room.in
+room -> out
+mic.both -> lights.left
+room -> lights.right
+
+the dark
+--------
+the toll is comb 2
+the shelf is filterbank
+mic.both -> toll
+keys1.pitch -> toll.pitch
+fader2 -> toll.decay
+toll -> shelf
+fader1 -> shelf.band2
+fader3 -> shelf.band5
+shelf -> out
+toll -> lights.left
+shelf -> lights.right

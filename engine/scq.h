@@ -136,6 +136,10 @@ int   scq_service(void);
  * returns the pool and its size. scq_load() wakes the engine and takes the pool back. */
 void *scq_sleep(uint32_t *len);
 
+/* Built with SCQ_POOL_EXTERN (the Wingie): the engine's memory pool is handed over once, before
+ * the first scq_load, from wherever the firmware found room. */
+void  scq_pool(void *mem, uint32_t bytes);
+
 #ifdef __cplusplus
 }
 #endif

@@ -37,7 +37,11 @@ typedef struct {
 	float    konst[MAX_KONST][SCQ_BLOCK];   /* constant blocks: defaults and lone values, filled once */
 	float    kval[MAX_KONST];
 	int      nk;
+#ifdef SCQ_POOL_EXTERN
+	uint32_t *pool;              /* handed over by the firmware (scq_pool): the Wingie's heap */
+#else
 	uint32_t pool[POOL_BYTES / 4];
+#endif
 	uint32_t used;
 	uint32_t wanted;             /* what the scene asked for, whether it fitted or not */
 
@@ -78,6 +82,13 @@ typedef struct {
 } engine;
 
 static engine G0;
+#ifdef SCQ_POOL_EXTERN
+static uint32_t pool_size;
+#define POOL_SIZE pool_size
+void scq_pool(void *mem, uint32_t bytes) { G0.pool = (uint32_t *)mem; pool_size = bytes & ~3u; }
+#else
+#define POOL_SIZE POOL_BYTES
+#endif
 static engine *Gp = &G0;
 #define G (*Gp)
 
@@ -267,7 +278,7 @@ static void *pool_take(uint32_t bytes)
 {
 	bytes = (bytes + 3u) & ~3u;
 	G.wanted += bytes;
-	if (G.used + bytes > POOL_BYTES) return 0;
+	if (G.used + bytes > POOL_SIZE) return 0;
 	uint32_t *p = &G.pool[G.used / 4];
 	for (uint32_t i = 0; i < bytes / 4; i++) p[i] = 0;
 	G.used += bytes;
@@ -1371,7 +1382,7 @@ void scq_goto_scene(int index)
 void scq_memory(uint32_t *used, uint32_t *total)
 {
 	if (used) *used = G.wanted > G.used ? G.wanted : G.used;   /* more than there is, if it didn't fit */
-	if (total) *total = (uint32_t)POOL_BYTES;
+	if (total) *total = (uint32_t)POOL_SIZE;
 }
 
 int scq_scene(void) { return G.cur; }
@@ -1654,7 +1665,7 @@ void *scq_sleep(uint32_t *len)
 {
 	G.nn = 0; G.nc = 0; G.used = 0;
 	G.pending = -1; G.waiting = 0; G.fading = 0; G.gain = 1.f;
-	if (len) *len = (uint32_t)POOL_BYTES;
+	if (len) *len = (uint32_t)POOL_SIZE;
 	return (void *)G.pool;
 }
 
