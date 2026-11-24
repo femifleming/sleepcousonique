@@ -2,13 +2,13 @@
 """Narration for the video manual: Kokoro, British English, voice "Emma"
 (bf_emma), the same narrator as the AERIA OS and Cirrostratus videos.
 
-  ~/monsoon-fw/tools/video/.venv/bin/python tools/wingie-video/tts_kokoro.py jobs.json
+  ~/monsoon-fw/tools/video/.venv/bin/python tools/video-manual/tts_kokoro.py jobs.json
 
 jobs.json is a list of {"text": ..., "out": ".../x.wav"}. Existing outputs are
 skipped, so re-runs only speak what changed. Output: 24 kHz mono WAV.
 
-Setup (once, if the Cirrostratus venv is not there): python3.12 -m venv tools/wingie-video/.venv &&
-              tools/wingie-video/.venv/bin/pip install kokoro soundfile
+Setup (once, if the Cirrostratus venv is not there): python3.12 -m venv tools/video-manual/.venv &&
+              tools/video-manual/.venv/bin/pip install kokoro soundfile
 """
 import json, os, sys
 

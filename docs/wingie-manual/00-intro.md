@@ -2,7 +2,7 @@
 
 ### *a dream journal for a handheld resonator*
 
-**Wingie mode · firmware 1.5.0-beta1 · editor 1.5**
+**Wingie mode · firmware 1.5.0 · editor 1.5.0**
 
 > **sleep·cou·so·nique** /sliːp.ku.sɔ.nik/ *n.* — a patch language written like a
 > dream journal. Each patch is a **dream**, its modules are **places**, and the cords

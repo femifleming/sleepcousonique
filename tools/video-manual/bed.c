@@ -1,7 +1,8 @@
-/* bed — renders one scene of a .dream for a while, for the SP-1 video manual's music bed.
+/* bed — renders one scene of a .dream for a while, for the video manual's music bed.
  *   cc -std=c99 -O2 -DSCQ_HOST -I../../engine bed.c ../../engine/scq_core.c ../../engine/scq_places.c -o bed -lm
- *   ./bed bed.dream SCENE SECONDS out.f32 [fader1 fader2 fader3 fader4]
- * Writes interleaved stereo float32 at 48 kHz. An SP-1 dream: four faders, nothing coming in. */
+ *   ./bed bed-sp1.dream SCENE SECONDS out.f32 [fader1 fader2 fader3 fader4]
+ * Writes interleaved stereo float32 at 48 kHz. Plays SP-1 and Wingie dreams alike: the faders
+ * are set, and the input (a Wingie's microphones) hears a soft hiss, the room. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,8 +22,14 @@ int main(int argc, char **argv)
 	long n = (long)(atof(argv[3]) * SCQ_RATE);
 	FILE *o = fopen(argv[4], "wb");
 	if (!o) { perror(argv[4]); return 1; }
-	float l[256], r[256], buf[512];
+	float l[256], r[256], inl[256], inr[256], buf[512];
+	unsigned seed = 12345u;
 	for (long i = 0; i < n; i += 256) {
+		for (int j = 0; j < 256; j++) {
+			seed = seed * 1664525u + 1013904223u; inl[j] = ((seed >> 9) / 4194304.f - 1.f) * 0.004f;
+			seed = seed * 1664525u + 1013904223u; inr[j] = ((seed >> 9) / 4194304.f - 1.f) * 0.004f;
+		}
+		scq_input(inl, inr);
 		scq_render(l, r, 256);
 		for (int j = 0; j < 256; j++) { buf[2 * j] = l[j]; buf[2 * j + 1] = r[j]; }
 		fwrite(buf, sizeof(float), 512, o);
