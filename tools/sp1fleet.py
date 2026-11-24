@@ -89,6 +89,7 @@ def ports():
 def measure(P, path, slot, blocks=1500):
     body = open(path, 'rb').read(); name = os.path.basename(path); P.drain()
     if P.modern():
+        P.write('SCQ FALLBACK 0\n')   # 1.5+: measure a heavy dream as it is (older firmware ignores it)
         P.write('SCQ TRY %d\n' % len(body)); P.write(body)
         end = time.time() + 6
         while True:

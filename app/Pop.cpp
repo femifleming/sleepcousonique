@@ -6,39 +6,90 @@ using namespace scq;
 
 // ------------------------------------------------------------------------------------------ browser
 
+static const char* const familyNames[5] = { "sources", "shapes", "spaces", "currents", "hands" };
+// hands that are always part of the instrument: used by their names, never placed
+static const StringArray alwaysThere { "fader", "keys", "mode", "octave", "source", "mic", "button", "rocker", "play", "dots" };
 
 PlaceBrowser::PlaceBrowser()
 {
-    int counts[4] = { 0, 0, 0, 0 };
+    search.setTextToShowWhenEmpty ("find a place", Colours::grey);
+    search.setJustification (Justification::centredLeft);
+    search.setSelectAllWhenFocused (true);
+    search.onTextChange = [this] { filter = search.getText().trim().toLowerCase(); hover = -1; repaint(); };
+    search.onReturnKey = [this]
+    {
+        for (auto& c : cells) if (matches (c)) { pick (c); break; }
+    };
+    search.onEscapeKey = [this] { search.clear(); filter.clear(); repaint(); };
+    addAndMakeVisible (search);
+    build();
+}
+
+void PlaceBrowser::setInstrument (int i)
+{
+    if (i == instrument && ! cells.empty()) return;
+    instrument = i;
+    build();
+    resized();
+    repaint();
+}
+
+void PlaceBrowser::build()
+{
+    cells.clear();
+    int counts[5] = { 0, 0, 0, 0, 0 };
     for (auto& p : catalog())
     {
         const bool midi = p.name.startsWith ("midi");          // MIDI to CV: placed like any module
-        if (p.family >= Hands && ! midi) continue;
+        if (p.family == Ears) continue;
+        if (p.family == Hands && ! midi && ! p.on (instrument)) continue;   // the other instrument's hands
         auto what = p.help.upToFirstOccurrenceOf (" (after", false, false);
         const int col = midi ? (int) Current : (int) p.family;
         cells.push_back ({ p.name, what, col, counts[col]++, {} });
     }
 }
 
+bool PlaceBrowser::matches (const Cell& c) const
+{
+    return filter.isEmpty() || c.name.contains (filter) || c.help.toLowerCase().contains (filter);
+}
+
+void PlaceBrowser::pick (const Cell& c)
+{
+    if (c.family == 4 && alwaysThere.contains (c.name))
+    {
+        if (onHover) onHover (c.name + " is always there on the " + String (instrument == 1 ? "Wingie" : "SP-1")
+                              + ": drag its loop from the hands panel onto an inlet, or write  "
+                              + (c.name == "keys" ? "keys1.pitch" : c.name == "mic" ? "mic.both" : c.name == "fader" || c.name == "button" || c.name == "mode" || c.name == "octave" ? c.name + "1" : c.name)
+                              + " -> place.inlet");
+        return;
+    }
+    if (onAdd) onAdd (c.name);
+}
+
 void PlaceBrowser::resized()
 {
-    int counts[4] = { 0, 0, 0, 0 };
+    int counts[5] = { 0, 0, 0, 0, 0 };
     for (auto& c : cells) counts[c.family]++;
     auto r = getLocalBounds().toFloat();
+    auto side = r.removeFromLeft (112);
+    search.setBounds (side.withHeight (24).reduced (0, 1).withTrimmedRight (10).toNearestInt());
+    countArea = side.withTrimmedTop (28).withHeight (14).withTrimmedRight (10);
     const float gap = 10;
     const int rows = 4;
-    // each grid as wide as its places need, all four filling the width
+    // each grid as wide as its places need, all five filling the width
     float cell = r.getHeight() / (float) rows;
     float need = 0;
-    for (int f = 0; f < 4; ++f) need += std::ceil ((float) counts[f] / rows) * cell;
-    float scale = jmin (1.0f, (r.getWidth() - gap * 3) / need);
+    int grids_n = 0;
+    for (int f = 0; f < 5; ++f) if (counts[f] > 0) { need += std::ceil ((float) counts[f] / rows) * cell; ++grids_n; }
+    float scale = jmin (1.0f, (r.getWidth() - gap * (float) jmax (0, grids_n - 1)) / jmax (1.0f, need));
     cell *= scale;
     float x = r.getX();
-    for (int f = 0; f < 4; ++f)
+    for (int f = 0; f < 5; ++f)
     {
         int cols = (int) std::ceil ((float) counts[f] / rows);
-        grids[f] = { x, r.getY(), cols * cell, rows * cell };
-        x += cols * cell + gap;
+        grids[f] = { x, r.getY(), (float) cols * cell, (float) rows * cell };
+        if (cols > 0) x += (float) cols * cell + gap;
     }
     for (auto& c : cells)
     {
@@ -50,45 +101,58 @@ void PlaceBrowser::resized()
 void PlaceBrowser::paint (Graphics& g)
 {
     auto& t = art::theme();
-    const char* names[] = { "sources", "shapes", "spaces", "currents" };
-    for (int f = 0; f < 4; ++f)
+    for (int f = 0; f < 5; ++f)
     {
+        if (grids[f].isEmpty()) continue;
         g.setColour (t.chromeDim.withAlpha (0.5f));
         g.drawHorizontalLine ((int) grids[f].getBottom() + 2, grids[f].getX(), grids[f].getRight());
         g.setColour (t.chromeDim);
         g.setFont (art::label (8.5f));
-        g.drawText (names[f], grids[f].withTop (grids[f].getBottom() + 3).withHeight (11), Justification::right);
+        String nm = familyNames[f];
+        if (f == 4) nm = instrument == 1 ? "wingie" : "sp-1";
+        g.drawText (nm, grids[f].withTop (grids[f].getBottom() + 3).withHeight (11).withWidth (jmax (grids[f].getWidth(), 50.0f)), Justification::right);
     }
+    int found = 0;
     for (int i = 0; i < (int) cells.size(); ++i)
     {
         auto& c = cells[(size_t) i];
+        const bool match = matches (c);
+        found += match ? 1 : 0;
+        const float fade = match ? 1.0f : 0.18f;
         // faltung: a slanted tile in the family's colour, carrying a code (the place's first
         // letters), as the folded strips on the snd sleeves carry te1 / rlo3
-        auto col = art::familyColour (c.family);
+        auto col = c.family == 4 ? t.cardSp1 : art::familyColour (c.family);
         bool lit = i == hover;
         if (t.modular)                    // a raised icon button with a coloured strip and the place's code
         {
             auto r = c.r.reduced (1.0f);
-            g.setColour (lit ? Colour (0xffe8e6e0) : t.button); g.fillRect (r); art::bevel (g, r, ! lit);
+            g.setColour ((lit ? Colour (0xffe8e6e0) : t.button).withMultipliedAlpha (fade)); g.fillRect (r);
+            if (match) art::bevel (g, r, ! lit);
             auto strip = r.reduced (3.0f).withHeight (r.getHeight() * 0.48f);
-            g.setColour (col); g.fillRect (strip); art::bevel (g, strip, true);
-            g.setColour (Colours::black); g.setFont (art::tahoma (jmin (9.0f, r.getHeight() * 0.36f)));
+            g.setColour (col.withMultipliedAlpha (fade)); g.fillRect (strip);
+            if (match) art::bevel (g, strip, true);
+            g.setColour (Colours::black.withAlpha (fade)); g.setFont (art::tahoma (jmin (9.0f, r.getHeight() * 0.36f)));
             g.drawText (c.name.substring (0, 6), r.withTop (strip.getBottom()), Justification::centred);
             continue;
         }
         auto r = c.r.reduced (1.5f, c.r.getHeight() * 0.14f);
         auto p = art::slant (r, r.getHeight() * 0.35f);
-        g.setColour (lit ? col : col.withMultipliedSaturation (0.85f).withMultipliedBrightness (t.dark ? 0.85f : 1.0f)); g.fillPath (p);
-        if (lit) { g.setColour (t.chromeText); g.strokePath (p, PathStrokeType (1.2f)); }
-        g.setColour (art::boardInk.withAlpha (lit ? 1.0f : 0.8f));
+        g.setColour ((lit ? col : col.withMultipliedSaturation (0.85f).withMultipliedBrightness (t.dark ? 0.85f : 1.0f)).withMultipliedAlpha (fade)); g.fillPath (p);
+        if (lit || (match && filter.isNotEmpty())) { g.setColour (t.chromeText); g.strokePath (p, PathStrokeType (lit ? 1.2f : 0.8f)); }
+        g.setColour (art::boardInk.withAlpha ((lit ? 1.0f : 0.8f) * fade));
         g.setFont (art::label (jmin (9.0f, r.getHeight() * 0.55f)));
         g.drawText (c.name.substring (0, 3), r, Justification::centred);
     }
+    g.setColour (t.chromeDim);
+    g.setFont (art::label (8.5f));
+    g.drawText (filter.isEmpty() ? String ((int) cells.size()) + " places" : String (found) + " of " + String ((int) cells.size()) + (found ? "  (return adds)" : ""),
+                countArea, Justification::left, true);
 }
 
 int PlaceBrowser::cellAt (Point<float> p) const
 {
-    for (int i = 0; i < (int) cells.size(); ++i) if (cells[(size_t) i].r.contains (p)) return i;
+    for (int i = 0; i < (int) cells.size(); ++i)
+        if (cells[(size_t) i].r.contains (p) && matches (cells[(size_t) i])) return i;
     return -1;
 }
 
@@ -97,7 +161,15 @@ void PlaceBrowser::mouseMove (const MouseEvent& e)
     int h = cellAt (e.position);
     if (h == hover) return;
     hover = h;
-    if (onHover) onHover (h >= 0 ? cells[(size_t) h].name + ": " + cells[(size_t) h].help + "   (click to add it)" : String());
+    if (onHover)
+    {
+        if (h < 0) onHover ({});
+        else
+        {
+            auto& c = cells[(size_t) h];
+            onHover (c.name + ": " + c.help + (c.family == 4 && alwaysThere.contains (c.name) ? String ("   (always there: drag its loop from the hands panel)") : String ("   (click to add it)")));
+        }
+    }
     repaint();
 }
 
@@ -106,7 +178,7 @@ void PlaceBrowser::mouseExit (const MouseEvent&) { hover = -1; repaint(); }
 void PlaceBrowser::mouseDown (const MouseEvent& e)
 {
     int h = cellAt (e.position);
-    if (h >= 0 && onAdd) onAdd (cells[(size_t) h].name);
+    if (h >= 0) pick (cells[(size_t) h]);
 }
 
 // ------------------------------------------------------------------------------------------ inspector

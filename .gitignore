@@ -12,3 +12,7 @@ dist/
 !firmware/dist/
 build-legacy/
 build-*/
+firmware-wingie/SleepcousoniqueWingie/src/
+firmware-wingie/SleepcousoniqueWingie/first_light.h
+!firmware-wingie/dist/
+.claude/

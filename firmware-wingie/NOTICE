@@ -1,0 +1,5 @@
+The Wingie firmware (this folder) is GPLv3, unlike the rest of Sleepcousonique (MIT):
+it is built on Meng Qi's Wingie2 firmware (github.com/mengqimusic/Wingie2, GPLv3): its pins,
+codec setup, I2S configuration and key matrix, and AC101.h / AC101.cpp (the AC101 codec driver
+by Ivo Pullens and Thomas Hopman, GPLv3). The Sleepcousonique engine it runs (engine/) is MIT;
+the combined firmware image is distributed under GPLv3 (see LICENSE in this folder).

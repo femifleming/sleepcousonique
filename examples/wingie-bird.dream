@@ -1,0 +1,55 @@
+instrument wingie
+; wingie-bird — the Wingie as it came, and then the caves under it
+; fader1 Mix, fader2 Decay, fader3 Volume, as on the stock Wingie
+
+2026-11-24 the bird
+-------------------
+; both keyboards play the resonator: strings on the left, a membrane on the right (keys2 is
+; an octave up). The microphones ring them; every key also strikes its side.
+the strings is wingie 2.18 string        ; 2.18 x 60 Hz: the C below middle C
+the skin is wingie 2.18 membrane
+the mixl is crossfade
+the mixr is crossfade
+the vol is quadvca
+
+mic.left -> strings mixl.a
+mic.right -> skin mixr.a
+keys1.pitch -> strings.pitch
+keys2.pitch -> skin.pitch
+keys1.trig -> strings.strike
+keys2.trig -> skin.strike
+fader2 -> strings.decay skin.decay
+strings -> mixl.b
+skin -> mixr.b
+fader1 -> mixl.mix mixr.mix
+mixl -> vol.in1
+mixr -> vol.in2
+fader3 -> vol.cv1 vol.cv2
+vol.out1 -> left
+vol.out2 -> right
+strings -> lights.left
+skin -> lights.right
+
+2026-11-24 the caves
+--------------------
+; the three factory caves: Low on the left, High on the right. The keys shift them by
+; octaves and semitones; mode1 and mode2 strike them. fader1 Mix, fader2 Decay, fader3 Volume
+the low is cave 1
+the high is cave 3
+the mix is crossfade
+the vol is vca
+
+mic.left -> low
+mic.right -> high
+keys1.pitch -> low.shift
+keys2.pitch -> high.shift
+mode1.tap -> low.strike
+mode2.tap -> high.strike
+fader2 -> low.decay high.decay
+mic.both -> mix.a
+low.odd high.even -> mix.b
+fader1 -> mix.mix
+fader3 -> vol.gain
+mix -> vol -> out
+low -> lights.left
+high -> lights.right

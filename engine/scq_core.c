@@ -15,6 +15,7 @@
  */
 #include "scq_int.h"
 #include "scq_costs.h"
+#include "scq_costs_wingie.h"
 
 /* Loops stay loops. GCC likes to turn a clearing or copying loop into a call to memset or memcpy,
  * and the SP-1's C library (built for size) does those a byte at a time: clearing one 32-sample
@@ -37,7 +38,11 @@ typedef struct {
 	float    konst[MAX_KONST][SCQ_BLOCK];   /* constant blocks: defaults and lone values, filled once */
 	float    kval[MAX_KONST];
 	int      nk;
+#ifdef SCQ_POOL_EXTERN
+	uint32_t *pool;              /* handed over by the firmware (scq_pool): the Wingie's heap */
+#else
 	uint32_t pool[POOL_BYTES / 4];
+#endif
 	uint32_t used;
 	uint32_t wanted;             /* what the scene asked for, whether it fitted or not */
 
@@ -62,6 +67,7 @@ typedef struct {
 #endif
 
 	uint32_t nights;
+	int      instrument;         /* SCQ_SP1 / SCQ_WINGIE: from the dream's `instrument` line */
 	float    drift;
 	float    load;
 	float    scene_load[SCQ_MAX_SCENES];
@@ -77,6 +83,15 @@ typedef struct {
 } engine;
 
 static engine G0;
+#ifdef SCQ_POOL_EXTERN
+static uint32_t pool_size;
+#define POOL_SIZE pool_size
+void scq_pool(void *mem, uint32_t bytes) { G0.pool = (uint32_t *)mem; pool_size = bytes & ~3u; }
+#else
+/* the editor checks a Wingie dream against the Wingie's pool (what its heap gives, measured),
+ * not the SP-1's, so "the house is full" is said here before it is said on the Wingie */
+#define POOL_SIZE (G.instrument == SCQ_WINGIE ? (uint32_t)SCQ_WINGIE_POOL : (uint32_t)POOL_BYTES)
+#endif
 static engine *Gp = &G0;
 #define G (*Gp)
 
@@ -156,6 +171,19 @@ static float parse_num(const char *s, int n)
 	return v * sign;
 }
 
+/* A number with its pitch unit, in the units of the place it lands: `per_octave` is what one
+ * octave is there (100 for a kept value, where 100 is 1.0; 1 for a pitch knob or tune=; 12 for a
+ * seq's steps). 7st is seven semitones, -50ct fifty cents down, 1oct an octave; a bare number is
+ * taken as it is. */
+static float num_unit(const char *s, int n, float per_octave)
+{
+	float v = parse_num(s, n);
+	if (n >= 2 && s[n - 2] == 's' && s[n - 1] == 't') return v * per_octave / 12.f;
+	if (n >= 3 && s[n - 3] == 'o' && s[n - 2] == 'c' && s[n - 1] == 't') return v * per_octave;
+	if (n >= 2 && s[n - 2] == 'c' && s[n - 1] == 't') return v * per_octave / 1200.f;
+	return v;
+}
+
 /* ------------------------------------------------------------- messages */
 
 static void say(char kind, const char *a, const char *w, int wl, const char *b)
@@ -219,6 +247,13 @@ static int tokenize(const char *s, int n, tok *t)
 				j++;
 			}
 			if (j < n && s[j] == '-' && dots == 0) { /* 20-5 is not a thing; stop here */ }
+			if (!dots) {   /* a pitch unit stuck on the number: 7st, -50ct, 1oct */
+				int u = 0;
+				if (j + 2 <= n && s[j] == 's' && s[j + 1] == 't') u = 2;
+				else if (j + 2 <= n && s[j] == 'c' && s[j + 1] == 't') u = 2;
+				else if (j + 3 <= n && s[j] == 'o' && s[j + 1] == 'c' && s[j + 2] == 't') u = 3;
+				if (u && (j + u >= n || !(is_alpha(s[j + u]) || is_digit(s[j + u])))) j += u;
+			}
 			o->t = dots ? T_RANGE : T_NUM;
 			o->n = j - i; i = j; k++;
 			continue;
@@ -266,7 +301,7 @@ static void *pool_take(uint32_t bytes)
 {
 	bytes = (bytes + 3u) & ~3u;
 	G.wanted += bytes;
-	if (G.used + bytes > POOL_BYTES) return 0;
+	if (G.used + bytes > POOL_SIZE) return 0;
 	uint32_t *p = &G.pool[G.used / 4];
 	for (uint32_t i = 0; i < bytes / 4; i++) p[i] = 0;
 	G.used += bytes;
@@ -347,6 +382,26 @@ static int rate_set(node *n, const tok *name, const tok *val)
 	}
 	if (SCQ_PLACES[n->type].flags & PF_SINGLE) { say('E', "", name->s, name->n, ": the SP-1's own places run at full rate"); return 1; }
 	n->rdiv = (uint8_t)(1u << pos);
+	if (n->rdiv > 1 && n->res) say('W', "", name->s, name->n, ": resolution is only for full rate; at a lower samplerate it is ignored");
+	return 1;
+}
+
+/* resolution=block|fine|audio: a place reads most of its inlets (pitch, cutoff, rates) once a
+ * block of 32 samples; fine runs it every 4 samples, audio every sample, so a fast pitch or
+ * cutoff sweep stays smooth (audio-rate FM through any pitch inlet). It costs the place's
+ * per-block work 8 or 32 times. Returns 1 if the word was one. */
+static int res_set(node *n, const tok *name, const tok *val)
+{
+	static const char *const POS[3] = { "block", "fine", "audio" };
+	const tok *w = val ? val : name;
+	if (val && !str_eq(name->s, name->n, "resolution")) return 0;
+	int pos = -1;
+	for (int k = 0; k < 3; k++) if (w->t == T_WORD && str_eq(w->s, w->n, POS[k])) pos = k;
+	if (!val && pos != 1) return 0;            /* alone, only "fine" means this ("audio" is also a range) */
+	if (pos < 0) { say('E', "resolution is block, fine or audio, not ", w->s, w->n, ""); return 1; }
+	if (SCQ_PLACES[n->type].flags & PF_SINGLE) { say('E', "", name->s, name->n, ": the instrument's own places run once a block"); return 1; }
+	n->res = (uint8_t)(pos == 0 ? 0 : (pos == 1 ? 4 : 1));
+	if (n->rdiv > 1 && n->res) say('W', "", name->s, name->n, ": resolution is only for full rate; at a lower samplerate it is ignored");
 	return 1;
 }
 
@@ -382,7 +437,7 @@ static int knob_set(node *n, const tok *name, const tok *val)
 			if (same) return 0;            /* a switch or param of the same name wins */
 		}
 	if (val->t != T_NUM) { say('E', "", name->s, name->n, " wants a number, like time=0.4"); return 1; }
-	float v = parse_num(val->s, val->n);
+	float v = num_unit(val->s, val->n, 1.f);
 	n->def[p] = v;
 	n->koff[p] = v - place_def(pl, p);
 	n->knobset |= (uint16_t)(1u << p);
@@ -443,7 +498,7 @@ static int opt_set(node *n, const tok *name, const tok *val)
 				n->opt[k] = (float)pos;
 			} else {
 				if (val->t != T_NUM) { say('E', "", name->s, name->n, " wants a number"); return 0; }
-				n->opt[k] = parse_num(val->s, val->n);
+				n->opt[k] = num_unit(val->s, val->n, 1.f);   /* tune=7st */
 			}
 			n->optset |= (uint8_t)(1u << k);
 			return 0;
@@ -459,6 +514,8 @@ static int opt_set(node *n, const tok *name, const tok *val)
 	return -1;
 }
 
+static int natural_nat(float x) { return (int)(x + 0.5f); }
+
 /* where an outlet a place doesn't have points: written, never read */
 static float SPARE[B];
 
@@ -466,6 +523,18 @@ static int make_node(int p, const char *name, int nl, float nature)
 {
 	const place *pl = &SCQ_PLACES[p];
 	if (G.nn >= MAX_NODES) { say('E', "the dream is too crowded (", 0, 0, "96 places at most)"); return -1; }
+	if ((pl->flags & PF_SP1) && G.instrument == SCQ_WINGIE) {
+		say('E', "", name, nl, " is one of the SP-1's hands, and this dream is for the Wingie");
+		return -1;
+	}
+	if ((pl->flags & PF_WINGIE) && G.instrument == SCQ_SP1) {
+		say('E', "", name, nl, " is one of the Wingie's hands: write `instrument wingie` at the top of the dream");
+		return -1;
+	}
+	if (G.instrument == SCQ_WINGIE && str_eq(pl->name, str_len(pl->name), "fader") && natural_nat(nature) > 3) {
+		say('E', "", name, nl, ": the Wingie has three faders (fader1 Mix, fader2 Decay, fader3 Volume)");
+		return -1;
+	}
 	if (nl >= NAME_LEN) nl = NAME_LEN - 1;
 	node *n = &G.n[G.nn];
 	uint8_t *raw = (uint8_t *)n;
@@ -612,7 +681,7 @@ static void st_the(tok *t, int nt)
 		int same = t[1].n == t[3].n;
 		for (int i = 0; same && i < t[1].n; i++) if (t[1].s[i] != t[3].s[i]) same = 0;
 		if (same) { say('W', "", t[3].s, t[3].n, " is always there (it's on the SP-1): no need to name it, just use it"); return; }
-		say('E', "", t[3].s, t[3].n, " is on the SP-1 and always there: use it by its own name (like fader1 -> lfo.rate), not a new one");
+		say('E', "", t[3].s, t[3].n, " is part of the instrument and always there: use it by its own name (like fader1 -> lfo.rate or keys1.pitch), not a new one");
 		return;
 	}
 	int other = find_place(t[1].s, t[1].n);
@@ -635,6 +704,7 @@ static void st_the(tok *t, int nt)
 		int eq = k + 2 < nt && t[k + 1].t == T_EQ;
 		if (att_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0)) { k += eq ? 3 : 1; continue; }
 		if (rate_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0)) { k += eq ? 3 : 1; continue; }
+		if (res_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0)) { k += eq ? 3 : 1; continue; }
 		if (knob_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0)) { k += eq ? 3 : 1; continue; }
 		if (opt_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0) < 0) return;
 		k += eq ? 3 : 1;
@@ -648,7 +718,7 @@ static void st_the(tok *t, int nt)
 		for (; k < nt && c < 32; k++) {
 			if (t[k].t == T_COMMA) continue;
 			if (t[k].t != T_NUM) { say('E', "a step is a number, not ", t[k].s, t[k].n, ""); return; }
-			m[c++] = parse_num(t[k].s, t[k].n);
+			m[c++] = num_unit(t[k].s, t[k].n, 12.f);
 		}
 		m[32] = (float)c;
 	}
@@ -685,7 +755,7 @@ static int endpoint_at(tok *t, int nt, int *k, int role, endpoint *e)
 	}
 	if (t[*k].t == T_NUM) {
 		if (role == 1) { say('E', "a number can't take anything in: ", t[*k].s, t[*k].n, ""); return -1; }
-		e->is_bottle = 1; e->val = parse_num(t[*k].s, t[*k].n); e->node = -1; e->port = 0;
+		e->is_bottle = 1; e->val = num_unit(t[*k].s, t[*k].n, 100.f); e->node = -1; e->port = 0;
 		*k += 1;
 		return 0;
 	}
@@ -741,6 +811,7 @@ static void statement(const char *s, int n)
 		G.drift = parse_num(t[1].s, t[1].n);    /* otherwise "drift" is just a name */
 		return;
 	}
+	if (t[0].t == T_WORD && str_eq(t[0].s, t[0].n, "instrument") && nt == 2 && t[1].t == T_WORD) return;   /* read at load */
 	if (t[0].t == T_WORD && str_eq(t[0].s, t[0].n, "sleepers")) { say('W', "sleepers (voices) are not awake yet", 0, 0, ""); return; }
 	st_chain(t, nt);
 }
@@ -848,6 +919,20 @@ static float place_cycles(int type)
 	return (float)known[type];
 }
 
+/* the same on the Wingie: its own measured figure, or the SP-1's times the measured median ratio */
+static float place_cycles_wingie(int type)
+{
+	static uint16_t known[256];
+	if (!known[type]) {
+		const char *name = SCQ_PLACES[type].name;
+		float c = place_cycles(type) * SCQ_WINGIE_SCALE_MEASURED;
+		for (unsigned i = 0; i < sizeof SCQ_WINGIE_MEASURED / sizeof SCQ_WINGIE_MEASURED[0]; i++)
+			if (str_eq(name, str_len(name), SCQ_WINGIE_MEASURED[i].name)) { c = (float)SCQ_WINGIE_MEASURED[i].cycles; break; }
+		known[type] = (uint16_t)(c < 1.f ? 1.f : (c > 65000.f ? 65000.f : c));
+	}
+	return (float)known[type];
+}
+
 static inline int steady(const float *p);
 
 /* how much of each kind of work the compiled scene has: t[CT_N], and per place w[type] (how many
@@ -863,6 +948,7 @@ static void cost_count(float *t, float *w)
 		const place *pl = &SCQ_PLACES[n->type];
 		const float inv = 1.f / (float)n->rdiv;
 		float runs = inv;
+		if (n->res && n->rdiv == 1) runs *= 1.f + (32.f / (float)n->res - 1.f) * 0.25f;   /* per-block work repeated (estimate) */
 		if (frogs >= 0 && pl->run == SCQ_PLACES[frogs].run)          /* measured with 3 frogs */
 			runs *= scq_clamp(n->nature, 1.f, 8.f) / 3.f;
 		if (w) w[n->type] += runs;
@@ -901,9 +987,20 @@ static float cost_estimate(void)
 	float t[CT_N], cyc = 0.f;
 	for (int i = 0; i < SCQ_NPLACES && i < 256; i++) w[i] = 0.f;
 	cost_count(t, w);
+	if (G.instrument == SCQ_WINGIE) {     /* measured on a Wingie (scq_costs_wingie.h) */
+		cyc = SCQ_WINGIE_FIXED;
+		for (int i = CT_FIXED + 1; i < CT_N; i++) cyc += t[i] * COST_TERM[i] * SCQ_WINGIE_SCALE_MEASURED;
+		for (int i = 0; i < SCQ_NPLACES && i < 256; i++) if (w[i] != 0.f) cyc += w[i] * place_cycles_wingie(i);
+		return cyc / (float)SCQ_WINGIE_CYCLES_PER_SAMPLE;
+	}
 	for (int i = 0; i < CT_N; i++) cyc += t[i] * COST_TERM[i];
 	for (int i = 0; i < SCQ_NPLACES && i < 256; i++) if (w[i] != 0.f) cyc += w[i] * place_cycles(i);
 	return cyc / (float)SCQ_CYCLES_PER_SAMPLE;
+}
+
+float scq_cycles_per_sample(int instrument)
+{
+	return instrument == SCQ_WINGIE ? (float)SCQ_WINGIE_CYCLES_PER_SAMPLE : (float)SCQ_CYCLES_PER_SAMPLE;
 }
 
 /* a block that holds v forever, shared by every inlet that wants it (0 if the table is full) */
@@ -993,6 +1090,30 @@ static void read_tunings(void)
 		for (int j = n - 1; j >= 1; j--) d[2 + j] = d[2 + j - 1];
 		d[2] = 0.f;
 	}
+}
+
+/* `instrument wingie` / `instrument sp1` anywhere in the dream (usually its first line); without
+ * one, a dream is for the instrument the engine was built for (the SP-1 on the desktop) */
+#ifndef SCQ_INSTRUMENT
+#define SCQ_INSTRUMENT SCQ_SP1
+#endif
+static int read_instrument(void)
+{
+	int i = 0;
+	while (i < G.len) {
+		int e = line_end(i), a = i;
+		while (a < e && (G.text[a] == ' ' || G.text[a] == '\t')) a++;
+		if (e - a > 11 && str_eq(G.text + a, 10, "instrument") && (G.text[a + 10] == ' ' || G.text[a + 10] == '\t')) {
+			int w = a + 10;
+			while (w < e && (G.text[w] == ' ' || G.text[w] == '\t')) w++;
+			int we = w;
+			while (we < e && G.text[we] > ' ' && G.text[we] != ';') we++;
+			if (str_eq(G.text + w, we - w, "wingie")) return SCQ_WINGIE;
+			if (str_eq(G.text + w, we - w, "sp1") || str_eq(G.text + w, we - w, "sp-1")) return SCQ_SP1;
+		}
+		i = e + 1;
+	}
+	return SCQ_INSTRUMENT;
 }
 
 static void compile_scene(int idx, int report)
@@ -1160,9 +1281,19 @@ int scq_load(const char *text, int len, uint32_t nights)
 #endif
 	G.len = len;
 	G.nights = nights;
+	G.instrument = read_instrument();
+	if (Gp == &G0) W.instrument = G.instrument;
 	G.msgn = 0; G.msg[0] = 0; G.errors = 0;
 	if (!G.rng) G.rng = 0x5eed1234u ^ nights;
 	find_scenes();
+#if defined(SCQ_DEVICE)
+	if (G.instrument != SCQ_INSTRUMENT) {
+		say('E', SCQ_INSTRUMENT == SCQ_WINGIE ? "this dream is for the SP-1, and this is a Wingie"
+		                                      : "this dream is for the Wingie, and this is an SP-1", 0, 0, "");
+		G.nn = 0; G.nc = 0; G.nsc = 0;
+		return G.errors;
+	}
+#endif
 	for (int s = 0; s < G.nsc; s++) { compile_scene(s, s == 0 ? 3 : 2); G.scene_load[s] = G.load; }
 	int errors = G.errors;
 	if (G.cur >= G.nsc) G.cur = 0;
@@ -1210,7 +1341,9 @@ const char *scq_cost_terms(int scene)
 static engine G1;
 static float checked_load[SCQ_MAX_SCENES];
 static int checked_scenes;
+static int checked_instrument;
 int scq_checked_scenes(void) { return checked_scenes; }
+int scq_checked_instrument(void) { return checked_instrument; }
 float scq_checked_load(int s) { return (s >= 0 && s < checked_scenes) ? checked_load[s] : 0.f; }
 
 int scq_check(const char *text, int len, uint32_t nights, char *msgs, int cap)
@@ -1222,6 +1355,7 @@ int scq_check(const char *text, int len, uint32_t nights, char *msgs, int cap)
 	while (G.msg[n] && n < cap - 1) { msgs[n] = G.msg[n]; n++; }
 	if (cap > 0) msgs[n] = 0;
 	checked_scenes = G.nsc;
+	checked_instrument = G.instrument;
 	for (int k = 0; k < G.nsc; k++) checked_load[k] = G.scene_load[k];
 	Gp = &G0;
 	return e;
@@ -1312,7 +1446,7 @@ void scq_goto_scene(int index)
 void scq_memory(uint32_t *used, uint32_t *total)
 {
 	if (used) *used = G.wanted > G.used ? G.wanted : G.used;   /* more than there is, if it didn't fit */
-	if (total) *total = (uint32_t)POOL_BYTES;
+	if (total) *total = (uint32_t)POOL_SIZE;
 }
 
 int scq_scene(void) { return G.cur; }
@@ -1521,6 +1655,24 @@ static void nurse(node *n, int k)
 	if (ill) heal(n);
 }
 
+/* resolution=fine|audio: the place is run on short stretches of its block, each seeing its
+ * inlets and writing its outlets from there on (every inlet and outlet block is a full block) */
+static void run_fine(node *n, const float *in[MAX_IN])
+{
+	const float *sub[MAX_IN];
+	float *outs[MAX_OUT];
+	const int step = n->res, full = W.nb;
+	for (int o = 0; o < MAX_OUT; o++) outs[o] = n->out[o];
+	W.nb = step;
+	for (int off = 0; off < full; off += step) {
+		for (int k = 0; k < MAX_IN; k++) sub[k] = in[k] ? in[k] + off : in[k];
+		for (int o = 0; o < n->nout; o++) n->out[o] = outs[o] + off;
+		SCQ_PLACES[n->type].run(n, sub);
+	}
+	for (int o = 0; o < MAX_OUT; o++) n->out[o] = outs[o];
+	W.nb = full;
+}
+
 static void run_block(void)
 {
 	static float scratch[MAX_IN][B];        /* static: off the audio thread's small stack */
@@ -1532,6 +1684,7 @@ static void run_block(void)
 		node *n = &G.n[k];
 		gather(n, k, in, scratch);
 		if (n->rdiv > 1) run_slow(n, in);
+		else if (n->res) run_fine(n, in);
 		else SCQ_PLACES[n->type].run(n, in);
 		nurse(n, k);
 	}
@@ -1555,9 +1708,25 @@ static inline float out_clip(float x)
 	return x == x ? scq_softclip(x) : 0.f;
 }
 
+static const float *in_l, *in_r;
+static const float SILENT_IN[SCQ_BLOCK];
+void scq_input(const float *left, const float *right) { in_l = left; in_r = right; }
+int scq_instrument(void) { return G.instrument; }
+
+int scq_wanted_slot(int *slot, int *step)
+{
+	if (W.want_slot < 0 && W.want_step == 0) return 0;
+	if (slot) *slot = W.want_slot;
+	if (step) *step = W.want_step;
+	W.want_slot = -1; W.want_step = 0;
+	return 1;
+}
+
 void scq_render(float *left, float *right, int frames)
 {
 	for (int f = 0; f + B <= frames; f += B) {
+		W.inL = in_l ? in_l + f : SILENT_IN;
+		W.inR = in_r ? in_r + f : (in_l ? in_l + f : SILENT_IN);
 		if (G.pending >= 0 && G.fading == 0) G.fading = -1;
 		if (G.nn > 0 && !G.waiting) run_block();
 		else LOOP { W.outL[i] = W.outR[i] = 0.f; }
@@ -1570,7 +1739,7 @@ void scq_render(float *left, float *right, int frames)
 			right[f + i] = out_clip(W.outR[i]) * G.gain;
 		}
 		if (G.fading < 0 && G.gain <= 0.f) {
-#ifdef SCQ_DEVICE
+#if defined(SCQ_DEVICE)
 			G.waiting = 1;                      /* the main loop compiles it */
 #else
 			G.cur = G.pending;
@@ -1588,7 +1757,7 @@ void *scq_sleep(uint32_t *len)
 {
 	G.nn = 0; G.nc = 0; G.used = 0;
 	G.pending = -1; G.waiting = 0; G.fading = 0; G.gain = 1.f;
-	if (len) *len = (uint32_t)POOL_BYTES;
+	if (len) *len = (uint32_t)POOL_SIZE;
 	return (void *)G.pool;
 }
 
@@ -1676,6 +1845,10 @@ const char *scq_describe(void)
 				sb_c(&s, first ? ' ' : ','); first = 0;
 				sb_s(&s, n->rdiv == 2 ? "samplerate=half" : (n->rdiv == 4 ? "samplerate=quarter" : "samplerate=eighth"));
 			}
+			if (n->res) {
+				sb_c(&s, first ? ' ' : ','); first = 0;
+				sb_s(&s, n->res == 4 ? "resolution=fine" : "resolution=audio");
+			}
 		}
 		sb_c(&s, '\n');
 	}
@@ -1691,12 +1864,12 @@ const char *scq_describe(void)
 	sb_s(&s, "R "); sb_i(&s, G.nn); sb_c(&s, ' '); sb_i(&s, MAX_NODES); sb_c(&s, ' ');
 	sb_i(&s, G.nc); sb_c(&s, ' '); sb_i(&s, MAX_CORDS); sb_c(&s, ' ');
 	sb_i(&s, G.len); sb_c(&s, ' '); sb_i(&s, SCQ_SLOT_TEXT); sb_c(&s, '\n');
-	sb_s(&s, "M "); sb_i(&s, (int)(G.wanted > G.used ? G.wanted : G.used)); sb_c(&s, ' '); sb_i(&s, POOL_BYTES); sb_c(&s, ' ');
+	sb_s(&s, "M "); sb_i(&s, (int)(G.wanted > G.used ? G.wanted : G.used)); sb_c(&s, ' '); sb_i(&s, (int)POOL_SIZE); sb_c(&s, ' ');
 	sb_f(&s, G.load); sb_c(&s, '\n');
 	return G.desc;
 }
 
-static char catalog_buf[49152];
+static char catalog_buf[98304];
 const char *scq_catalog(void)
 {
 	static const char *fam[] = { "source", "shape", "space", "current", "hands", "ears" };
@@ -1719,6 +1892,9 @@ const char *scq_catalog(void)
 			sb_c(&s, '\n');
 		}
 		if (*pl->defs) { sb_s(&s, "D "); sb_s(&s, pl->name); sb_c(&s, ' '); sb_s(&s, pl->defs); sb_c(&s, '\n'); }   /* the inlets' defaults */
+		if (pl->flags & (PF_SP1 | PF_WINGIE)) {   /* hands that only one instrument has */
+			sb_s(&s, "I "); sb_s(&s, pl->name); sb_s(&s, (pl->flags & PF_WINGIE) ? " wingie\n" : " sp1\n");
+		}
 	}
 	return catalog_buf;
 }

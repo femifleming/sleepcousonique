@@ -25,6 +25,11 @@ if [ "$OS" = macOS ]; then
     [ -n "$a" ] && cp -R "$a" "$OUT/" && codesign --force --deep -s - "$OUT/Sleepcousonique Array.app"
 fi
 cp "$ROOT/firmware/dist/sleepcousonique-sp1.bin" "$OUT/"
+# the Wingie firmware (GPLv3: it includes Meng Qi's Wingie2 code) and its manual
+cp "$ROOT/firmware-wingie/dist/sleepcousonique-wingie.bin" "$OUT/"
+cp "$ROOT/firmware-wingie/LICENSE" "$OUT/LICENSE-wingie-firmware.txt"
+cp "$ROOT/firmware-wingie/NOTICE" "$OUT/NOTICE-wingie-firmware.txt"
+cp "$ROOT/docs/wingie-manual/Sleepcousonique-Wingie-Manual.pdf" "$OUT/"
 cp "$ROOT/docs/manual/Sleepcousonique-Manual.pdf" "$OUT/"
 cp "$ROOT/FLASHING.md" "$OUT/FLASHING.txt"
 cp "$ROOT/README.md" "$ROOT/LICENSE" "$OUT/"

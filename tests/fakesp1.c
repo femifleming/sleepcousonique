@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define SLOTS       5
+#define SLOTS(f)    ((f)->wingie ? FAKE_SLOTS : 5)
 #define SLOT_BYTES  (16 * 1024)
 #define SLOT_HEAD   8
 
@@ -33,6 +33,14 @@ void fake_open(struct fake_sp1 *f, int log_lines)
 	if (f->mode == FAKE_SILENT) {
 		return;
 	}
+	if (f->wingie) {
+		/* the CH340's DTR / RTS reset the ESP32: its ROM speaks, then nothing is heard until it has started */
+		say(f, "ets Jul 29 2019 12:21:46\n\nrst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)\nload:0x3fff0030,len:1184\nentry 0x400805e4\n");
+		f->boot_ms = 600;
+		f->want = -1;
+		f->line_n = 0;
+		return;
+	}
 	/* sp1_console.c print_banner(), then sp1_logbuf_replay_start() */
 	say(f, "\n=== Wakes v0.9.0 ===\nbuilt Nov 19 2026 10:48:00\nresetreas 0x00000000\n");
 	say(f, "\n=== STORED LOG: 4096 bytes, oldest first, [+uptime] per line; live output resumes after the end marker ===\n");
@@ -52,7 +60,17 @@ static int load_text(struct fake_sp1 *f)
 	if (f->old_mistakes > 0) {
 		return f->old_mistakes;
 	}
-	return scq_load(f->staging, f->got, 0);
+	int e = scq_load(f->staging, f->got, 0);
+	/* the device's engine is built for one instrument and refuses a dream for the other */
+	if (e == 0 && scq_instrument() != (f->wingie ? SCQ_WINGIE : SCQ_SP1)) {
+		e = 1;
+	}
+	return e;
+}
+
+void fake_wingie(struct fake_sp1 *f)
+{
+	f->wingie = 1;
 }
 
 static void handle_line(struct fake_sp1 *f)
@@ -61,9 +79,12 @@ static void handle_line(struct fake_sp1 *f)
 	line[f->line_n] = 0;
 	if (strncmp(line, "SCQ HELLO", 9) == 0) {
 		char r[64];
-		snprintf(r, sizeof r, "SLEEPCOUSONIQUE %s\n", f->version);
+		snprintf(r, sizeof r, f->wingie ? "SLEEPCOUSONIQUE %s WINGIE\n" : "SLEEPCOUSONIQUE %s\n", f->version);
 		say(f, r);
 		f->hellos++;
+	} else if (strncmp(line, "SCQ MEASURE ", 12) == 0) {
+		f->measures++;
+		say(f, "SCQ MEASURED 9100 15200 76800 750 0 12000 126976\n");
 	} else if (strncmp(line, "SCQ LOAD ", 9) == 0) {
 		char *end;
 		long n = strtol(line + 9, &end, 10);
@@ -73,7 +94,7 @@ static void handle_line(struct fake_sp1 *f)
 		} else {
 			f->want = (int)n;
 			f->got = 0;
-			f->want_slot = (s >= 0 && s < SLOTS) ? (int)s : f->slot;
+			f->want_slot = (s >= 0 && s < SLOTS(f)) ? (int)s : f->slot;
 		}
 	} else if (strncmp(line, "SCQ TRY ", 8) == 0) {
 		long n = strtol(line + 8, NULL, 10);
@@ -89,7 +110,7 @@ static void handle_line(struct fake_sp1 *f)
 	} else if (strncmp(line, "SCQ WHO", 7) == 0) {
 		say(f, "SCQ ME FAKE0001 0 DREAM\n");
 	} else if (strncmp(line, "SCQ SLOT ", 9) == 0) {
-		f->slot = ((atoi(line + 9) - 1) % SLOTS + SLOTS) % SLOTS;
+		f->slot = ((atoi(line + 9) - 1) % SLOTS(f) + SLOTS(f)) % SLOTS(f);
 		say(f, "OK 0\n");
 	}
 	f->line_n = 0;
@@ -99,6 +120,9 @@ int fake_feed(struct fake_sp1 *f, const char *bytes, int n)
 {
 	if (f->mode == FAKE_SILENT || f->mode == FAKE_STANDBY || f->mode == FAKE_OTHER) {
 		return n;                 /* taken by the USB stack, never answered */
+	}
+	if (f->boot_ms > 0) {
+		return n;                 /* a Wingie starting again: the bytes are lost */
 	}
 	for (int i = 0; i < n; i++) {
 		char c = bytes[i];
@@ -157,6 +181,37 @@ void fake_tick(struct fake_sp1 *f, uint32_t ms)
 		return;
 	}
 	f->ms += ms;
+	if (f->wingie) {
+		if (f->boot_ms > 0) {
+			f->boot_ms = ms >= f->boot_ms ? 0 : f->boot_ms - ms;
+			if (f->boot_ms == 0) {
+				say(f, "Sleepcousonique for the Wingie: ready\n");
+			}
+			return;
+		}
+		if (f->mode != FAKE_ON && f->mode != FAKE_STALL) {
+			return;
+		}
+		if ((f->status_ms += ms) >= 1000u) {
+			/* the once-a-second report: the load wanders, so the meters' history has something to draw */
+			f->status_ms = 0;
+			int s = (int)((f->ms / 1000u) % 20u);
+			int avg = 30 + (s < 10 ? s : 20 - s), max = avg + 9 + (s % 3) * 4;
+			int dropped = (f->ms / 1000u) % 30u == 7u ? 2 : 0;
+			char r[300];
+			snprintf(r, sizeof r, "SCQ engine avg=%d%% max=%d%%  places=7 scene=1 slot=%d  load=%d.4 peak=%d.1 dropped=%d of 1500 "
+			         "mem=12000/126976 core1=%d%% heap=%d inL=%d inR=%d outL=-18 outR=-19\n",
+			         avg, max, f->slot + 1, avg, max, dropped, 4 + s % 3, 123456 - s * 100, -42 + s, -40 + s / 2);
+			say(f, r);
+		}
+		if (f->watching && (f->hands_ms += ms) >= 32u) {
+			char r[120];
+			f->hands_ms = 0;
+			snprintf(r, sizeof r, "SCQ WHANDS 4095 2048 1000 011 800 1 -1 1 0 2 %d 40 ff\n", f->slot + 1);
+			say(f, r);
+		}
+		return;
+	}
 	uint32_t period = f->mode == FAKE_STANDBY ? 1000u : 5000u;     /* sp1_ui_timing.h */
 	if ((f->status_ms += ms) >= period) {
 		f->status_ms = 0;

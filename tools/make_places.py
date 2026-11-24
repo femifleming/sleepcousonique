@@ -4,7 +4,7 @@ import subprocess, sys, os
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 cat = subprocess.run([os.path.join(root, "tools", "scqtool"), "catalog"], capture_output=True, text=True).stdout
 fam_title = {"source": "Sources", "shape": "Shapes", "space": "Spaces", "current": "Currents",
-             "hands": "Hands (the SP-1's controls)", "ears": "Ears (outputs, LEDs, scenes)"}
+             "hands": "Hands (the SP-1's and the Wingie's controls)", "ears": "Ears (outputs, LEDs, scenes)"}
 rows = {}
 opts = {}
 for line in cat.splitlines():

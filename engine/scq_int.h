@@ -13,7 +13,10 @@
 /* The house: one pool for everything a scene needs room for (delay lines, tables, tunings, and
  * each place's outlet blocks). On the SP-1 it is what the chip's 256 KB leave: 80 KB until 1.2,
  * more since the text is read where it lies and outlets take only the blocks they have. */
+#define SCQ_WINGIE_POOL (70 * 1024)   /* the Wingie's pool, measured 71668 bytes (no PSRAM): a little less, to be safe */
+#ifndef POOL_BYTES
 #define POOL_BYTES (124 * 1024)
+#endif
 #define NAME_LEN   20
 #define MAX_OPT    6     /* switches and params, set when the place is named */
 
@@ -33,7 +36,9 @@ enum {            /* place flags */
 	PF_SINGLE = 1,  /* one per scene, named after itself (controls, outputs) */
 	PF_DRIFT  = 2,  /* its nature drifts from night to night */
 	PF_COUNTED = 4, /* name+digit picks the nature: lean1, door3 */
-	PF_KEEPMEM = 8  /* its memory is written in the dream (a seq's steps): never cleared */
+	PF_KEEPMEM = 8, /* its memory is written in the dream (a seq's steps): never cleared */
+	PF_SP1 = 16,    /* one of the SP-1's own hands or lamps: not on the Wingie */
+	PF_WINGIE = 32  /* one of the Wingie's own hands or lamps: not on the SP-1 */
 };
 
 typedef struct {
@@ -69,6 +74,7 @@ struct node {
 	float    opt[MAX_OPT];         /* switch positions (0, 1, ...) or param values */
 	uint8_t  optset;              /* bit per option written in the dream */
 	uint8_t  rdiv;                /* samplerate=: runs at SCQ_RATE / rdiv (1, 2, 4, 8) */
+	uint8_t  res;                 /* resolution=: 0 block (32), else the step it is run in: 4 fine, 1 audio */
 	int8_t   pitchin;             /* the pitch inlet, or -1 */
 	float    tune;                /* base pitch knob, octaves added to the pitch inlet */
 	uint16_t attset;              /* bit per inlet whose attenuverter isn't 1 */
@@ -105,6 +111,10 @@ typedef struct {
 	float    miss;
 	int      nb;          /* the block the running place sees: SCQ_BLOCK, or less at a lower samplerate */
 	float    sr, isr;     /* the sample rate it sees, and 1/that */
+	const float *inL, *inR;   /* this block of sound coming in (scq_input), never 0 */
+	int      instrument;  /* SCQ_SP1 / SCQ_WINGIE: the dream's */
+	int      want_slot;   /* the slot place: a slot asked for (0-based), or -1 */
+	int      want_step;   /* or a step through the slots: +1 / -1, 0 none */
 } world;
 
 extern world W;
@@ -118,6 +128,6 @@ int place_has_att(const place *p);
 /* tunings written in the dream ("tuning NAME: cents ... period"): period, n, then n degrees in
  * cents (0 first), as the built-in scales; 0 past the last */
 const float *scq_tuning(int index);
-#define RATE_OPT "samplerate=full|half|quarter|eighth"   /* every place but the SP-1's own */           /* sources and pitched places: an attenuverter per inlet */
+#define RATE_OPT "samplerate=full|half|quarter|eighth resolution=block|fine|audio"   /* every place but the SP-1's own */           /* sources and pitched places: an attenuverter per inlet */
 
 #endif

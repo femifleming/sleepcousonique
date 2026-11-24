@@ -1,0 +1,51 @@
+instrument wingie
+; sound system: what the mics hear, tuned, voiced and rebuilt for a big stack.
+; Play the bottom keys to set the key. fader1 (Mix), fader2 (Decay), fader3 (Volume) as noted.
+
+the dub plate
+-------------
+; the room through a comb tuned to the bottom keys, its low end split off and doubled an
+; octave down by a pure sine that follows the bass; fader1 is the sub, fader2 the drive
+the teeth are specfilter shape=harmonics
+the stack is bassman 2
+mic.both -> teeth
+keys1.pitch -> teeth.pitch
+the depth is value 90
+depth -> teeth.shape_amount
+teeth -> stack
+fader1 -> stack.sub
+fader2 -> stack.drive
+stack -> out
+stack.sub -> lights.left
+teeth -> lights.right
+
+the choir in the traffic
+------------------------
+; the mics sung in three just voices (4:5:6:7 over what you hear), the bottom keys move the
+; whole chord, fader1 is how much of the choir
+the choir is harmonizer chord=otonal detune=6
+mic.both -> choir
+keys1.pitch -> choir.pitch
+fader1 -> choir.mix
+choir.left -> left
+choir.right -> right
+choir.left -> lights.left
+choir.right -> lights.right
+
+the highway sings the chord
+---------------------------
+; a just chord takes the spectrum of the traffic: its partials, the hiss's colours.
+; fader1 blends, fader2 smooths it into a vocoder, fader3 is the hall it sounds in
+the drone is chord 2
+the cross is morph
+the hall is reverblite 3
+keys1.pitch -> drone.pitch
+mic.both -> cross.a
+drone -> cross.b
+fader1 -> cross.blend
+fader2 -> cross.smooth
+cross -> hall
+fader3 -> hall.size
+cross hall -> out
+mic.both -> lights.left
+cross -> lights.right

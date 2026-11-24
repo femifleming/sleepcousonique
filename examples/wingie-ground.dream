@@ -1,0 +1,60 @@
+instrument wingie
+; wingie-ground — the room as the instrument: Tuned to the Ground, I Am Sitting in a Room,
+; and Metastaseis. fader1 Mix, fader2 Decay, fader3 the scene's own
+
+2026-11-24 tuned to the ground
+------------------------------
+; hold mode1 and let the place sound (clap, stomp, hum, traffic); let go and the nine
+; resonators take its strongest resonances. Keys strike them; mode2 lets them ring with dust.
+the ground is listen
+the motes is dust 2
+the mix is crossfade
+
+mic.both -> ground
+mode1 -> ground.listen
+keys1.trig keys2.trig -> ground.strike
+motes.pulse ?30> ground.strike
+fader2 -> ground.decay
+fader3 -> motes.density
+mic.both -> mix.a
+ground -> mix.b
+fader1 -> mix.mix
+mix -> out
+ground.locked -> lights.left
+motes.pulse -> lights.right
+
+2026-11-24 sitting in a room
+----------------------------
+; speak into the Wingie. fader3 is how many times the room has heard it (0 to 32);
+; the keys pick nothing, the room picks. fader1 Mix with your own voice
+the room is sittingroom 1
+the mix is crossfade
+
+mic.both -> room
+fader3 -> room.generations
+mic.both -> mix.a
+room -> mix.b
+fader1 -> mix.mix
+mix -> out
+room.room -> lights.left lights.right
+
+2026-11-24 metastaseis
+----------------------
+; nine resonances glide from a unison to a cluster and back, a tap on mode1 each way;
+; the bottom keys set where the unison stands, fader3 the dust, mode2 held staggers them
+the mass is metastaseis 20 chordb=cluster cycle=off
+the mix is crossfade
+
+mic.both -> mass
+mode1.tap -> mass.go
+keys1.pitch -> mass.pitch
+mode2 -> mass.stagger
+fader3 -> mass.density
+fader2 -> mass.decay
+mic.both -> mix.a
+mass.l -> mix.b
+fader1 -> mix.mix
+mix -> left
+mass.r -> right
+mass.pos -> lights.left
+mass.l -> lights.right

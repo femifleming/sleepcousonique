@@ -1,51 +1,63 @@
-**sleepcousonique**: a dream-journal patch language and modular editor for the Teenage Engineering SP-1.
+**sleepcousonique**: a dream-journal patch language and modular editor for the Teenage Engineering SP-1, and now for Meng Qi's Wingie2.
 
 | download | for |
 |---|---|
-| `sleepcousonique-macOS.zip` | the editor and **Sleepcousonique Array** for macOS 11+ (universal), the firmware, manual and examples |
-| `sleepcousonique-Windows.zip` | the editor for Windows 10/11 (64-bit), the firmware, manual and examples |
-| `sleepcousonique-sp1.bin` | the SP-1 firmware on its own |
+| `sleepcousonique-macOS.zip` | the editor and **Sleepcousonique Array** for macOS 11+ (universal), both firmwares, both manuals, examples |
+| `sleepcousonique-Windows.zip` | the editor for Windows 10/11 (64-bit), both firmwares, both manuals, examples |
+| `sleepcousonique-sp1.bin` | the SP-1 firmware 1.5.0 on its own (flash it at solderless.engineering, T1 + T4) |
+| `sleepcousonique-wingie.bin` | the Wingie2 firmware 1.5.0 on its own (esptool, at address 0; GPLv3) |
 | `Sleepcousonique-Manual.pdf` | the manual |
+| `Sleepcousonique-Wingie-Manual.pdf` | the Wingie manual |
 
-**New in 1.4.1: sending and installing, fixed.** A friend's report ("a bug with the .bin, or
-the send to SP-1 button, or flashing") came down to these:
+## New in 1.5.0
 
-- **After flashing, the editor said "Flash the firmware first".** The SP-1 restarts from the
-  updater *switched off* (standby: started by the USB cable, it charges and stays quiet), and the
-  firmware only answers the editor while it plays. The editor took the silence for a missing
-  firmware. It now recognises an SP-1 in standby and says so (in the scene bar and when you send):
-  **hold •• for about a second to turn it on**. FLASHING.txt and the manual said it would start
-  playing by itself; they now say it waits.
-- **send to SP-1 froze the window** for up to 14 s (longer with no SP-1 found), and an SP-1 that
-  stopped reading could hang it for good. Sending now runs beside the window, every step has a time
-  limit, and the editor no longer opens the SP-1's port twice at once (on Windows the second open
-  always failed, which also read as "Flash the firmware first").
-- **Plain reasons when a send fails:** SP-1 off, port busy in another program, other firmware on
-  the SP-1, an SP-1 on older firmware that can't read a newer dream (flash the one in this zip),
-  no SP-1 plugged in. Windows no longer tries COM ports of SP-1s that aren't plugged in.
-- **Windows: Sleepcousonique.exe needed the Visual C++ Redistributable** (VCRUNTIME140.dll,
-  MSVCP140.dll) and didn't start without it; the runtime is now built in.
-- **Homebrew:** the 1.4.0 cask's checksum no longer matched the re-uploaded zip, so new installs
-  failed; the cask is 1.4.1 now.
-- **The firmware is unchanged: 1.4.0** (the same `sleepcousonique-sp1.bin`, checked: built for the
-  SP-1's application slot at 0x20000, never touching the bootloader). If your SP-1 runs 1.4.0
-  there's nothing to flash.
+**The Wingie2.** Put `instrument wingie` at the top of a dream and it plays on a Wingie2 running the
+Sleepcousonique firmware. The editor switches between SP-1 and Wingie in the Device menu and draws the
+real instrument.
+- Both microphones are inputs. Both keyboards are places (`keys1` is the **bottom** keyboard, `keys2`
+  the top), and so are each key, the Mode buttons, the octaves, the three knobs and the lights.
+- **12 slots** on the Wingie, kept through power-off. Hold both Mode buttons and press a bottom key
+  to change slot. Hold one Mode button and tap the other to change scene.
+- **Its own meters.** The CPU and memory figures were measured on a Wingie: about 70 KB of room, and
+  places cost about twice what they do on the SP-1.
+- The firmware is built on Meng Qi's Wingie2 code and is GPLv3. The stock firmware goes back on with
+  Meng Qi's web flasher.
 
-Tests: the USB link is now tested against a pretend SP-1 that speaks the firmware's protocol and
-compiles dreams with the real engine, in process on macOS and Windows, through a real
-pseudo-terminal on macOS, and through the editor's own `--send`. `docs/HARDWARE-CHECK.md` lists the
-checks that need a real SP-1.
+**237 places** (was 96), most of them for processing:
+- **hi-fi granular:** `grains`, `grainfreeze`, `particles`, `paulstretch`, `stretch` and more
+  (smooth windows, not Clouds-style);
+- **spectral:** `specfilter`, `specfreeze`, `specshift`, `specgate`, `spectraldelay`, `harmonizer`;
+- **time:** `shimmer`, `doppler`, `reverse`, `beauty`, `dub`, `swarm` and more;
+- **colour:** `transient`, `eq`, `fuzz`, `autowah`, `chloe` and more.
+- Every place can run at `samplerate=half` or `quarter` to save work, on both instruments.
 
-1.4.0 brought room for bigger patches (about a third less of the SP-1's processor for the same
-dreams; 124 KB, 96 places, 320 passages), a load meter refitted to 390 patches measured on SP-1s,
-and the bell and marimba fix.
+**New in the language:**
+- pitch in units: `7st`, `-50ct`, `1oct`;
+- `resolution=fine|audio` for audio-rate pitch;
+- the `slot` place, so a dream can move to another slot;
+- a scene ignores pulses in its first 0.1 s, so one pulse can't skip two scenes.
 
-**macOS with Homebrew:** `brew tap femifleming/tap && brew install --cask femifleming/tap/sleepcousonique`
+**Too heavy goes back.** A dream that's too heavy for the instrument no longer stutters: it goes
+back to the last dream that fit (on the SP-1, the one kept in the slot; else first night or first
+light), and the editor says so.
 
-**Flashing the SP-1 (once):** turn it off, hold **T1 + T4** and plug in USB (boot mode), open
-[solderless.engineering](https://solderless.engineering) in Chrome or Edge, and flash
-`sleepcousonique-sp1.bin`. It restarts switched off: hold **••** to turn it on. After that the editor sends your dreams over USB. The bootloader is
-never touched: T1 + T4 always brings the SP-1 back. See FLASHING.md.
+**The SP-1's load meter** is remeasured place by place on 1.5.0 (522 patches on an SP-1). Its
+estimates are off by about 2.5 points of the processor on average, where they were 13.7. Five
+example dreams that measured too heavy now use `samplerate=` on their heaviest places.
 
-The macOS app is ad-hoc signed, not notarised: the cask clears the quarantine; from the zip,
-right-click ▸ Open the first time. Unofficial firmware, not affiliated with Teenage Engineering.
+**Fixed:**
+- `shimmer` crashed the SP-1 (a hard reset): its memory was misaligned for the SP-1's processor. A
+  new check (`tools/test_alignment.sh`) runs every place under the compiler's alignment checker so
+  this can't come back.
+- `additive`'s pitch maths returned one octave off internally; it sounds the same as before.
+
+**Flash the SP-1 again:** 1.4 can't read dreams that use the new places. Checked: built for the SP-1's
+application slot at 0x20000, never touching the bootloader.
+
+Tests:
+- every place, and every inlet of every place (18,976 cases);
+- the alignment check;
+- every example dream;
+- the editor's tests and the USB link against a pretend SP-1 and a pretend Wingie;
+- on a real SP-1 and a real Wingie: the fallback, the slot place, scenes, Wingie dreams refused by the
+  SP-1, and the meters.

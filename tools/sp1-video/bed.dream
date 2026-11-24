@@ -1,0 +1,60 @@
+; the music bed under the SP-1 video manual: a plucked string, a marimba and a bell, rung by
+; dust, rain and a little wind, three chords as three scenes in a long dark cavern. An SP-1
+; dream (no instrument line): every scene fits the SP-1, under 85 %. Rendered by bed.c.
+
+C and E minor
+-------------
+the motes is dust 1
+the drops is rain 1
+the air is wind
+the low is string 2
+the mid is marimba 4 tune=7st
+the high is bell 4 tune=16st
+the soft is onepole 20
+the under is cavern samplerate=quarter size=0.6 dark=0.7
+air ~20> low.pluck
+motes -> low.pluck mid.strike
+drops.pulse ?12> high.strike
+low mid -> soft
+high ~30> soft
+soft ~> under
+under.left soft ~> left
+under.right soft ~> right
+
+A minor
+-------
+the motes is dust 1
+the drops is rain 1
+the air is wind
+the low is string 2 tune=-3st
+the mid is marimba 4 tune=4st
+the high is bell 4 tune=12st
+the soft is onepole 20
+the under is cavern samplerate=quarter size=0.6 dark=0.7
+air ~20> low.pluck
+motes -> low.pluck mid.strike
+drops.pulse ?12> high.strike
+low mid -> soft
+high ~30> soft
+soft ~> under
+under.left soft ~> left
+under.right soft ~> right
+
+F and C
+-------
+the motes is dust 1
+the drops is rain 1
+the air is wind
+the low is string 2 tune=-7st
+the mid is marimba 4 tune=5st
+the high is bell 4 tune=9st
+the soft is onepole 20
+the under is cavern samplerate=quarter size=0.6 dark=0.7
+air ~20> low.pluck
+motes -> low.pluck mid.strike
+drops.pulse ?12> high.strike
+low mid -> soft
+high ~30> soft
+soft ~> under
+under.left soft ~> left
+under.right soft ~> right

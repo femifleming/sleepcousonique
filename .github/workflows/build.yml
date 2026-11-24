@@ -93,6 +93,7 @@ jobs:
       - name: The firmware and the manual on their own too
         run: |
           cp firmware/dist/sleepcousonique-sp1.bin docs/manual/Sleepcousonique-Manual.pdf packages/
+          cp firmware-wingie/dist/sleepcousonique-wingie.bin docs/wingie-manual/Sleepcousonique-Wingie-Manual.pdf packages/
           cd packages && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
       - uses: softprops/action-gh-release@v2
         with:

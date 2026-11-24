@@ -50,6 +50,13 @@ const std::vector<PlaceInfo>& catalog()
                 }
                 continue;
             }
+            if (l.startsWith ("I "))       // hands only one instrument has
+            {
+                auto t = juce::StringArray::fromTokens (l, " ", "");
+                for (auto& q : v)
+                    if (t.size() >= 3 && q.name == t[1]) q.only = t[2] == "wingie" ? 1 : 0;
+                continue;
+            }
             if (! l.startsWith ("P ")) continue;
             auto parts = juce::StringArray::fromTokens (l, "|", "");
             if (parts.size() < 3) continue;
@@ -80,7 +87,9 @@ bool knobRange (const PlaceInfo& p, int i, float& lo, float& hi)
     auto n = p.ins[i];
     static const juce::StringArray none { "in", "in1", "in2", "in3", "in4", "a", "b", "mod", "trig", "trig1", "trig2", "strike",
                                           "pluck", "gate", "clock", "reset", "sync", "next", "back", "learn", "follow", "s1", "s2",
-                                          "s3", "s4", "s5", "s6", "s7", "s8", "x", "y" };
+                                          "s3", "s4", "s5", "s6", "s7", "s8", "x", "y", "record", "overdub", "erase", "punch", "throw",
+                                          "freeze", "hold", "capture", "listen", "go", "skip", "flip", "left", "right",
+                                          "carrier", "modulator" };
     if (none.contains (n)) return false;                // sound and pulses come from cords, not knobs
     if (n == "pitch")
     {
@@ -611,5 +620,71 @@ void Document::writePositions()
     }
     ls.add ({});
     setLines (ls);
+}
+
+// ------------------------------------------------------------------------------------------ instruments
+
+// the word after `instrument` on this line (outside a note), or "" if it isn't an instrument line
+static juce::String instrumentWord (const juce::String& line)
+{
+    auto code = line.upToFirstOccurrenceOf (";", false, false).trim();
+    if (! code.startsWith ("instrument")) return {};
+    auto rest = code.substring (10);
+    if (rest.isEmpty() || ! (rest[0] == ' ' || rest[0] == '\t')) return {};
+    return rest.trim().upToFirstOccurrenceOf (" ", false, false).toLowerCase();
+}
+
+int instrumentOf (const juce::String& text)
+{
+    for (auto& l : juce::StringArray::fromLines (text))
+    {
+        auto w = instrumentWord (l);
+        if (w == "wingie") return SCQ_WINGIE;
+        if (w == "sp1" || w == "sp-1") return SCQ_SP1;
+    }
+    return SCQ_SP1;
+}
+
+juce::String withInstrument (const juce::String& text, int instrument)
+{
+    juce::StringArray ls;
+    ls.addLines (text);
+    const bool endsNl = text.endsWithChar ('\n');
+    for (int i = ls.size(); --i >= 0;)
+        if (instrumentWord (ls[i]).isNotEmpty()) ls.remove (i);
+    if (instrument == SCQ_WINGIE)
+    {
+        int at = 0;                 // after the notes the dream opens with (its title); never among the positions
+        while (at < ls.size() && ls[at].trimStart().startsWithChar (';') && ! ls[at].startsWith (";@")) ++at;
+        ls.insert (at, "instrument wingie");
+    }
+    auto out = ls.joinIntoString ("\n");
+    if (endsNl && ! out.endsWithChar ('\n')) out << "\n";
+    return out;
+}
+
+juce::String starterDream (int instrument, const juce::String& date)
+{
+    auto rule = juce::String::repeatedString ("-", date.length());
+    if (instrument != SCQ_WINGIE)
+        return "; a new dream\n\n" + date + "\n" + rule + "\nthe voice is sine 3\nvoice -> out\n";
+    return "; a new dream for the Wingie: what the microphones hear rings in a resonator that the\n"
+           "; left keys tune; Mix blends it with the room, Decay lets it ring, Volume\n"
+           "instrument wingie\n\n"
+           + date + "\n" + rule + "\n"
+           "the ring is comb 2\n"
+           "the blend is crossfade\n"
+           "the level is vca\n"
+           "\n"
+           "mic.both -> ring\n"
+           "mic.both -> blend.a\n"
+           "ring -> blend.b\n"
+           "keys1.pitch -> ring.pitch\n"
+           "fader1 -> blend.mix\n"
+           "fader2 -> ring.decay\n"
+           "blend -> level -> out\n"
+           "fader3 -> level.gain\n"
+           "mic.both -> lights.left\n"
+           "ring -> lights.right\n";
 }
 }

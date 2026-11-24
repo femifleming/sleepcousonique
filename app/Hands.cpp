@@ -295,7 +295,7 @@ void Hands::timerCallback()
     // a connected SP-1: its faders, buttons, scene and LEDs, live. A hardware control only
     // takes over when it actually moves, so the mouse and keys keep working too.
     bool wasLive = live;
-    live = link != nullptr && link->connected();
+    live = link != nullptr && link->device() == serial::sp1;   // (a Wingie on the link has its own panel)
     if (live)
     {
         auto h = link->hands();
@@ -330,7 +330,7 @@ void Hands::timerCallback()
         onStatus (live ? "SP-1 connected on " + link->port() + ": following its hands" : "SP-1 unplugged");
 
     // the computer keyboard as the SP-1's buttons, while you aren't writing
-    bool free = ! (typing && typing());
+    bool free = isShowing() && ! (typing && typing());          // (hidden while a dream for the Wingie is open)
     const int keys[8] = { '1', '2', '3', '4', KeyPress::upKey, KeyPress::downKey, KeyPress::spaceKey, '.' };
     for (int k = 0; k < 8; ++k)
     {

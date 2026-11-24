@@ -282,6 +282,60 @@ int main (int argc, char** argv)
         scq_room (0, 0, 0, 0);
     }
 
+    // ---- the instrument switch (SP-1 / Wingie): a text edit, nothing else changes
+    {
+        const juce::String sp1 = "; my dream\n; second note\n\n2026-11-24\n----------\nthe voice is sine 3\nvoice -> out\n;@ 0 voice 300 40\n";
+        CHECK (scq::instrumentOf (sp1) == SCQ_SP1, "a dream without an instrument line is for the SP-1");
+        auto w = scq::withInstrument (sp1, SCQ_WINGIE);
+        CHECK (w == "; my dream\n; second note\ninstrument wingie\n\n2026-11-24\n----------\nthe voice is sine 3\nvoice -> out\n;@ 0 voice 300 40\n",
+               "switching to the Wingie adds `instrument wingie` after the opening notes, every other line kept");
+        CHECK (scq::instrumentOf (w) == SCQ_WINGIE, "and the dream is then for the Wingie");
+        CHECK (scq::withInstrument (w, SCQ_WINGIE) == w, "switching to the Wingie again changes nothing");
+        CHECK (scq::withInstrument (w, SCQ_SP1) == sp1, "switching back takes the line out: the text is as it was");
+        CHECK (scq::withInstrument ("instrument sp1\nvoice -> out", SCQ_WINGIE) == "instrument wingie\nvoice -> out", "an `instrument sp1` line is replaced, not doubled");
+        CHECK (scq::instrumentOf ("; instrument wingie (a note)\nvoice -> out") == SCQ_SP1, "an instrument named in a note doesn't count");
+        CHECK (scq::instrumentOf ("the voice is sine\n  instrument wingie  ; the Wingie\n") == SCQ_WINGIE, "the line may be anywhere, indented, with a note after");
+        scq::Document d;
+        d.text = sp1;
+        d.setInstrument (SCQ_WINGIE);
+        CHECK (d.dirty && d.instrument() == SCQ_WINGIE, "Document::setInstrument edits the text (undoable: one text change)");
+        CHECK (compile (d) == 0 && scq_instrument() == SCQ_WINGIE, "the engine reads it as a dream for the Wingie");
+        d.text = d.text + "button1 -> voice.fm\n";
+        CHECK (compile (d) > 0, "the SP-1's buttons are a mistake in a dream for the Wingie");
+        d.setInstrument (SCQ_SP1);
+        CHECK (compile (d) == 0 && scq_instrument() == SCQ_SP1, "and fine again once it is for the SP-1");
+
+        auto starter = scq::starterDream (SCQ_WINGIE, "2026-11-24");
+        d.text = starter;
+        CHECK (compile (d) == 0 && scq_instrument() == SCQ_WINGIE, "the starter dream for the Wingie has no mistakes");
+        bool mic = false, keys = false, faders = true, lights = false;
+        for (auto* name : { "fader1", "fader2", "fader3" }) faders = faders && d.nodeNamed (name) != nullptr;
+        mic = d.nodeNamed ("mic") != nullptr; keys = d.nodeNamed ("keys1") != nullptr; lights = d.nodeNamed ("lights") != nullptr;
+        CHECK (mic && keys && faders && lights, "it uses the microphones, the left keys, the three faders and the lights");
+        d.text = scq::starterDream (SCQ_SP1, "2026-11-24");
+        CHECK (compile (d) == 0 && scq_instrument() == SCQ_SP1, "the starter dream for the SP-1 is as before");
+
+        // the catalog's I lines: each instrument's own hands
+        auto* mp = scq::findPlace ("mic"); auto* bp = scq::findPlace ("button"); auto* fp = scq::findPlace ("fader"); auto* lp = scq::findPlace ("lights");
+        CHECK (mp && mp->only == SCQ_WINGIE && lp && lp->only == SCQ_WINGIE && bp && bp->only == SCQ_SP1 && fp && fp->only < 0,
+               "the catalog marks the Wingie's hands, the SP-1's, and the faders both have");
+        CHECK (scq::findPlace ("comb")->on (SCQ_WINGIE) && scq::findPlace ("comb")->on (SCQ_SP1), "a processing place shows for both");
+
+        // downsampling a place in a dream for the Wingie, as in one for the SP-1: the estimate follows
+        d.text = starter;
+        compile (d);
+        const float full = d.load;
+        auto* ring = d.nodeNamed ("ring");
+        CHECK (ring != nullptr, "the starter's resonator is there");
+        bool hasRate = false;
+        if (auto* rp = scq::findPlace ("comb")) for (auto& o : rp->opts) hasRate = hasRate || (o.name == "samplerate" && o.positions.contains ("half"));
+        CHECK (hasRate, "the resonator has a samplerate switch in a Wingie dream too");
+        if (ring) d.setOption (ring->id, "samplerate", "quarter");
+        CHECK (d.text.contains ("the ring is comb 2 samplerate=quarter") || d.text.contains ("samplerate=quarter"), "setting it is a text edit, as for the SP-1");
+        CHECK (compile (d) == 0 && d.load < full, "and the Wingie's load estimate drops");
+        std::printf ("     (%.3f -> %.3f)\n", (double) full, (double) d.load);
+    }
+
     std::printf (failures ? "\n%d FAILED\n" : "\nall good\n", failures);
     return failures ? 1 : 0;
 }

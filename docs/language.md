@@ -1,6 +1,6 @@
 # Sleepcousonique
 
-*A patch language for the SP-1, written like a dream journal.*
+*A patch language for the SP-1 and the Wingie, written like a dream journal.*
 
 Sleepcousonique grows out of four things: the dream journal at femishonuga.com, Peter Blasser's
 Nabra (the knobless tapestry synthesizer), the West Coast thinking of Buchla and Serge, and
@@ -75,7 +75,7 @@ octave up. Tuning starts from the 60 Hz hum: `sine 3` is 180 Hz.
 
 ## Where the places come from
 
-There are about 125 places, each named for what it is: `vco`, `lowpass`, `adsr`, `delay`,
+There are 237 places, each named for what it is: `vco`, `lowpass`, `adsr`, `delay`,
 `quantizer`. The help line says which instrument or idea it comes from: Moog, Buchla (including
 the 100 series: 106, 107, 110, 123, 140, 144, 148, 156, 158, 180), Serge (DUSG, Dual Processor,
 Peak & Trough), Doepfer A-100, ARP, EMS, Oberheim, Roland, Ciat-Lonbarde, Mutable Instruments,
@@ -325,6 +325,66 @@ What the count is, and isn't:
   it, held in memory while the device is near. No names, no addresses, nothing written to
   disk or sent anywhere.
 
+
+## Two instruments: the SP-1 and the Wingie
+
+A dream is for the SP-1 unless it says otherwise. A line `instrument wingie` anywhere in it
+(usually the first) makes it a dream for the **Meng Qi Wingie2**, the handheld resonator with two
+microphones. The editor's **SP-1 | Wingie** switch writes and removes that line for you.
+
+Every processing place works on both. The *hands* differ:
+
+| on the Wingie | what it gives |
+|---|---|
+| `mic` | `left`, `right`, `both`: the two microphones (or line in, by the source switch) |
+| `keys1`, `keys2` | the bottom keyboard and the top one: `pitch` of the last key (octaves; keys2 an octave up; the octave switch adds), `gate`, `trig`, `key` (0 C .. 1 B) |
+| `key1` .. `key24` | one key: 1-12 the bottom keyboard C to B, 13-24 the top. `out` while held, `trig` on press |
+| `mode1`, `mode2` | the Mode buttons, L.MODE and R.MODE: `out` while held, `tap` on a quick press |
+| `octave1`, `octave2` | the octave switches, left (for `keys1`) and right (for `keys2`): -1, 0 or 1 |
+| `source` | 0 microphones, 1 line in |
+| `fader1` `fader2` `fader3` | the faders, labelled Mix, Decay and Volume (they are yours: nothing is fixed to them) |
+| `lights` | `left`, `right`: the two LEDs. They glow red at rest and climb through purple and yellow to white |
+
+The SP-1's own hands (`button1`-`4`, `rocker`, `play`, `dots`, `leds`, `fader4`) are errors in a
+Wingie dream, and the Wingie's in an SP-1 dream.
+
+On the Wingie: hold both Mode buttons and press a key on the bottom keyboard to play that slot (12 slots); hold one
+Mode button and tap the other for the next (right) or previous (left) scene. While both are held
+the dream sees neither Mode button nor the keys.
+
+## Pitch units
+
+A number can carry a pitch unit: `7st` is seven semitones, `-50ct` fifty cents down, `1oct` an
+octave. It works wherever a pitch goes: a kept value into a pitch inlet (`7st -> voice.pitch` is a
+fifth up), the tune knob (`tune=-5st`), a pitch knob (`pitch=3st`), and a seq's steps (`seq 4: 0 7st
+1oct 350ct`, where bare steps stay semitones as before).
+
+## Resolution: audio-rate control
+
+Most places read their pitch, cutoff and rates once a block (32 samples, 0.7 ms). That is
+plenty for hands and slow currents, but a fast oscillator patched into a pitch inlet comes out
+stepped. Any place can be told to look closer:
+
+    the voice is vco 4 resolution=fine        ; every 4 samples
+    the bell is wingie 2 resolution=audio      ; every sample: true audio-rate FM
+
+It costs the place's once-a-block work 8 (fine) or 32 (audio) times over, so use it where you
+hear the difference. It can't be combined with a lower samplerate.
+
+## Too heavy: the last dream that fit
+
+When a dream asks more of the processor than there is, it doesn't fall silent or break up. The
+instrument goes back to what last played calmly for two seconds: the previous scene if a heavy
+scene did it, else the dream that was playing before (on the SP-1, the dream kept in the slot
+when the heavy one only came to try), else the first dream (the SP-1's first night, the Wingie's first light). The console says which.
+
+## Changing slots from inside a dream
+
+`slot` goes to another dream: `the next is slot 3` and a pulse at `next.go` plays slot 3 (the SP-1 has 5 slots, the Wingie 12; a slot past the last is ignored);
+`next` and `back` step to the following or previous slot. Like `scene`, it ignores pulses in the
+first 0.1 s of a scene (a clock pulses as it starts). In the editor, which has no slots, the
+status line says what the instrument would do.
+
 ## Outputs
 
 `left`, `right` and `out` (both) are where sound leaves. `leds` lights the eight LEDs: sound
@@ -339,6 +399,22 @@ chance of landing on a random one instead.
 - **Forgiveness.** A word one letter away from a place or a name is understood, with a
   note: `delya` is taken as `delay`.
 - **Mistakes.** While the journal has mistakes, the last dream that made sense keeps playing.
+
+## The Wingie's limits
+
+Measured on a Wingie2 (ESP32 at 240 MHz, no PSRAM), 48 kHz: 5000 processor cycles a sample.
+
+- **Memory, 70 KB a scene.** Tapes, delay lines and FFT frames share it. A granular tape is its
+  nature in tenths of a second (`grains 6`: 0.6 s, about 58 KB), so one big tape fits, or two
+  shorter ones; `samplerate=half` (or lower) holds the same seconds in half the memory's worth of
+  samples. `tapeloop` and `eis` take about 40 KB each. The editor says "the house is full" where
+  the Wingie would.
+- **Processor.** An empty dream takes 3 %. Some measured places: `sine` 2 %, `reverb` 8 %,
+  `vco` 6 %, the `wingie` resonator 14 %, `grains` 35 %, `stretch` 41 %, `specfilter` 60 %,
+  `morph` 86 %, `harmonizer` 129 % (only at `samplerate=half`), `paulstretch` 71 % (run it at
+  `samplerate=half`: 40 %). The editor's load meter uses these figures; a dream over about 85 %
+  may glitch, and one that goes on missing its deadline falls back to the last dream that fit.
+- **12 slots**, each a dream of up to 16 KB.
 
 ## The SP-1's limits
 

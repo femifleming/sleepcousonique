@@ -1,0 +1,50 @@
+; sound system — a dub desk: a send you throw by hand, a record that skips, a chip echo that screams
+; T1 (button1) throws the rimshot into the echo; fader1 the echo's feedback (past 0.8 it runs away)
+; fader2 the tone; T2 (button2) makes the record skip
+
+2026-11-24
+----------
+the clk is clock 4
+the rim is string 9 damp=0.6 bright=0.8
+the bass is string 1 damp=0.2
+the echo is dub time=0.375 tone=0.4
+the skip is stutter length=0.25 decay=0.8 shrink=0.1 drop=-1
+
+clk.half -> rim.pluck
+clk.bar -> bass.pluck
+rim -> echo
+button1 -> echo.throw
+fader1 -> echo.feedback
+fader2 -> echo.tone
+echo bass -> skip
+button2 -> skip.trig
+skip -> out
+
+The chip
+--------
+; the Chloe's little black chip: fader1 its time (turn it and the pitch bends), fader2 its feedback
+the clk is clock 4
+the rim is string 9 damp=0.6 bright=0.8
+the chip is pt2399
+clk.eighth -> rim.pluck
+rim -> chip
+fader1 -> chip.time
+fader2 -> chip.feedback
+rim -> out
+chip -> out
+
+Beauty
+------
+; eight mirrors: a pluck fanned across the room, each reflection drifting on its own
+the clk is clock 3
+the note is string 6
+the hall is beauty time=0.7 spread=1 feedback=0.4 jitter=0.5 samplerate=half
+the turn is reverse size=0.6 mix=1 feedback=0.3 samplerate=half
+clk.beat -> note.pluck
+note -> hall
+fader1 -> hall.jitter
+fader2 -> hall.spread
+hall.left -> left
+hall.right -> right
+note -> turn
+turn -40> out

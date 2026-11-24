@@ -26,7 +26,7 @@
 #include <math.h>
 #include "../engine/scq.h"
 
-#define MAXP   200
+#define MAXP   256
 #define MAXIO  12
 #define BLK    SCQ_BLOCK
 

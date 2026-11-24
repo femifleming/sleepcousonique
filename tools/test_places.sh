@@ -14,8 +14,8 @@ for p in $(./tools/scqtool catalog | awk '$1=="P" && $3!="hands" && $3!="ears" &
     echo "the x is $p"; echo "the clk is clock"; echo "the src is vco 3"
     for i in $ins; do case "$p.$i" in
       trigdelay.in|bernoulli.in|trigger.in) echo "clk.eighth -> x.$i";;
-      *.in|*.a|*.b|*.carrier|*.modulator|*.in1|*.in2|*.in3|*.in4|*.in5|*.in6) echo "src -> x.$i";;
-      *.strike|*.pluck|*.trig|*.trig1|*.trig2|*.cv1|*.cv2|*.clock|*.gate|*.next|*.record|*.burst|*.sync|*.hold) echo "clk.eighth -> x.$i";;
+      *.in|*.left|*.right|*.a|*.b|*.carrier|*.modulator|*.in1|*.in2|*.in3|*.in4|*.in5|*.in6) echo "src -> x.$i";;
+      *.strike|*.capture|*.pluck|*.trig|*.trig1|*.trig2|*.cv1|*.cv2|*.clock|*.gate|*.next|*.record|*.burst|*.sync|*.hold) echo "clk.eighth -> x.$i";;
     esac; done
     first=1; for o in $outs; do
       if [ $first = 1 ]; then echo "x -> out"; first=0; else echo "x.$o -60> out"; fi

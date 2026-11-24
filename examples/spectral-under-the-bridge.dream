@@ -1,0 +1,61 @@
+instrument wingie
+; under the bridge: the Wingie's microphones listen to a place and the place becomes the sound.
+; Mode 1 (a quick tap) captures the room: tap it, then clap, stamp or knock once, and for a
+; quarter of a second the bridge is recorded; from then on everything the mics hear sounds
+; inside it. fader1 (Mix) is how much of the bridge, fader3 (Volume) how loud.
+; The left LED follows the mics, the right one what comes out. Best on headphones.
+
+the bridge
+----------
+the arch is convolve 1
+the drift is lfo
+the walker is binaural
+mic.both -> arch
+mode1.tap -> arch.capture
+fader1 -> arch.mix
+arch -> walker
+drift.saw -> walker.azimuth        ; the sound walks slowly round your head
+fader2 -> drift.rate
+walker.left -> left
+walker.right -> right
+mic.both -> lights.left
+arch -> lights.right
+
+the tonal skeleton
+------------------
+; only the strongest partials of the traffic, sung again as sines, then each one echoed at its
+; own time. Hold Mode 2 to freeze the skeleton; the bottom keys transpose it.
+the bones are resynth 2
+the echoes are spectraldelay 1 curve=rising
+the field is ambi
+mic.both -> bones
+keys1.pitch -> bones.pitch
+mode2 -> bones.freeze
+fader1 -> bones.partials
+bones -> echoes
+fader2 -> echoes.feedback
+echoes ~> field
+bones -> field
+the slow is lfo
+slow.sine -> field.azimuth
+field.left -> left
+field.right -> right
+bones -> lights.left
+echoes -> lights.right
+
+the drier room
+--------------
+; the same place with its reverberation taken away (fader1 down: wetter, up: drier),
+; and the hiss under it gated off: only the events stay
+the dry is deverb
+the clean is specgate
+the ear is crossfeed
+mic.both -> dry
+fader1 -> dry.amount
+dry -> clean
+fader2 -> clean.threshold
+clean -> ear.in1 ear.in2
+ear.left -> left
+ear.right -> right
+dry -> lights.left
+clean -> lights.right

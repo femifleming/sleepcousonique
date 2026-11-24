@@ -145,11 +145,66 @@ std::unique_ptr<Wire> open (const juce::String& port)
     return o ? o (port) : openPort (port);
 }
 
-juce::StringArray candidates()
+juce::String deviceName (int device) { return device == wingie ? "Wingie" : "SP-1"; }
+
+#if JUCE_WINDOWS
+// COM ports of the USB devices whose Enum\USB key starts with `vidPid`, plugged in now
+static void comPortsOf (const wchar_t* vidPid, juce::StringArray& out)
+{
+    HKEY usb;
+    if (RegOpenKeyExW (HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Enum\\USB", 0, KEY_READ, &usb) != ERROR_SUCCESS) return;
+    wchar_t dev[256];
+    for (DWORD i = 0; ; ++i)
+    {
+        DWORD n = 256;
+        if (RegEnumKeyExW (usb, i, dev, &n, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS) break;
+        if (! juce::String (dev).startsWithIgnoreCase (juce::String (vidPid))) continue;
+        HKEY d;
+        if (RegOpenKeyExW (usb, dev, 0, KEY_READ, &d) != ERROR_SUCCESS) continue;
+        wchar_t inst[256];
+        for (DWORD j = 0; ; ++j)
+        {
+            DWORD m = 256;
+            if (RegEnumKeyExW (d, j, inst, &m, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS) break;
+            juce::String key = juce::String (inst) + "\\Device Parameters";
+            HKEY pk;
+            if (RegOpenKeyExW (d, key.toWideCharPointer(), 0, KEY_READ, &pk) != ERROR_SUCCESS) continue;
+            wchar_t name[64] {}; DWORD sz = sizeof (name) - sizeof (wchar_t), type = 0;
+            wchar_t target[512];
+            if (RegQueryValueExW (pk, L"PortName", nullptr, &type, (LPBYTE) name, &sz) == ERROR_SUCCESS && type == REG_SZ
+                 && QueryDosDeviceW (name, target, 512) != 0)        // plugged in now (not just remembered)
+                out.addIfNotAlreadyThere (juce::String (name));
+            RegCloseKey (pk);
+        }
+        RegCloseKey (d);
+    }
+    RegCloseKey (usb);
+}
+static juce::StringArray wingieComPorts;   // the CH340 ports candidates() found last (a COM name says nothing)
+static juce::CriticalSection wingieComLock;
+#endif
+
+bool mightBeWingie (const juce::String& port)
+{
+    auto name = port.fromLastOccurrenceOf ("/", false, false);
+   #if JUCE_WINDOWS
+    { const juce::ScopedLock sl (wingieComLock); if (wingieComPorts.contains (port)) return true; }
+   #endif
+    return name.startsWith ("cu.usbserial") || name.startsWith ("cu.wchusbserial") || name.startsWith ("ttyUSB")
+        || name.containsIgnoreCase ("wingie");          // (the tests' pretend ports)
+}
+
+juce::StringArray candidates (bool wingies)
 {
     {
         const juce::ScopedLock sl (testLock);
-        if (testOpener) return testPorts;
+        if (testOpener)
+        {
+            if (wingies) return testPorts;
+            juce::StringArray sp1s;             // a pretend Wingie is left alone too
+            for (auto& p : testPorts) if (! mightBeWingie (p)) sp1s.add (p);
+            return sp1s;
+        }
     }
     juce::StringArray out;
     auto env = juce::SystemStats::getEnvironmentVariable ("SCQ_PORTS", {});
@@ -162,43 +217,36 @@ juce::StringArray candidates()
    #if JUCE_MAC
     for (auto& f : juce::File ("/dev").findChildFiles (juce::File::findFiles, false, "cu.usbmodem*")) out.add (f.getFullPathName());
     out.sort (true);
+    if (wingies)                      // the Wingie's CH340, after the SP-1s
+    {
+        juce::StringArray w;
+        for (auto* pat : { "cu.usbserial-*", "cu.wchusbserial*" })
+            for (auto& f : juce::File ("/dev").findChildFiles (juce::File::findFiles, false, pat)) w.addIfNotAlreadyThere (f.getFullPathName());
+        w.sort (true);
+        out.addArray (w);
+    }
    #elif JUCE_LINUX
     for (auto& f : juce::File ("/dev").findChildFiles (juce::File::findFiles, false, "ttyACM*")) out.add (f.getFullPathName());
     out.sort (true);
+    if (wingies)
+    {
+        juce::StringArray w;
+        for (auto& f : juce::File ("/dev").findChildFiles (juce::File::findFiles, false, "ttyUSB*")) w.add (f.getFullPathName());
+        w.sort (true);
+        out.addArray (w);
+    }
    #elif JUCE_WINDOWS
     // the SP-1 running Sleepcousonique is USB 2FE3:5C51 (a composite device: its serial port is
     // interface 0, "VID_2FE3&PID_5C51&MI_00"); Windows keeps the COM port name under Enum\USB.
     // Devices seen before but not plugged in now stay listed there too: QueryDosDevice tells
-    // which COM ports exist right now.
-    HKEY usb;
-    if (RegOpenKeyExW (HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Enum\\USB", 0, KEY_READ, &usb) == ERROR_SUCCESS)
+    // which COM ports exist right now. The Wingie's CH340 is 1A86:7523.
+    comPortsOf (L"VID_2FE3&PID_5C51", out);
+    if (wingies)
     {
-        wchar_t dev[256];
-        for (DWORD i = 0; ; ++i)
-        {
-            DWORD n = 256;
-            if (RegEnumKeyExW (usb, i, dev, &n, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS) break;
-            if (! juce::String (dev).startsWithIgnoreCase ("VID_2FE3&PID_5C51")) continue;
-            HKEY d;
-            if (RegOpenKeyExW (usb, dev, 0, KEY_READ, &d) != ERROR_SUCCESS) continue;
-            wchar_t inst[256];
-            for (DWORD j = 0; ; ++j)
-            {
-                DWORD m = 256;
-                if (RegEnumKeyExW (d, j, inst, &m, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS) break;
-                juce::String key = juce::String (inst) + "\\Device Parameters";
-                HKEY pk;
-                if (RegOpenKeyExW (d, key.toWideCharPointer(), 0, KEY_READ, &pk) != ERROR_SUCCESS) continue;
-                wchar_t name[64] {}; DWORD sz = sizeof (name) - sizeof (wchar_t), type = 0;
-                wchar_t target[512];
-                if (RegQueryValueExW (pk, L"PortName", nullptr, &type, (LPBYTE) name, &sz) == ERROR_SUCCESS && type == REG_SZ
-                     && QueryDosDeviceW (name, target, 512) != 0)        // plugged in now (not just remembered)
-                    out.addIfNotAlreadyThere (juce::String (name));
-                RegCloseKey (pk);
-            }
-            RegCloseKey (d);
-        }
-        RegCloseKey (usb);
+        juce::StringArray w;
+        comPortsOf (L"VID_1A86&PID_7523", w);
+        { const juce::ScopedLock sl (wingieComLock); wingieComPorts = w; }
+        out.addArray (w);
     }
    #endif
     return out;
@@ -265,7 +313,9 @@ Hello greet (Wire& w, const std::function<bool()>& stop)
         if (l.startsWith ("SLEEPCOUSONIQUE"))
         {
             h.what = Hello::sleepcousonique;
-            h.version = l.fromFirstOccurrenceOf ("SLEEPCOUSONIQUE", false, false).trim().upToFirstOccurrenceOf (" ", false, false);
+            auto words = juce::StringArray::fromTokens (l.fromFirstOccurrenceOf ("SLEEPCOUSONIQUE", false, false).trim(), " ", "");
+            h.version = words[0];
+            h.device = words[1] == "WINGIE" ? wingie : sp1;    // the SP-1 says nothing after its version
             return true;
         }
         return false;
@@ -297,6 +347,12 @@ juce::String explain (const Hello& h, const juce::String& port)
 {
     const auto dots = juce::String::fromUTF8 ("\xe2\x80\xa2\xe2\x80\xa2");   // the SP-1's power button
     auto name = port.fromLastOccurrenceOf ("/", false, false);
+    if (mightBeWingie (port) && h.what != Hello::sleepcousonique)
+        return h.what == Hello::silent
+            ? name + " (a USB serial port, as a Wingie's) never answered. If it's the Wingie: unplug it and plug it "
+                     "in again, and quit any other program that has its port open (a serial monitor, the Arduino IDE)."
+            : name + " is talking, but not as Sleepcousonique: if it's a Wingie, it runs its own firmware. Flash the "
+                     "Sleepcousonique Wingie firmware (see FLASHING.md); or this is another USB serial device.";
     switch (h.what)
     {
         case Hello::sleepcousonique: return {};
@@ -317,6 +373,16 @@ juce::String explain (const Hello& h, const juce::String& port)
     }
 }
 
+juce::String mismatch (int dreamFor, int device, const juce::String& port)
+{
+    if (dreamFor < 0 || device < 0 || dreamFor == device) return {};
+    auto on = port.isNotEmpty() ? " on " + port.fromLastOccurrenceOf ("/", false, false) : juce::String();
+    return "This dream is for the " + deviceName (dreamFor) + ", and the device connected" + on + " is "
+           + (device == wingie ? "a Wingie" : "an SP-1") + ", so it wasn't sent. Plug in the " + deviceName (dreamFor)
+           + ", or switch the dream to the " + deviceName (device) + " (the SP-1 / Wingie switch in the toolbar) "
+           "and send again.";
+}
+
 static juce::String busy (const juce::String& port)
 {
    #if JUCE_MAC || JUCE_LINUX
@@ -330,6 +396,10 @@ static juce::String busy (const juce::String& port)
 static const char* const noSP1 = "No SP-1 is plugged in (no USB serial port for it found). Connect it with a "
                                  "data cable (not a charge-only one) and turn it on; if this is its first time, "
                                  "flash sleepcousonique-sp1.bin first (see FLASHING.txt).";
+static const char* const noWingie = "No Wingie is plugged in (no USB serial port for it found). Connect it with a "
+                                    "data cable; if this is its first time, flash the Sleepcousonique Wingie firmware "
+                                    "first (see FLASHING.md).";
+static juce::String nothingFor (int instrument) { return instrument == wingie ? noWingie : noSP1; }
 
 bool writeDream (Wire& w, const std::string& body, int slot, const std::function<void (const char*, int)>& between)
 {
@@ -373,9 +443,25 @@ static bool older (const juce::String& a, const juce::String& b)
     return false;
 }
 
-juce::String describeReply (const juce::String& reply, const juce::String& sp1Version)
+juce::String describeReply (const juce::String& reply, const juce::String& sp1Version, int device)
 {
     if (reply.startsWith ("OK")) return {};
+    if (device == wingie)
+    {
+        if (reply.isEmpty()) return "The Wingie didn't answer.";
+        if (reply.startsWith ("ERR too big")) return "The Wingie has no room for a dream this long (a slot keeps 16 KB of text).";
+        if (reply.startsWith ("ERR could not save"))
+            return "The Wingie is playing the dream but couldn't keep it in its slot, so it will be gone when the "
+                   "Wingie is switched off. Send it again.";
+        if (reply.startsWith ("ERR") && reply.contains ("mistake"))
+        {
+            int n = reply.fromFirstOccurrenceOf ("ERR", false, false).trim().getIntValue();
+            return "The Wingie found " + juce::String (n) + (n == 1 ? " mistake" : " mistakes") + " in this dream and kept "
+                   "playing the one it had. A dream for the SP-1 (without an `instrument wingie` line) is one; places "
+                   "added since its firmware " + sp1Version + " are another (flash the firmware that came with this editor).";
+        }
+        return "The Wingie said: " + reply;
+    }
     auto oldFirmware = sp1Version.isNotEmpty() && older (sp1Version, SCQ_FIRMWARE_VERSION)
         ? " The SP-1 is running firmware " + sp1Version + "; this editor comes with " SCQ_FIRMWARE_VERSION
           ", and places and room added since aren't on the SP-1 yet. Flash the sleepcousonique-sp1.bin that "
@@ -398,10 +484,10 @@ juce::String describeReply (const juce::String& reply, const juce::String& sp1Ve
     return "The SP-1 said: " + reply + oldFirmware;
 }
 
-juce::String send (const juce::String& text, int slot, juce::String& portUsed)
+juce::String send (const juce::String& text, int slot, juce::String& portUsed, int instrument)
 {
-    auto ports = candidates();
-    if (ports.isEmpty()) return noSP1;
+    auto ports = candidates (instrument >= 0);      // -1 (the command line's --send): SP-1s, as ever
+    if (ports.isEmpty()) return nothingFor (instrument);
     juce::String why;
     int whyRank = -1;
     auto note = [&] (const juce::String& w, int rank) { if (rank > whyRank) { why = w; whyRank = rank; } };
@@ -415,16 +501,17 @@ juce::String send (const juce::String& text, int slot, juce::String& portUsed)
             note (explain (h, path), h.what == Hello::standby ? 4 : h.what == Hello::otherFirmware ? 3 : 0);
             continue;
         }
+        if (auto m = mismatch (instrument, h.device, path); m.isNotEmpty()) { note (m, 5); continue; }   // the other instrument
         portUsed = path;
         Lines in (*w);
         if (! writeDream (*w, text.toStdString(), slot, [&] (const char* c, int n) { in.buf.append (c, (size_t) n); }))
-            return "The SP-1 on " + path.fromLastOccurrenceOf ("/", false, false) + " stopped taking the dream halfway. "
+            return "The " + deviceName (h.device) + " on " + path.fromLastOccurrenceOf ("/", false, false) + " stopped taking the dream halfway. "
                    "Unplug it, plug it in again and send again.";
         juce::String l, reply;
         auto until = now() + (juce::uint32) timing.replyWait;
         while (left (until) > 0 && ! in.gone)
             if (in.next (l, left (until)) && (l.startsWith ("OK") || l.startsWith ("ERR"))) { reply = l; break; }
-        return describeReply (reply, h.version);
+        return describeReply (reply, h.version, h.device);
     }
     return why;
 }
@@ -449,7 +536,7 @@ juce::String ask (const juce::String& port, const juce::String& line, const juce
 
 bool Link::enabled = true;
 
-Link::Link() : juce::Thread ("SP-1 link") { if (enabled) startThread(); }
+Link::Link (bool wingies) : juce::Thread ("SP-1 link"), lookForWingies (wingies) { if (enabled) startThread(); }
 
 Link::~Link()
 {
@@ -463,6 +550,9 @@ juce::String Link::port() const { const juce::ScopedLock sl (lock); return portN
 juce::String Link::version() const { const juce::ScopedLock sl (lock); return sp1Version; }
 juce::String Link::note() const { const juce::ScopedLock sl (lock); return isConnected ? juce::String() : why; }
 Link::Hands Link::hands() const { const juce::ScopedLock sl (lock); return latest; }
+Link::WHands Link::whands() const { const juce::ScopedLock sl (lock); return latestW; }
+juce::String Link::lastEvent (juce::uint32& count) const { const juce::ScopedLock sl (lock); count = eventCount; return event; }
+
 Link::Measured Link::measured() const { const juce::ScopedLock sl (lock); return meas; }
 
 void Link::finishSend (const juce::String& result)
@@ -479,20 +569,30 @@ void Link::drop()
     wire.reset();
     isConnected = false;
     partial.clear();
-    { const juce::ScopedLock sl (lock); why = "The SP-1 went away (unplugged, or switched off)."; }
+    auto name = deviceName (connectedDevice.load());
+    {
+        const juce::ScopedLock sl (lock);
+        why = "The " + name + " went away (unplugged, or switched off).";
+        meas = {};
+    }
     bool waiting;
     { const juce::ScopedLock sl (sendLock); waiting = awaitingReply || sendRequested; sendRequested = false; }
-    if (waiting) finishSend ("The SP-1 went away before it answered.");
+    if (waiting) finishSend ("The " + name + " went away before it answered.");
 }
 
 bool Link::connect()
 {
-    auto ports = candidates();
+    auto ports = candidates (lookForWingies);
+    // a CH340 port that answered as something else isn't opened again until it's replugged:
+    // every opening resets whatever is on it
+    for (int i = notOurs.size(); --i >= 0;) if (! ports.contains (notOurs[i])) notOurs.remove (i);
     juce::String reason = ports.isEmpty() ? juce::String (noSP1) : juce::String();
     int rank = -1;
     for (auto& path : ports)
     {
         if (threadShouldExit()) return false;
+        const bool ch340 = lookForWingies && mightBeWingie (path);
+        if (ch340 && notOurs.contains (path)) { if (rank < 2) { Hello other; other.what = Hello::otherFirmware; reason = explain (other, path); rank = 2; } continue; }
         auto w = open (path);
         if (w == nullptr) { if (rank < 1) { reason = busy (path); rank = 1; } continue; }
         auto h = greet (*w, [this] { return threadShouldExit(); });
@@ -500,6 +600,7 @@ bool Link::connect()
         {
             int r = h.what == Hello::standby ? 4 : h.what == Hello::otherFirmware ? 3 : 0;
             if (r > rank) { reason = explain (h, path); rank = r; }
+            if (ch340 && h.what == Hello::otherFirmware) notOurs.add (path);
             continue;
         }
         if (! writeAll (*w, "SCQ WATCH 1\n", 12, 2000)) continue;
@@ -510,7 +611,9 @@ bool Link::connect()
             portName = path;
             sp1Version = h.version;
             why.clear();
+            meas = {};
         }
+        connectedDevice = h.device;
         isConnected = true;
         return true;
     }
@@ -546,34 +649,103 @@ void Link::handle (const juce::String& line)
         latest = h;
         return;
     }
+    if (line.startsWith ("SCQ WHANDS "))
+    {
+        WHands h;
+        if (! parseWHands (line, h)) return;
+        const juce::ScopedLock sl (lock);
+        h.count = latestW.count + 1;
+        latestW = h;
+        return;
+    }
+    if (line.startsWith ("SCQ too heavy"))     // the device went back to something lighter
+    {
+        const juce::ScopedLock sl (lock);
+        event = line.fromFirstOccurrenceOf ("SCQ ", false, false).trim();
+        ++eventCount;
+        return;
+    }
     if (line.contains ("SCQ engine avg="))
     {
-        auto t = line.fromFirstOccurrenceOf ("SCQ engine avg=", false, false);
         Measured m;
-        m.avg = t.getIntValue();
-        m.peak = t.fromFirstOccurrenceOf ("max=", false, false).getIntValue();
-        m.over = t.contains ("OVER BUDGET");
+        if (! parseReport (line, m)) return;
         m.when = now();
         const juce::ScopedLock sl (lock);
+        m.count = meas.count + 1;
         meas = m;
         return;
     }
     bool mine;
     { const juce::ScopedLock sl (sendLock); mine = awaitingReply && (line.startsWith ("OK") || line.startsWith ("ERR")); }
-    if (mine) finishSend (describeReply (line, version()));
+    if (mine) finishSend (describeReply (line, version(), connectedDevice.load()));
 }
 
-juce::String Link::send (const juce::String& text, int slot, int waitForSP1Ms)
+// "SCQ WHANDS <f1> <f2> <f3> <keys1 hex> <keys2 hex> <mode bits> <oct1> <oct2> <source> <scene> <slot> <lampL> <lampR>"
+bool Link::parseWHands (const juce::String& line, WHands& h)
 {
-    if (! isThreadRunning()) return "The SP-1 link is off (--no-link).";
+    auto t = juce::StringArray::fromTokens (line.fromFirstOccurrenceOf ("SCQ WHANDS ", false, false), " ", "");
+    if (t.size() < 13) return false;
+    for (int k = 0; k < 3; ++k) h.fader[k] = juce::jlimit (0.0f, 1.0f, (float) t[k].getIntValue() / 4095.0f);
+    h.keys[0] = (juce::uint32) t[3].getHexValue32() & 0xfffu;
+    h.keys[1] = (juce::uint32) t[4].getHexValue32() & 0xfffu;
+    h.mode = (juce::uint32) t[5].getIntValue() & 3u;
+    h.octave[0] = juce::jlimit (-1, 1, t[6].getIntValue());
+    h.octave[1] = juce::jlimit (-1, 1, t[7].getIntValue());
+    h.source = t[8].getIntValue() ? 1 : 0;
+    h.scene = t[9].getIntValue();
+    h.slot = t[10].getIntValue();
+    h.lamp[0] = (float) (t[11].getHexValue32() & 0xff) / 255.0f;
+    h.lamp[1] = (float) (t[12].getHexValue32() & 0xff) / 255.0f;
+    return true;
+}
+
+// "SCQ engine avg=12% max=20%  places=7 scene=1 slot=1  load=12.3 peak=20.1 dropped=0 of 750
+//  mem=12000/126976 core1=4% heap=123456 inL=-42 inR=-40 outL=-18 outR=-19" (an SP-1 stops after mem=,
+//  or says OVER BUDGET); each word is read where it is, so either order and missing words are fine
+bool Link::parseReport (const juce::String& line, Measured& m)
+{
+    auto t = line.fromFirstOccurrenceOf ("SCQ engine ", false, false);
+    if (! t.startsWith ("avg=")) return false;
+    auto words = juce::StringArray::fromTokens (t, " ", "");
+    auto value = [&] (const char* key, juce::String& out)
+    {
+        for (int i = 0; i < words.size(); ++i)
+            if (words[i].startsWith (juce::String (key) + "=")) { out = words[i].fromFirstOccurrenceOf ("=", false, false); return true; }
+        return false;
+    };
+    juce::String v;
+    if (value ("avg", v)) m.avg = v.getIntValue();
+    if (value ("max", v)) m.peak = v.getIntValue();
+    if (value ("load", v)) m.load = v.getFloatValue();
+    if (value ("peak", v)) m.loadPeak = v.getFloatValue();
+    if (value ("dropped", v))
+    {
+        m.dropped = v.getIntValue();
+        int at = words.indexOf ("dropped=" + v);
+        if (at >= 0 && words[at + 1] == "of") m.blocks = words[at + 2].getIntValue();
+    }
+    if (value ("mem", v)) { m.memUsed = v.upToFirstOccurrenceOf ("/", false, false).getIntValue(); m.memTotal = v.fromFirstOccurrenceOf ("/", false, false).getIntValue(); }
+    if (value ("core1", v)) m.core1 = v.getIntValue();
+    if (value ("heap", v)) m.heap = v.getIntValue();
+    auto db = [&] (const char* key, int& out) { if (value (key, v)) out = juce::jlimit (-99, 0, v.getIntValue()); };
+    db ("inL", m.inL); db ("inR", m.inR); db ("outL", m.outL); db ("outR", m.outR);
+    m.over = t.contains ("OVER BUDGET") || m.dropped > 0;
+    return m.avg >= 0;
+}
+
+juce::String Link::send (const juce::String& text, int slot, int waitForSP1Ms, int instrument)
+{
+    if (! isThreadRunning()) return "The " + deviceName (instrument) + " link is off (--no-link).";
     const juce::ScopedLock one (oneSend);
     auto until = now() + (juce::uint32) juce::jmax (0, waitForSP1Ms);
     while (! isConnected && left (until) > 0) juce::Thread::sleep (50);
     if (! isConnected)
     {
         auto n = note();
-        return n.isNotEmpty() ? n : juce::String ("Still looking for the SP-1: send again in a moment.");
+        if (instrument == wingie && (n.isEmpty() || n.startsWith ("No SP-1"))) n = noWingie;
+        return n.isNotEmpty() ? n : "Still looking for the " + deviceName (instrument) + ": send again in a moment.";
     }
+    if (auto m = mismatch (instrument, connectedDevice.load(), port()); m.isNotEmpty()) return m;
     juce::uint32 ticket;
     {
         const juce::ScopedLock sl (sendLock);
@@ -589,10 +761,10 @@ juce::String Link::send (const juce::String& text, int slot, int waitForSP1Ms)
         const juce::ScopedLock sl (sendLock);
         sendRequested = false;
         awaitingReply = false;
-        return "The SP-1 didn't answer.";
+        return "The " + deviceName (connectedDevice.load()) + " didn't answer.";
     }
     const juce::ScopedLock sl (sendLock);
-    return doneTicket == ticket ? sendResult : juce::String ("The SP-1 didn't answer.");
+    return doneTicket == ticket ? sendResult : "The " + deviceName (connectedDevice.load()) + " didn't answer.";
 }
 
 void Link::run()
@@ -620,7 +792,7 @@ void Link::run()
             }
             if (! writeDream (*wire, body, slot, [this] (const char* c, int n) { heard (c, n); }))
             {
-                finishSend ("The SP-1 stopped taking the dream halfway. Unplug it, plug it in again and send again.");
+                finishSend ("The " + deviceName (connectedDevice.load()) + " stopped taking the dream halfway. Unplug it, plug it in again and send again.");
                 drop();
                 continue;
             }
@@ -632,7 +804,7 @@ void Link::run()
             const juce::ScopedLock sl (sendLock);
             late = awaitingReply && now() > replyDeadline;
         }
-        if (late) finishSend (describeReply ({}, version()));
+        if (late) finishSend (describeReply ({}, version(), connectedDevice.load()));
         // read whatever has arrived
         char buf[512];
         int n = wire->read (buf, (int) sizeof buf, 30);

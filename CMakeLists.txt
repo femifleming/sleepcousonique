@@ -3,10 +3,10 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Universal binary")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS")
 
-project(Sleepcousonique VERSION 1.4.1 LANGUAGES C CXX)
+project(Sleepcousonique VERSION 1.5.0 LANGUAGES C CXX)
 # the SP-1 firmware that ships with this editor (firmware/dist/sleepcousonique-sp1.bin, SCQ_VERSION
 # in firmware/app/src/sp1_scq.c): the editor tells an SP-1 running an older one to update
-set(SCQ_FIRMWARE_VERSION "1.4.0")
+set(SCQ_FIRMWARE_VERSION "1.5.0")
 
 # Windows: the C runtime linked into the .exe, so it starts on a PC without the Visual C++
 # Redistributable (no VCRUNTIME140.dll / MSVCP140.dll to install)
@@ -61,12 +61,13 @@ set_property(SOURCE app/Serial.cpp APPEND PROPERTY COMPILE_DEFINITIONS "SCQ_FIRM
 
 juce_add_gui_app(Sleepcousonique
     PRODUCT_NAME "Sleepcousonique${SCQ_SUFFIX}"
-    VERSION 1.4.1
+    VERSION ${PROJECT_VERSION}
     COMPANY_NAME "Sleepcousonique"
     BUNDLE_ID "com.sleepcousonique.editor${SCQ_ID_SUFFIX}"
     DOCUMENT_EXTENSIONS dream
     ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/app/icon/icon.png"
-    MICROPHONE_PERMISSION_ENABLED FALSE
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "A dream for the Wingie hears the computer's microphone as the Wingie's, only while you turn listening on."
     BLUETOOTH_PERMISSION_ENABLED TRUE
     BLUETOOTH_PERMISSION_TEXT "A dream with a crowd in it listens for the Bluetooth devices nearby: how many there are and how strong. Nothing about them is kept or sent.")
 
@@ -89,6 +90,7 @@ target_sources(Sleepcousonique PRIVATE
     app/Pop.cpp
     app/Timeline.cpp
     app/Radio.cpp
+    app/Wingie.cpp
     app/MainComponent.cpp)
 if(APPLE)
     # the room: CoreBluetooth hears the devices nearby (the crowd and visitors places)
@@ -138,7 +140,7 @@ endif()
 # Sleepcousonique Array: SP-1s in interface mode as one multichannel output (macOS)
 juce_add_gui_app(SleepcousoniqueArray
     PRODUCT_NAME "Sleepcousonique Array${SCQ_SUFFIX}"
-    VERSION 1.4.1
+    VERSION ${PROJECT_VERSION}
     COMPANY_NAME "Sleepcousonique"
     BUNDLE_ID "com.sleepcousonique.array${SCQ_ID_SUFFIX}"
     ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/array/icon/icon.png"
