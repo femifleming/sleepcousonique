@@ -1,0 +1,14 @@
+file,estimate,avg,max,budget,dropped,mem
+examples/wingie-bird.dream,0.436,118231,121997,320000,0,4120
+examples/wingie-cocoquantus.dream,0.436,136635,140291,320000,0,42380
+examples/wingie-first-light.dream,0.354,90967,94267,320000,0,42692
+examples/wingie-fourbit.dream,0.619,172075,179887,320000,0,5556
+examples/wingie-ground.dream,0.3,75021,78634,320000,0,5164
+examples/grain-glass-field.dream,0.54,112563,175306,320000,0,69728
+examples/grain-slow-weather.dream,0.275,114951,853662,320000,4,69728
+examples/grain-voice-and-pearls.dream,0.276,114509,615048,320000,5,69728
+examples/grain-xenakis.dream,0.567,183375,315486,320000,0,32884
+examples/spectral-sound-system.dream,0.27,251588,276373,320000,0,20304
+examples/spectral-under-the-bridge.dream,0.614,250978,350991,320000,4,20304
+examples/time-voice-loops.dream,0.527,269258,310064,320000,0,71044
+examples/color-wingie.dream,0.627,250326,272084,320000,0,8572

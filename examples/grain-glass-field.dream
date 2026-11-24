@@ -25,7 +25,7 @@ the photograph that breathes
 ----------------------------
 ; tap mode1 to hold the last moment as a drone; fader1 from the room to the
 ; held moment, fader2 how restless it is; keys1 sets a glisson choir above it
-the photo is grainfreeze 6
+the photo is grainfreeze 3 samplerate=half
 the swallows are glisson 2
 mic.both -> photo swallows
 mode1.tap -> photo.capture

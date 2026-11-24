@@ -7,7 +7,7 @@ instrument wingie
 
 the bridge
 ----------
-the arch is convolve 2.5
+the arch is convolve 1
 the drift is lfo
 the walker is binaural
 mic.both -> arch
@@ -25,8 +25,8 @@ the tonal skeleton
 ------------------
 ; only the strongest partials of the traffic, sung again as sines, then each one echoed at its
 ; own time. Hold Mode 2 to freeze the skeleton; the left keys transpose it.
-the bones are resynth 3
-the echoes are spectraldelay 2 curve=rising
+the bones are resynth 2
+the echoes are spectraldelay 1 curve=rising
 the field is ambi
 mic.both -> bones
 keys1.pitch -> bones.pitch

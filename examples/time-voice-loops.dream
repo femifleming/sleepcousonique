@@ -6,8 +6,8 @@ instrument wingie
 2026-11-24
 ----------
 ; six seconds of tape, two heads; what falls off it sings on in the cistern
-the tape is tapeloop seconds=6 gap=0.37
-the cistern is eis rate=0.2 depth=0.5
+the tape is tapeloop seconds=4 gap=0.37 samplerate=half
+the cistern is reverblite 3      ; on the SP-1, eis rate=0.2 depth=0.5 (tape and eis together are too big for the Wingie)
 the breath is specfreeze blend=0.1
 the level is vca
 
@@ -15,13 +15,13 @@ mic.both -> tape
 mode1 -> tape.punch
 fader1 -> tape.age
 tape.left -> cistern
-fader2 -> cistern.feedback
+fader2 -> cistern.size
 mic.both -> breath
 mode2 -> breath.freeze
 tape.left breath -> left
 tape.right breath -> right
-cistern.left -40> left
-cistern.right -40> right
+cistern -40> left
+cistern -40> right
 
 Deep listening
 --------------

@@ -21,8 +21,8 @@ slow-motion replay
 ------------------
 ; WSOLA: fader1 the speed (0 stands still, 1 as it was), keys1 the pitch on
 ; its own; hold mode1 to loop the tape; fader2 a mirrored corridor behind it
-the replay is stretch 6
-the corridor is graindelay 4
+the replay is stretch 2 samplerate=quarter
+the corridor is graindelay 3 samplerate=half
 mic.both -> replay
 fader1 -> replay.speed
 keys1.pitch -> replay.pitch

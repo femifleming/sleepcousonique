@@ -88,7 +88,9 @@ static uint32_t pool_size;
 #define POOL_SIZE pool_size
 void scq_pool(void *mem, uint32_t bytes) { G0.pool = (uint32_t *)mem; pool_size = bytes & ~3u; }
 #else
-#define POOL_SIZE POOL_BYTES
+/* the editor checks a Wingie dream against the Wingie's pool (what its heap gives, measured),
+ * not the SP-1's, so "the house is full" is said here before it is said on the Wingie */
+#define POOL_SIZE (G.instrument == SCQ_WINGIE ? (uint32_t)SCQ_WINGIE_POOL : (uint32_t)POOL_BYTES)
 #endif
 static engine *Gp = &G0;
 #define G (*Gp)
@@ -1860,7 +1862,7 @@ const char *scq_describe(void)
 	sb_s(&s, "R "); sb_i(&s, G.nn); sb_c(&s, ' '); sb_i(&s, MAX_NODES); sb_c(&s, ' ');
 	sb_i(&s, G.nc); sb_c(&s, ' '); sb_i(&s, MAX_CORDS); sb_c(&s, ' ');
 	sb_i(&s, G.len); sb_c(&s, ' '); sb_i(&s, SCQ_SLOT_TEXT); sb_c(&s, '\n');
-	sb_s(&s, "M "); sb_i(&s, (int)(G.wanted > G.used ? G.wanted : G.used)); sb_c(&s, ' '); sb_i(&s, POOL_BYTES); sb_c(&s, ' ');
+	sb_s(&s, "M "); sb_i(&s, (int)(G.wanted > G.used ? G.wanted : G.used)); sb_c(&s, ' '); sb_i(&s, (int)POOL_SIZE); sb_c(&s, ' ');
 	sb_f(&s, G.load); sb_c(&s, '\n');
 	return G.desc;
 }

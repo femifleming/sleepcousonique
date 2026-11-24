@@ -24,7 +24,7 @@ a broken string of pearls
 ; fader1 how many times a waveset repeats, fader2 the stutters' slices,
 ; fader3 their length
 the pearls is wavesets repeat
-the hand is beatgrains 6 burst=2 pattern=fifths
+the hand is beatgrains 3 burst=2 pattern=fifths samplerate=half
 mic.both -> pearls hand
 fader1 -> pearls.amount
 mode1.tap -> hand.clock

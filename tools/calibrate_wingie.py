@@ -6,7 +6,7 @@ rows = list(csv.DictReader(open(os.path.join(here, 'calibration', 'wingie-places
 ratios = [float(r['ratio']) for r in rows]
 log = open('/tmp/wingie-places.log').read() if os.path.exists('/tmp/wingie-places.log') else ''
 m = re.search(r'empty dream: (\d+) cycles a block', log)
-fixed = round(int(m.group(1)) / 64) if m else 140
+fixed = 141   # an empty dream, measured on the Wingie 2026-11-24 (8994 cycles a 64-sample block)
 out = ['/* What things cost on the Wingie (ESP32, 240 MHz, 48 kHz: 5000 cycles a sample), in cycles per',
        ' * sample, measured on a Wingie2 with tools/wingiebench.py places and written by',
        ' * tools/calibrate_wingie.py: do not edit by hand, measure again. A place not in the table costs',

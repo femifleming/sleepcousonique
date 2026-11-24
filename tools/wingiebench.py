@@ -247,8 +247,12 @@ def main():
         while time.time() < end:
             l = P.line(end)
             if l and not l.startswith('SCQ WHANDS'): print(l)
-    elif a[0] == 'places': cmd_places(P, a[1])
-    elif a[0] == 'dreams': cmd_dreams(P, a[1], [x for x in a[2:] if not x.startswith('--') and not x.startswith('/dev/')])
+    elif a[0] in ('places', 'dreams'):
+        P.ask('SCQ FALLBACK 0', r'^OK', 3)    # measure heavy dreams as they are, not what they fall back to
+        if a[0] == 'places': cmd_places(P, a[1])
+        else: cmd_dreams(P, a[1], [x for x in a[2:] if not x.startswith('--') and not x.startswith('/dev/')])
+        P.ask('SCQ FALLBACK 1', r'^OK', 3)
+    elif False: cmd_dreams(P, a[1], [x for x in a[2:] if not x.startswith('--') and not x.startswith('/dev/')])
     elif a[0] == 'stress': cmd_stress(P)
     P.close()
 

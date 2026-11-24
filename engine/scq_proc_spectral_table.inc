@@ -1,5 +1,5 @@
 /* scq_proc_spectral: P(...) table lines */
-P("convolve", FAM_SPACE, 0, 1050, 2, "in capture mix", "0 0 0.5", "out", run_convolve, 0, mem_convolve,
+P("convolve", FAM_SPACE, 0, 1050, 1, "in capture mix", "0 0 0.5", "out", run_convolve, 0, mem_convolve,
   "the room becomes the effect: a pulse into capture listens for the next loud sound (a clap in a stairwell, under a bridge) and convolves in with what the room gave back, nature x 0.1 s of it (2.5 is all the house holds), as loud as what comes in; until then a made-up room (partitioned FFT convolution, 21 ms late; for the Wingie)"),
 P("morph",   FAM_SHAPE, 0, 1400, 2, "a b blend smooth", "0 0 1 0", "out", run_morph, 0, mem_morph,
   "cross-synthesis: the magnitudes of a on the phases of b, blend how far; smooth makes it a's spectral envelope on b's fine structure, a vocoder with no bands (FFT 512/1024/2048 by nature, 27 ms late at 2; for the Wingie)"),
@@ -7,7 +7,7 @@ P("specshift", FAM_SHAPE, 0, 1500, 2, "in shift stretch", "0 0 0", "out", run_sp
   "spectral pitch shift in octaves, peaks moved with their shapes and phases locked (Laroche-Dolson); stretch pulls the partials apart like a stiff string, or squeezes them (FFT by nature, 27 ms late at 2; for the Wingie)"),
 P("specgate", FAM_SHAPE, 0, 900, 2, "in threshold", "0 0.3", "out", run_specgate, 0, mem_specgate,
   "spectral gate: every bin below threshold (-90 to 0 dB) falls away, the hiss under the highway goes and the tones stay; keep=quiet keeps only the hiss (FFT by nature, 27 ms late at 2; for the Wingie)"),
-P("spectraldelay", FAM_SPACE, 0, 520, 3, "in time spread feedback", "0 0.5 0.5 0.4", "out", run_spectraldelay, 0, mem_spectraldelay,
+P("spectraldelay", FAM_SPACE, 0, 520, 2, "in time spread feedback", "0 0.5 0.5 0.4", "out", run_spectraldelay, 0, mem_spectraldelay,
   "every bin its own delay and feedback: time up to nature x 0.1 s, spread fans them across the spectrum by curve=rising|falling|random; echoes that arpeggiate the spectrum (FFT 1024, 32 ms late; for the Wingie)"),
 P("specfilter", FAM_SHAPE, 0, 1000, 2, "in shape_amount pitch", "0 0.5 0", "out", run_specfilter, 0, mem_specfilter,
   "a filter drawn on the spectrum, shape=comb|teeth|tilt|formants|harmonics: shape_amount digs it in (for formants it walks a e i o u, for tilt -6 to +6 dB an octave), pitch moves it from 110 Hz (FFT by nature, 27 ms late at 2; for the Wingie)"),

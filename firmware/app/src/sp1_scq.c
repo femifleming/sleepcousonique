@@ -73,7 +73,8 @@ static bool     link_up;
 static bool     audio_live;        /* ON and the audio thread running: flash writes must pause it */
 static volatile uint32_t eng_sum, eng_n, eng_max, eng_skipped;
 static volatile uint32_t skipped_total;   /* never reset: the too-heavy watch in sp1_scq_tick */
-static bool playing_try;                  /* the dream playing came by SCQ TRY: the slot still holds the one that fit */   /* skipped: over budget, played as silence */   /* engine cycles, from the audio thread */
+static bool playing_try;
+static bool fallback_on = true;           /* SCQ FALLBACK 0: the benchmark (sp1fleet) measures a heavy dream as it is */                  /* the dream playing came by SCQ TRY: the slot still holds the one that fit */   /* skipped: over budget, played as silence */   /* engine cycles, from the audio thread */
 /* "SCQ MEASURE n": the engine's cycles over exactly the next n rendered blocks (tools/sp1fleet.py) */
 static volatile uint32_t m_left, m_n, m_max, m_skipped;
 static volatile uint64_t m_sum;
@@ -486,6 +487,9 @@ static void handle_line(void)
 		show_ms = 1500u;
 		state_save();
 		reply("OK 0\n");
+	} else if (strncmp(line, "SCQ FALLBACK ", 13) == 0) {
+		fallback_on = line[13] != '0';
+		reply("OK 0\n");
 	} else if (strncmp(line, "SCQ SHOW", 8) == 0) {
 		show_ms = 3000u;
 		reply("OK 0\n");
@@ -766,11 +770,12 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 	 * that last fitted (2 s without a silenced block), or to the slot's dream if this one only
 	 * came by SCQ TRY, or to the first night. */
 	{
-		static uint32_t seen, window_ms, in_window, calm_ms, said_ms;
+		static uint32_t seen, window_ms, in_window, calm_ms, said_ms, age_ms;
 		static int good_scene = -1, watch_scene = -1;
 		const uint32_t sk = skipped_total;
 		const int cur = scq_scene();
-		if (cur != watch_scene || want >= 0) { watch_scene = cur; calm_ms = 0u; }
+		if (cur != watch_scene || want >= 0) { watch_scene = cur; calm_ms = 0u; age_ms = 0u; in_window = 0u; }
+		age_ms += elapsed_ms;                /* its first second doesn't count: tables being laid out */
 		window_ms += elapsed_ms;
 		said_ms += elapsed_ms;
 		if (sk != seen) {
@@ -781,7 +786,7 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 			good_scene = cur;
 		}
 		if (window_ms >= 1000u) {
-			if (in_window > 50u && want < 0) {
+			if (in_window > 50u && want < 0 && fallback_on && age_ms > 1000u) {
 				const char *what;
 				if (good_scene >= 0 && good_scene != cur && good_scene < scq_scene_count()) {
 					k_mutex_lock(&engine_lock, K_FOREVER);

@@ -13,6 +13,7 @@
 /* The house: one pool for everything a scene needs room for (delay lines, tables, tunings, and
  * each place's outlet blocks). On the SP-1 it is what the chip's 256 KB leave: 80 KB until 1.2,
  * more since the text is read where it lies and outlets take only the blocks they have. */
+#define SCQ_WINGIE_POOL (70 * 1024)   /* the Wingie's pool, measured 71668 bytes (no PSRAM): a little less, to be safe */
 #ifndef POOL_BYTES
 #define POOL_BYTES (124 * 1024)
 #endif

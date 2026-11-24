@@ -86,7 +86,8 @@ static volatile uint8_t midiHead = 0, midiTail = 0;
 
 // meters (audio task writes, loop reads)
 static volatile uint32_t engSum = 0, engN = 0, engMax = 0, engDropped = 0;
-static volatile uint32_t lateTotal = 0;        // late blocks since boot (never reset): the overload watch
+static volatile uint32_t lateTotal = 0;
+static bool fallbackOn = true;               // SCQ FALLBACK 0: the benchmark measures a heavy dream as it is        // late blocks since boot (never reset): the overload watch
 static volatile float peakIn[2] = {0, 0}, peakOut[2] = {0, 0};
 static volatile uint32_t mLeft = 0, mSum = 0, mN = 0, mMax = 0, mDropped = 0;
 static volatile bool mDone = false;
@@ -368,6 +369,9 @@ static void handleLine() {
     mLeft = (uint32_t)(b > 0 && b <= 100000 ? b : 1000);
   } else if (!strncmp(line, "SCQ WHO", 7)) {
     Serial.printf("SCQ ME %s 0 DREAM\n", WiFi.macAddress().c_str());
+  } else if (!strncmp(line, "SCQ FALLBACK ", 13)) {
+    fallbackOn = line[13] != '0';
+    Serial.print("OK 0\n");
   } else if (!strncmp(line, "SCQ SHOW", 8)) {
     flashUntil = millis() + 3000; flashCode = 3;
     Serial.print("OK 0\n");
@@ -491,13 +495,15 @@ void loop() {
     uint32_t t = millis(), late = lateTotal;
     // calm is counted from when this dream and scene started: a dream that has just arrived
     // hasn't fitted yet
-    if (playing != watchBuf || scq_scene() != watchScene || want >= 0) { watchBuf = playing; watchScene = scq_scene(); calmSince = t; }
+    static uint32_t startedAt = 0;
+    if (playing != watchBuf || scq_scene() != watchScene || want >= 0) { watchBuf = playing; watchScene = scq_scene(); calmSince = t; startedAt = t; lateInWindow = 0; }
+    // the first 0.6 s of a dream or scene don't count: tapes and tables are being laid out
     if (late != lastLate) {
       if (t - lateWindowStart > 500) { lateWindowStart = t; lateInWindow = 0; }
       lateInWindow += late - lastLate;
       lastLate = late;
       calmSince = t;
-      if (lateInWindow >= 4) {   // too heavy: four glitches in half a second
+      if (lateInWindow >= 4 && fallbackOn && t - startedAt > 600) {   // too heavy: four glitches in half a second
         lateInWindow = 0;
         int cur = scq_scene();
         if (goodBuf == playing && goodText == textBuf[playing] && goodScene != cur && goodScene < scq_scene_count()) {
