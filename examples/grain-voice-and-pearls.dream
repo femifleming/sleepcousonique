@@ -6,15 +6,11 @@ a choir boy grown up overnight
 ------------------------------
 ; PSOLA: keys1 moves the pitch of your voice and keeps its vowels; fader1
 ; (Mix) moves the formants on purpose; the left LED follows the pitch it hears
-the voice is psola
-the twin is psola
-mic.left -> voice
-mic.right -> twin
+the voice is psola samplerate=half   ; one voice: two PSOLAs are more than the Wingie has
+mic.both -> voice
 keys1.pitch -> voice.pitch
-keys2.pitch -> twin.pitch
-fader1 -40> voice.formant twin.formant
-voice -> left
-twin -> right
+fader1 -40> voice.formant
+voice -> out
 voice.period -> lights.left
 voice -> lights.right
 

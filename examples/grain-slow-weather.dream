@@ -6,7 +6,7 @@ one minute becomes one hour
 ---------------------------
 ; PaulStretch of the room. fader1 (Mix) how far it stretches (1x .. 1000x),
 ; hold mode1 to stop time; fader3 (Volume) the level
-the glacier is paulstretch 2
+the glacier is paulstretch 1 samplerate=half
 the level is vca
 mic.both -> glacier
 fader1 -> glacier.stretch

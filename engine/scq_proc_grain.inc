@@ -1405,13 +1405,31 @@ static inline float grn_sqrt(float x)
 }
 static int32_t grn_log2i(int32_t m) { int32_t s = 0; while ((1 << s) < m) s++; return s; }
 
+#ifndef GRN_PS_W_IN
+#define GRN_PS_W_IN   2    /* a window-in item (a tape read with a modulo) */
+#endif
+#ifndef GRN_PS_W_OUT
+#define GRN_PS_W_OUT  8    /* a window-out item (two dithered writes) */
+#endif
+#ifndef GRN_PS_W_FLY
+#define GRN_PS_W_FLY  3    /* a butterfly, in window-items of work */
+#endif
+#ifndef GRN_PS_W_SPEC
+#define GRN_PS_W_SPEC 20   /* a spectrum item */
+#endif
 /* up to `quota` units of the frame's work; returns 0 when the frame is done */
 static int grn_ps_work(grn_ps *p, float *z, int16_t *tape, int32_t L, int16_t *next, int16_t *tail, uint32_t *rng, int32_t quota)
 {
 	const int32_t N = p->N, M = N / 2, H = N / 2, S = grn_log2i(M);
 	const int32_t tN = 8192 / N;
 	int32_t st = p->step, it = p->item;
-	for (; quota > 0; quota--) {
+	/* quota is in work, not items: an item of the spectrum stage (two square roots, four table
+	 * reads, a random number) costs about ten of the window's. Counting items alike made the
+	 * blocks that fell in the spectrum stage several times heavier than the rest (late blocks on
+	 * the Wingie at 39 % average). */
+	while (quota > 0) {
+	quota -= (st == 2 + S) ? GRN_PS_W_SPEC : ((st >= 2 && st < 2 + S) || (st >= 4 + S && st < 4 + 2 * S)) ? GRN_PS_W_FLY
+	       : st == 0 ? GRN_PS_W_IN : st == 4 + 2 * S ? GRN_PS_W_OUT : 1;
 	if (st == 0) {                                       /* the window in */
 		int32_t j = (int32_t)((p->a0 + (uint32_t)it) % (uint32_t)L);
 		z[it] = (float)tape[j] * GRN_FROM16 * (0.5f - 0.5f * grn_sinq(it * tN + 2048));
@@ -1495,7 +1513,7 @@ static void run_paulstretch(node *n, const float *const in[MAX_IN])
 	float factor = scq_exp2(scq_clamp(in[1][0], 0.f, 1.f) * 9.966f);
 	int hold = in[2][0] > 0.5f;
 	const float dmax = (float)(L - N - 8);
-	const int32_t total = N + M + S * (M / 2) + (M / 2 + 1) + M + S * (M / 2) + H;
+	const int32_t total = N * GRN_PS_W_IN + M + S * (M / 2) * GRN_PS_W_FLY + (M / 2 + 1) * GRN_PS_W_SPEC + M + S * (M / 2) * GRN_PS_W_FLY + H * GRN_PS_W_OUT;
 	int32_t quota = total / scq_max((H - 2 * B) / B, 1) + 2;
 	grn_ps_work(p, z, tape, L, next, tail, &n->rng, quota);
 	LOOP {
