@@ -7,7 +7,7 @@
  */
 #include "scq_int.h"
 
-world W = { .nb = SCQ_BLOCK, .sr = (float)SCQ_RATE, .isr = 1.f / (float)SCQ_RATE };
+world W = { .nb = SCQ_BLOCK, .sr = (float)SCQ_RATE, .isr = 1.f / (float)SCQ_RATE, .want_slot = -1 };
 
 /* Place code sees the block and the rate of the place being run: a place at samplerate=half
  * runs half as many samples at half the rate (the engine decimates its inlets and holds its
@@ -930,11 +930,28 @@ static void run_leds(node *n, const float *const in[MAX_IN])
 /* scene — riding between scenes. Sometimes you miss your stop. */
 static void run_scene(node *n, const float *const in[MAX_IN])
 {
+	/* a scene's first 0.1 s doesn't count: a clock pulses as it starts, and a dream that turns
+	 * the page on its clock would otherwise turn it again at once, for ever */
+	const int settled = n->s[3] >= 0.1f * SR;
+	if (!settled) n->s[3] += (float)B;
 	LOOP {
-		if (edge(in[0][i], &n->s[0])) W.want_next = 1;
-		if (edge(in[1][i], &n->s[1])) W.want_back = 1;
+		if (edge(in[0][i], &n->s[0]) && settled) W.want_next = 1;
+		if (edge(in[1][i], &n->s[1]) && settled) W.want_back = 1;
 	}
 	W.miss = scq_clamp(in[2][0], 0.f, 1.f);
+}
+
+/* slot — another dream: a pulse at go plays the slot it is named for (slot 7 = the seventh), next
+ * and back step to the following or previous slot. Like scene, it waits out its first 0.1 s. */
+static void run_slot(node *n, const float *const in[MAX_IN])
+{
+	const int settled = n->s[3] >= 0.1f * SR;
+	if (!settled) n->s[3] += (float)B;
+	LOOP {
+		if (edge(in[0][i], &n->s[0]) && settled) W.want_slot = natural(n->nature, 1, 12) - 1;
+		if (edge(in[1][i], &n->s[1]) && settled) W.want_step = 1;
+		if (edge(in[2][i], &n->s[2]) && settled) W.want_step = -1;
+	}
 }
 
 /* ------------------------------------------------------------------ the table */
@@ -1065,6 +1082,8 @@ P("leds",    FAM_EARS, PF_SINGLE | PF_SP1, 40, 0, "in track play", "0 0 0", "out
   "the eight LEDs: sound lights both rows as a bar; track and play light one row each"),
 P("lights",  FAM_EARS, PF_SINGLE | PF_WINGIE, 20, 0, "left right", "0 0", "", run_lights, 0, 0,
   "the Wingie's two LEDs: red at rest, then purple, yellow and white as what comes in climbs to 1"),
+P("slot",    FAM_EARS, 0, 20, 1, "go next back", "0 0 0", "", run_slot, 0, 0,
+  "another dream: a pulse at go plays the slot this one is named for (slot 7), next and back step through the slots (the Wingie has 12, the SP-1 5)"),
 P("scene",   FAM_EARS, PF_SINGLE, 20, 0, "next back miss", "0 0 0", "", run_scene, 0, 0,
   "goes to the next or previous scene on a pulse; miss is the chance of landing on a random one"),
 };

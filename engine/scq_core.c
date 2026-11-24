@@ -15,6 +15,7 @@
  */
 #include "scq_int.h"
 #include "scq_costs.h"
+#include "scq_costs_wingie.h"
 
 /* Loops stay loops. GCC likes to turn a clearing or copying loop into a call to memset or memcpy,
  * and the SP-1's C library (built for size) does those a byte at a time: clearing one 32-sample
@@ -168,6 +169,19 @@ static float parse_num(const char *s, int n)
 	return v * sign;
 }
 
+/* A number with its pitch unit, in the units of the place it lands: `per_octave` is what one
+ * octave is there (100 for a kept value, where 100 is 1.0; 1 for a pitch knob or tune=; 12 for a
+ * seq's steps). 7st is seven semitones, -50ct fifty cents down, 1oct an octave; a bare number is
+ * taken as it is. */
+static float num_unit(const char *s, int n, float per_octave)
+{
+	float v = parse_num(s, n);
+	if (n >= 2 && s[n - 2] == 's' && s[n - 1] == 't') return v * per_octave / 12.f;
+	if (n >= 3 && s[n - 3] == 'o' && s[n - 2] == 'c' && s[n - 1] == 't') return v * per_octave;
+	if (n >= 2 && s[n - 2] == 'c' && s[n - 1] == 't') return v * per_octave / 1200.f;
+	return v;
+}
+
 /* ------------------------------------------------------------- messages */
 
 static void say(char kind, const char *a, const char *w, int wl, const char *b)
@@ -231,6 +245,13 @@ static int tokenize(const char *s, int n, tok *t)
 				j++;
 			}
 			if (j < n && s[j] == '-' && dots == 0) { /* 20-5 is not a thing; stop here */ }
+			if (!dots) {   /* a pitch unit stuck on the number: 7st, -50ct, 1oct */
+				int u = 0;
+				if (j + 2 <= n && s[j] == 's' && s[j + 1] == 't') u = 2;
+				else if (j + 2 <= n && s[j] == 'c' && s[j + 1] == 't') u = 2;
+				else if (j + 3 <= n && s[j] == 'o' && s[j + 1] == 'c' && s[j + 2] == 't') u = 3;
+				if (u && (j + u >= n || !(is_alpha(s[j + u]) || is_digit(s[j + u])))) j += u;
+			}
 			o->t = dots ? T_RANGE : T_NUM;
 			o->n = j - i; i = j; k++;
 			continue;
@@ -362,6 +383,24 @@ static int rate_set(node *n, const tok *name, const tok *val)
 	return 1;
 }
 
+/* resolution=block|fine|audio: a place reads most of its inlets (pitch, cutoff, rates) once a
+ * block of 32 samples; fine runs it every 4 samples, audio every sample, so a fast pitch or
+ * cutoff sweep stays smooth (audio-rate FM through any pitch inlet). It costs the place's
+ * per-block work 8 or 32 times. Returns 1 if the word was one. */
+static int res_set(node *n, const tok *name, const tok *val)
+{
+	static const char *const POS[3] = { "block", "fine", "audio" };
+	const tok *w = val ? val : name;
+	if (val && !str_eq(name->s, name->n, "resolution")) return 0;
+	int pos = -1;
+	for (int k = 0; k < 3; k++) if (w->t == T_WORD && str_eq(w->s, w->n, POS[k])) pos = k;
+	if (!val && pos != 1) return 0;            /* alone, only "fine" means this ("audio" is also a range) */
+	if (pos < 0) { say('E', "resolution is block, fine or audio, not ", w->s, w->n, ""); return 1; }
+	if (SCQ_PLACES[n->type].flags & PF_SINGLE) { say('E', "", name->s, name->n, ": the instrument's own places run once a block"); return 1; }
+	n->res = (uint8_t)(pos == 0 ? 0 : (pos == 1 ? 4 : 1));
+	return 1;
+}
+
 /* the default a place gives inlet k (its "defs" string) */
 static float place_def(const place *pl, int k)
 {
@@ -394,7 +433,7 @@ static int knob_set(node *n, const tok *name, const tok *val)
 			if (same) return 0;            /* a switch or param of the same name wins */
 		}
 	if (val->t != T_NUM) { say('E', "", name->s, name->n, " wants a number, like time=0.4"); return 1; }
-	float v = parse_num(val->s, val->n);
+	float v = num_unit(val->s, val->n, 1.f);
 	n->def[p] = v;
 	n->koff[p] = v - place_def(pl, p);
 	n->knobset |= (uint16_t)(1u << p);
@@ -455,7 +494,7 @@ static int opt_set(node *n, const tok *name, const tok *val)
 				n->opt[k] = (float)pos;
 			} else {
 				if (val->t != T_NUM) { say('E', "", name->s, name->n, " wants a number"); return 0; }
-				n->opt[k] = parse_num(val->s, val->n);
+				n->opt[k] = num_unit(val->s, val->n, 1.f);   /* tune=7st */
 			}
 			n->optset |= (uint8_t)(1u << k);
 			return 0;
@@ -661,6 +700,7 @@ static void st_the(tok *t, int nt)
 		int eq = k + 2 < nt && t[k + 1].t == T_EQ;
 		if (att_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0)) { k += eq ? 3 : 1; continue; }
 		if (rate_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0)) { k += eq ? 3 : 1; continue; }
+		if (res_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0)) { k += eq ? 3 : 1; continue; }
 		if (knob_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0)) { k += eq ? 3 : 1; continue; }
 		if (opt_set(&G.n[id], &t[k], eq ? &t[k + 2] : 0) < 0) return;
 		k += eq ? 3 : 1;
@@ -674,7 +714,7 @@ static void st_the(tok *t, int nt)
 		for (; k < nt && c < 32; k++) {
 			if (t[k].t == T_COMMA) continue;
 			if (t[k].t != T_NUM) { say('E', "a step is a number, not ", t[k].s, t[k].n, ""); return; }
-			m[c++] = parse_num(t[k].s, t[k].n);
+			m[c++] = num_unit(t[k].s, t[k].n, 12.f);
 		}
 		m[32] = (float)c;
 	}
@@ -711,7 +751,7 @@ static int endpoint_at(tok *t, int nt, int *k, int role, endpoint *e)
 	}
 	if (t[*k].t == T_NUM) {
 		if (role == 1) { say('E', "a number can't take anything in: ", t[*k].s, t[*k].n, ""); return -1; }
-		e->is_bottle = 1; e->val = parse_num(t[*k].s, t[*k].n); e->node = -1; e->port = 0;
+		e->is_bottle = 1; e->val = num_unit(t[*k].s, t[*k].n, 100.f); e->node = -1; e->port = 0;
 		*k += 1;
 		return 0;
 	}
@@ -875,6 +915,20 @@ static float place_cycles(int type)
 	return (float)known[type];
 }
 
+/* the same on the Wingie: its own measured figure, or the SP-1's times the measured median ratio */
+static float place_cycles_wingie(int type)
+{
+	static uint16_t known[256];
+	if (!known[type]) {
+		const char *name = SCQ_PLACES[type].name;
+		float c = place_cycles(type) * SCQ_WINGIE_SCALE_MEASURED;
+		for (unsigned i = 0; i < sizeof SCQ_WINGIE_MEASURED / sizeof SCQ_WINGIE_MEASURED[0]; i++)
+			if (str_eq(name, str_len(name), SCQ_WINGIE_MEASURED[i].name)) { c = (float)SCQ_WINGIE_MEASURED[i].cycles; break; }
+		known[type] = (uint16_t)(c < 1.f ? 1.f : (c > 65000.f ? 65000.f : c));
+	}
+	return (float)known[type];
+}
+
 static inline int steady(const float *p);
 
 /* how much of each kind of work the compiled scene has: t[CT_N], and per place w[type] (how many
@@ -890,6 +944,7 @@ static void cost_count(float *t, float *w)
 		const place *pl = &SCQ_PLACES[n->type];
 		const float inv = 1.f / (float)n->rdiv;
 		float runs = inv;
+		if (n->res && n->rdiv == 1) runs *= 1.f + (32.f / (float)n->res - 1.f) * 0.25f;   /* per-block work repeated (estimate) */
 		if (frogs >= 0 && pl->run == SCQ_PLACES[frogs].run)          /* measured with 3 frogs */
 			runs *= scq_clamp(n->nature, 1.f, 8.f) / 3.f;
 		if (w) w[n->type] += runs;
@@ -928,9 +983,14 @@ static float cost_estimate(void)
 	float t[CT_N], cyc = 0.f;
 	for (int i = 0; i < SCQ_NPLACES && i < 256; i++) w[i] = 0.f;
 	cost_count(t, w);
+	if (G.instrument == SCQ_WINGIE) {     /* measured on a Wingie (scq_costs_wingie.h) */
+		cyc = SCQ_WINGIE_FIXED;
+		for (int i = CT_FIXED + 1; i < CT_N; i++) cyc += t[i] * COST_TERM[i] * SCQ_WINGIE_SCALE_MEASURED;
+		for (int i = 0; i < SCQ_NPLACES && i < 256; i++) if (w[i] != 0.f) cyc += w[i] * place_cycles_wingie(i);
+		return cyc / (float)SCQ_WINGIE_CYCLES_PER_SAMPLE;
+	}
 	for (int i = 0; i < CT_N; i++) cyc += t[i] * COST_TERM[i];
 	for (int i = 0; i < SCQ_NPLACES && i < 256; i++) if (w[i] != 0.f) cyc += w[i] * place_cycles(i);
-	if (G.instrument == SCQ_WINGIE) return cyc * SCQ_WINGIE_SCALE / (float)SCQ_WINGIE_CYCLES_PER_SAMPLE;
 	return cyc / (float)SCQ_CYCLES_PER_SAMPLE;
 }
 
@@ -1591,6 +1651,24 @@ static void nurse(node *n, int k)
 	if (ill) heal(n);
 }
 
+/* resolution=fine|audio: the place is run on short stretches of its block, each seeing its
+ * inlets and writing its outlets from there on (every inlet and outlet block is a full block) */
+static void run_fine(node *n, const float *in[MAX_IN])
+{
+	const float *sub[MAX_IN];
+	float *outs[MAX_OUT];
+	const int step = n->res, full = W.nb;
+	for (int o = 0; o < MAX_OUT; o++) outs[o] = n->out[o];
+	W.nb = step;
+	for (int off = 0; off < full; off += step) {
+		for (int k = 0; k < MAX_IN; k++) sub[k] = in[k] ? in[k] + off : in[k];
+		for (int o = 0; o < n->nout; o++) n->out[o] = outs[o] + off;
+		SCQ_PLACES[n->type].run(n, sub);
+	}
+	for (int o = 0; o < MAX_OUT; o++) n->out[o] = outs[o];
+	W.nb = full;
+}
+
 static void run_block(void)
 {
 	static float scratch[MAX_IN][B];        /* static: off the audio thread's small stack */
@@ -1602,6 +1680,7 @@ static void run_block(void)
 		node *n = &G.n[k];
 		gather(n, k, in, scratch);
 		if (n->rdiv > 1) run_slow(n, in);
+		else if (n->res) run_fine(n, in);
 		else SCQ_PLACES[n->type].run(n, in);
 		nurse(n, k);
 	}
@@ -1629,6 +1708,15 @@ static const float *in_l, *in_r;
 static const float SILENT_IN[SCQ_BLOCK];
 void scq_input(const float *left, const float *right) { in_l = left; in_r = right; }
 int scq_instrument(void) { return G.instrument; }
+
+int scq_wanted_slot(int *slot, int *step)
+{
+	if (W.want_slot < 0 && W.want_step == 0) return 0;
+	if (slot) *slot = W.want_slot;
+	if (step) *step = W.want_step;
+	W.want_slot = -1; W.want_step = 0;
+	return 1;
+}
 
 void scq_render(float *left, float *right, int frames)
 {
@@ -1752,6 +1840,10 @@ const char *scq_describe(void)
 			if (n->rdiv > 1) {
 				sb_c(&s, first ? ' ' : ','); first = 0;
 				sb_s(&s, n->rdiv == 2 ? "samplerate=half" : (n->rdiv == 4 ? "samplerate=quarter" : "samplerate=eighth"));
+			}
+			if (n->res) {
+				sb_c(&s, first ? ' ' : ','); first = 0;
+				sb_s(&s, n->res == 4 ? "resolution=fine" : "resolution=audio");
 			}
 		}
 		sb_c(&s, '\n');

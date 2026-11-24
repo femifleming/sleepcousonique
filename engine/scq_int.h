@@ -73,6 +73,7 @@ struct node {
 	float    opt[MAX_OPT];         /* switch positions (0, 1, ...) or param values */
 	uint8_t  optset;              /* bit per option written in the dream */
 	uint8_t  rdiv;                /* samplerate=: runs at SCQ_RATE / rdiv (1, 2, 4, 8) */
+	uint8_t  res;                 /* resolution=: 0 block (32), else the step it is run in: 4 fine, 1 audio */
 	int8_t   pitchin;             /* the pitch inlet, or -1 */
 	float    tune;                /* base pitch knob, octaves added to the pitch inlet */
 	uint16_t attset;              /* bit per inlet whose attenuverter isn't 1 */
@@ -111,6 +112,8 @@ typedef struct {
 	float    sr, isr;     /* the sample rate it sees, and 1/that */
 	const float *inL, *inR;   /* this block of sound coming in (scq_input), never 0 */
 	int      instrument;  /* SCQ_SP1 / SCQ_WINGIE: the dream's */
+	int      want_slot;   /* the slot place: a slot asked for (0-based), or -1 */
+	int      want_step;   /* or a step through the slots: +1 / -1, 0 none */
 } world;
 
 extern world W;
@@ -124,6 +127,6 @@ int place_has_att(const place *p);
 /* tunings written in the dream ("tuning NAME: cents ... period"): period, n, then n degrees in
  * cents (0 first), as the built-in scales; 0 past the last */
 const float *scq_tuning(int index);
-#define RATE_OPT "samplerate=full|half|quarter|eighth"   /* every place but the SP-1's own */           /* sources and pitched places: an attenuverter per inlet */
+#define RATE_OPT "samplerate=full|half|quarter|eighth resolution=block|fine|audio"   /* every place but the SP-1's own */           /* sources and pitched places: an attenuverter per inlet */
 
 #endif

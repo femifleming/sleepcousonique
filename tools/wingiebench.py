@@ -198,13 +198,13 @@ def cmd_stress(P):
     print('  ', P.ask('SCQ SLOT 12', r'^OK', 5)[-1:])
     print('  ', P.ask('SCQ SLOT 1', r'^OK', 5)[-1:])
     print('-- scenes: a dream that changes scene by itself every 0.25 s for 10 s')
-    sc = 'instrument wingie\nthe c is clock\n\none\n---\nthe s is sine 3\ns -> out\nc.whole -> scene.next\n\ntwo\n---\nthe s is vco 4\ns -> out\nc.whole -> scene.next\n'
+    sc = 'instrument wingie\nthe c is clock\n\none\n---\nthe s is sine 3\ns -> out\nc.bar -> scene.next\n\ntwo\n---\nthe s is vco 4\ns -> out\nc.bar -> scene.next\n'
     print('  ', P.send(sc))
     end = time.time() + 10; seen = set()
     P.write('SCQ WATCH 1\n')
     while time.time() < end:
         l = P.line(end)
-        if l and l.startswith('SCQ WHANDS'): seen.add(l.split()[10])
+        if l and l.startswith('SCQ WHANDS'): seen.add(l.split()[11])
     P.write('SCQ WATCH 0\n')
     print(f'   scenes seen: {sorted(seen)}')
     print('-- soak: the first light for 60 s, status every second')

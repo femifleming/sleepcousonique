@@ -16,7 +16,7 @@ open("firmware-wingie/SleepcousoniqueWingie/first_light.h", "w").write(
 PY
 FLAGS="-O2 -DSCQ_DEVICE -DSCQ_INSTRUMENT=1 -DSCQ_POOL_EXTERN -I$(pwd)/engine"
 mkdir -p build-wingie firmware-wingie/dist
-arduino-cli compile --fqbn "esp32:esp32:esp32:PartitionScheme=default,FlashMode=dio,FlashFreq=80" \
+arduino-cli compile --fqbn "esp32:esp32:esp32:PartitionScheme=huge_app,FlashMode=dio,FlashFreq=80" \
   --build-property "compiler.c.extra_flags=$FLAGS" --build-property "compiler.cpp.extra_flags=$FLAGS" \
   --output-dir build-wingie "$SK" 2>&1 | grep -E "error|warning: |Sketch uses|Global variables" | grep -v "deprecated" || true
 test -f build-wingie/SleepcousoniqueWingie.ino.bin

@@ -86,6 +86,7 @@ static volatile uint8_t midiHead = 0, midiTail = 0;
 
 // meters (audio task writes, loop reads)
 static volatile uint32_t engSum = 0, engN = 0, engMax = 0, engDropped = 0;
+static volatile uint32_t lateTotal = 0;        // late blocks since boot (never reset): the overload watch
 static volatile float peakIn[2] = {0, 0}, peakOut[2] = {0, 0};
 static volatile uint32_t mLeft = 0, mSum = 0, mN = 0, mMax = 0, mDropped = 0;
 static volatile bool mDone = false;
@@ -160,8 +161,9 @@ static void i2sInit() {
   cfg.dma_buf_count = 3;
   cfg.dma_buf_len = BLOCK;
   cfg.use_apll = true;
-  i2s_driver_install(I2S_NUM_0, &cfg, 0, nullptr);
-  i2s_set_pin(I2S_NUM_0, &pins);
+  esp_err_t e1 = i2s_driver_install(I2S_NUM_0, &cfg, 0, nullptr);
+  esp_err_t e2 = i2s_set_pin(I2S_NUM_0, &pins);
+  if (e1 != ESP_OK || e2 != ESP_OK) Serial.printf("I2S: install %d, pins %d\n", (int)e1, (int)e2);
   PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0_CLK_OUT1);
   REG_WRITE(PIN_CTRL, 0xFFFFFFF0);
 }
@@ -204,7 +206,7 @@ static void audioTask(void *) {
     if (ran) {
       engSum += used; engN++;
       if (used > engMax) engMax = used;
-      if (used > BLOCK_CYCLES) engDropped++;   // late: the DMA ran dry, a glitch was heard
+      if (used > BLOCK_CYCLES) { engDropped++; lateTotal++; }   // late: the DMA ran dry, a glitch was heard
       if (mLeft) {
         mSum += used; mN++; if (used > mMax) mMax = used; if (used > BLOCK_CYCLES) mDropped++;
         if (--mLeft == 0) mDone = true;
@@ -225,6 +227,8 @@ static volatile bool keyIrq[2] = {false, false};
 static void IRAM_ATTR irq0() { keyIrq[0] = true; }
 static void IRAM_ATTR irq1() { keyIrq[1] = true; }
 static bool keyState[2][12], modeState[2];
+static int octState[2] = {0, 0};
+static bool srcState = false;
 static volatile int panelFader[3] = {0, 0, 0}, panelOct[2] = {0, 0}, panelSource = 0;
 static volatile uint16_t panelKeys[2] = {0, 0};
 static volatile uint8_t panelModes = 0;
@@ -244,6 +248,9 @@ static void readKeysAw1() {
   for (int i = 8; i < 12; i++) keyState[1][11 - i + 8] = !aw1.digitalRead(i);
   modeState[0] = !aw1.digitalRead(modePin[0]);
   modeState[1] = !aw1.digitalRead(modePin[1]);
+  octState[0] = -(int)!aw1.digitalRead(lOctPin[0]) + (int)!aw1.digitalRead(lOctPin[1]);
+  octState[1] = -(int)!aw1.digitalRead(rOctPin[0]) + (int)!aw1.digitalRead(rOctPin[1]);
+  srcState = !aw1.digitalRead(sourcePin);
 }
 
 // lamp 0..1 -> the LED's colour code (stock: red 0, purple 1, yellow 2, white 3)
@@ -287,12 +294,11 @@ static void controlTask(void *) {
       panelFader[i] = v;
       scq_control(SCQ_CTL_LEAN1 + i, v / 4095.f);
     }
-    int o1 = -(int)!aw1.digitalRead(lOctPin[0]) + (int)!aw1.digitalRead(lOctPin[1]);
-    int o2 = -(int)!aw1.digitalRead(rOctPin[0]) + (int)!aw1.digitalRead(rOctPin[1]);
+    int o1 = octState[0], o2 = octState[1];
     panelOct[0] = o1; panelOct[1] = o2;
     scq_control(SCQ_CTL_OCTAVE1, (float)o1); scq_control(SCQ_CTL_OCTAVE2, (float)o2);
 
-    bool src = !aw1.digitalRead(sourcePin);
+    bool src = srcState;
     if (src != lineIn && !sourceMuted) {
       lineIn = src; ac.SetVolumeHeadphone(0); sourceMuted = true; sourceAt = now;
       acWriteReg(ADC_SRC, SOURCES[lineIn]);
@@ -399,32 +405,47 @@ static void serialPoll() {
 static int dB(float peak) { if (peak < 1e-5f) return -99; int d = (int)lroundf(20.f * log10f(peak)); return d < -99 ? -99 : d; }
 
 // ------------------------------------------------------------------ setup / loop
+static uint32_t poolBytes = 0;
+// both tasks' stacks are static: on the heap they would split the block the pool needs
+static StackType_t audioStack[8192], controlStack[8192];
+static StaticTask_t audioTcb, controlTcb;
+static size_t largestAtBoot = 0;
 void setup() {
-  Serial.setRxBufferSize(SCQ_MAX_TEXT + 1024);   // a whole dream fits while the engine compiles
+  i2sInit();   // first: its DMA buffers need internal memory before the pool takes the big block
+  engineLock = xSemaphoreCreateMutex();
+  // the audio task too (it plays silence until the engine is ready): its stack must not lose
+  // the race for memory against the pool
+  bool audioOk = xTaskCreateStaticPinnedToCore(audioTask, "audio", 8192, nullptr, 24, audioStack, &audioTcb, 0) != nullptr;
+  // the two dream buffers (16 KB each), then the pool from the biggest block left
+  textBuf[0] = (char *)malloc(SCQ_MAX_TEXT + 1);
+  textBuf[1] = (char *)malloc(SCQ_MAX_TEXT + 1);
+  // the engine's pool, while the heap is still in one piece: the biggest block there is,
+  // up to the SP-1's 124 KB (PSRAM, if this Wingie has any, holds much more)
+  {
+    largestAtBoot = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+    void *pool = nullptr;
+    size_t want = 124 * 1024;
+    if (psramFound()) { want = 512 * 1024; pool = heap_caps_malloc(want, MALLOC_CAP_SPIRAM); }
+    if (!pool) {
+      want = 124 * 1024;
+      if (want > largestAtBoot - 6144) want = (largestAtBoot - 6144) & ~3u;   // room for the tasks and LittleFS
+      pool = heap_caps_malloc(want, MALLOC_CAP_8BIT);
+    }
+    scq_pool(pool, (uint32_t)want);
+    poolBytes = want;
+  }
+  Serial.setRxBufferSize(4096);                   // dreams stream in while the loop task reads them
   Serial.begin(115200);
   Serial2.begin(31250, SERIAL_8N1, 16, -1);       // TRS MIDI in (RX only: TX2 would clash with I2C)
   WiFi.mode(WIFI_MODE_NULL);
   btStop();
-  engineLock = xSemaphoreCreateMutex();
-  textBuf[0] = (char *)malloc(SCQ_MAX_TEXT + 1);
-  textBuf[1] = (char *)malloc(SCQ_MAX_TEXT + 1);
-  // the engine's pool: the biggest piece of heap there is, up to the SP-1's 124 KB, leaving room
-  // for the serial buffer, LittleFS and the tasks
-  {
-    size_t big = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-    size_t want = 124 * 1024;
-    if (want > big - 8192) want = (big - 8192) & ~3u;
-    void *pool = heap_caps_malloc(want, MALLOC_CAP_8BIT);
-    scq_pool(pool, (uint32_t)want);
-    Serial.printf("SCQ pool %u bytes (largest free block was %u)\n", (unsigned)want, (unsigned)big);
-  }
+  if (!audioOk) Serial.println("audio task: could not start");
   if (!LittleFS.begin(true)) Serial.println("LittleFS: mount failed");
   LittleFS.mkdir("/scq");
   File f = LittleFS.open("/scq/state", "r");
   if (f) { int s = 0; unsigned nn = 0; if (sscanf(f.readString().c_str(), "%d %u", &s, &nn) >= 1) { slot = s % SLOTS; nights = nn; } f.close(); }
   nights++;
 
-  i2sInit();
   // codec (stock sequence)
   esp_err_t err = ESP_FAIL;
   for (int a = 0; a < 5 && err != ESP_OK; a++) { err = ac.begin(); if (err != ESP_OK) delay(100); }
@@ -437,15 +458,16 @@ void setup() {
   acWriteReg(DAC_VOL_CTRL, DAC_VOL);
   acWriteReg(ADC_SRC, SOURCES[0]);
 
-  xTaskCreatePinnedToCore(controlTask, "control", 8192, nullptr, 1, nullptr, 1);
+  xTaskCreateStaticPinnedToCore(controlTask, "control", 8192, nullptr, 1, controlStack, &controlTcb, 1);
   delay(50);
   // both Mode buttons at power-up: back to the first dream in slot 1
   if (modeState[0] && modeState[1]) { char p[24]; slotPath(0, p); LittleFS.remove(p); slot = 0; Serial.println("SCQ slot 1 back to the first light"); }
   playSlot(slot);
   stateWrite();
   engineReady = true;
-  xTaskCreatePinnedToCore(audioTask, "audio", 8192, nullptr, 24, nullptr, 0);
+
   Serial.printf("Sleepcousonique %s on the Wingie: slot %d, night %u\n", SCQ_WINGIE_VERSION, slot + 1, (unsigned)nights);
+  Serial.printf("SCQ pool %u bytes (largest free block at boot %u, PSRAM %u)\n", (unsigned)poolBytes, (unsigned)largestAtBoot, (unsigned)ESP.getPsramSize());
 }
 
 void loop() {
@@ -459,6 +481,59 @@ void loop() {
   serialPoll();
   // scene changes asked for by the dream are compiled here, off the audio task
   if (xSemaphoreTake(engineLock, 0) == pdTRUE) { scq_service(); xSemaphoreGive(engineLock); }
+  // ---- the last dream that fit: a dream (and scene) that has played 2 s without a late block
+  {
+    static uint32_t lastLate = 0, calmSince = 0, lateWindowStart = 0, lateInWindow = 0;
+    static int goodBuf = -1, goodLen = 0, goodScene = 0;
+    static const char *goodText = nullptr;
+    static int watchBuf = -1, watchScene = -1;
+    static uint32_t lastSaid = 0;
+    uint32_t t = millis(), late = lateTotal;
+    // calm is counted from when this dream and scene started: a dream that has just arrived
+    // hasn't fitted yet
+    if (playing != watchBuf || scq_scene() != watchScene || want >= 0) { watchBuf = playing; watchScene = scq_scene(); calmSince = t; }
+    if (late != lastLate) {
+      if (t - lateWindowStart > 500) { lateWindowStart = t; lateInWindow = 0; }
+      lateInWindow += late - lastLate;
+      lastLate = late;
+      calmSince = t;
+      if (lateInWindow >= 4) {   // too heavy: four glitches in half a second
+        lateInWindow = 0;
+        int cur = scq_scene();
+        if (goodBuf == playing && goodText == textBuf[playing] && goodScene != cur && goodScene < scq_scene_count()) {
+          xSemaphoreTake(engineLock, portMAX_DELAY); scq_goto_scene(goodScene); xSemaphoreGive(engineLock);
+          if (t - lastSaid > 5000) { lastSaid = t; Serial.printf("SCQ too heavy for the Wingie: back to scene %d, the last that fit\n", goodScene + 1); }
+        } else if (goodBuf >= 0 && goodBuf != playing && goodLen > 0) {
+          loadBuffer(goodBuf, goodLen);
+          if (goodScene > 0) { xSemaphoreTake(engineLock, portMAX_DELAY); scq_goto_scene(goodScene); xSemaphoreGive(engineLock); }
+          if (t - lastSaid > 5000) { lastSaid = t; Serial.print("SCQ too heavy for the Wingie: back to the last dream that fit\n"); }
+        } else {
+          // nothing kept that fitted: the first light always does
+          int other = 1 - playing;
+          int n = (int)strlen(FIRST_LIGHT);
+          memcpy(textBuf[other], FIRST_LIGHT, n + 1);
+          loadBuffer(other, n);
+          if (t - lastSaid > 5000) { lastSaid = t; Serial.print("SCQ too heavy for the Wingie: back to the first light\n"); }
+        }
+        flashUntil = t + 900; flashCode = 1;
+      }
+    } else if (t - calmSince > 2000) {
+      goodBuf = playing; goodLen = playingLen; goodText = textBuf[playing]; goodScene = scq_scene();
+    }
+    // a new dream arriving into the other buffer overwrites what was kept there
+    if (want >= 0 && goodBuf == rxBuf) goodBuf = -1;
+  }
+  // ---- a dream asking for another slot (the slot place)
+  {
+    int s = -1, st = 0;
+    xSemaphoreTake(engineLock, portMAX_DELAY);
+    int asked = scq_wanted_slot(&s, &st);
+    xSemaphoreGive(engineLock);
+    if (asked) {
+      int to = s >= 0 ? s : (slot + st + SLOTS) % SLOTS;
+      if (to >= 0 && to < SLOTS && to != slot) { playSlot(to); stateWrite(); flashUntil = millis() + 400; flashCode = 2; }
+    }
+  }
   int ws = wantSlot;
   if (ws >= 0) { wantSlot = -1; if (ws != slot) { playSlot(ws); stateWrite(); } flashUntil = millis() + 400; flashCode = 2; }
   int sc = wantScene;

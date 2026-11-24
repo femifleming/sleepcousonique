@@ -132,6 +132,11 @@ const char *scq_cost_terms(int scene);  /* what the load estimate counted, for t
  * Returns 1 if it changed scene. Elsewhere scenes change inside scq_render and this does nothing. */
 int   scq_service(void);
 
+/* A dream can ask for another slot (the slot place). The firmware polls this after rendering:
+ * returns 1 and clears the request if there is one: *slot is the slot asked for (0-based) or -1,
+ * *step is +1 / -1 to go to the next / previous slot (or 0). The editor just shows it. */
+int   scq_wanted_slot(int *slot, int *step);
+
 /* Interface mode (the SP-1 as a USB sound card): stop the dream and lend its memory pool;
  * returns the pool and its size. scq_load() wakes the engine and takes the pool back. */
 void *scq_sleep(uint32_t *len);
