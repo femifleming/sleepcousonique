@@ -1,6 +1,6 @@
 # Sleepcousonique
 
-*A patch language for the SP-1, written like a dream journal.*
+*A patch language for the SP-1 and the Wingie, written like a dream journal.*
 
 Sleepcousonique grows out of four things: the dream journal at femishonuga.com, Peter Blasser's
 Nabra (the knobless tapestry synthesizer), the West Coast thinking of Buchla and Serge, and
@@ -324,6 +324,66 @@ What the count is, and isn't:
 - **Nothing is kept.** A device is one number made from the identifier the system gives for
   it, held in memory while the device is near. No names, no addresses, nothing written to
   disk or sent anywhere.
+
+
+## Two instruments: the SP-1 and the Wingie
+
+A dream is for the SP-1 unless it says otherwise. A line `instrument wingie` anywhere in it
+(usually the first) makes it a dream for the **Meng Qi Wingie2**, the handheld resonator with two
+microphones. The editor's **SP-1 | Wingie** switch writes and removes that line for you.
+
+Every processing place works on both. The *hands* differ:
+
+| on the Wingie | what it gives |
+|---|---|
+| `mic` | `left`, `right`, `both`: the two microphones (or line in, by the source switch) |
+| `keys1`, `keys2` | a keyboard: `pitch` of the last key (octaves; keys2 an octave up; the octave switch adds), `gate`, `trig`, `key` (0 C .. 1 B) |
+| `key1` .. `key24` | one key: 1-12 the left keyboard C to B, 13-24 the right. `out` while held, `trig` on press |
+| `mode1`, `mode2` | the Mode buttons: `out` while held, `tap` on a quick press |
+| `octave1`, `octave2` | the octave switches: -1, 0 or 1 |
+| `source` | 0 microphones, 1 line in |
+| `fader1` `fader2` `fader3` | the faders, labelled Mix, Decay and Volume (they are yours: nothing is fixed to them) |
+| `lights` | `left`, `right`: the two LEDs. They glow red at rest and climb through purple and yellow to white |
+
+The SP-1's own hands (`button1`-`4`, `rocker`, `play`, `dots`, `leds`, `fader4`) are errors in a
+Wingie dream, and the Wingie's in an SP-1 dream.
+
+On the Wingie: hold both Mode buttons and press a left key to play that slot (12 slots); hold one
+Mode button and tap the other for the next (right) or previous (left) scene. While both are held
+the dream sees neither Mode button nor the keys.
+
+## Pitch units
+
+A number can carry a pitch unit: `7st` is seven semitones, `-50ct` fifty cents down, `1oct` an
+octave. It works wherever a pitch goes: a kept value into a pitch inlet (`7st -> voice.pitch` is a
+fifth up), the tune knob (`tune=-5st`), a pitch knob (`pitch=3st`), and a seq's steps (`seq 4: 0 7st
+1oct 350ct`, where bare steps stay semitones as before).
+
+## Resolution: audio-rate control
+
+Most places read their pitch, cutoff and rates once a block (32 samples, 0.7 ms). That is
+plenty for hands and slow currents, but a fast oscillator patched into a pitch inlet comes out
+stepped. Any place can be told to look closer:
+
+    the voice is vco 4 resolution=fine        ; every 4 samples
+    the bell is wingie 2 resolution=audio      ; every sample: true audio-rate FM
+
+It costs the place's once-a-block work 8 (fine) or 32 (audio) times over, so use it where you
+hear the difference. It can't be combined with a lower samplerate.
+
+## Too heavy: the last dream that fit
+
+When a dream asks more of the processor than there is, it doesn't fall silent or break up. The
+instrument goes back to what last played calmly for two seconds: the previous scene if a heavy
+scene did it, else the dream that was playing before (on the SP-1, the dream kept in the slot
+when the heavy one only came to try), else the first dream. The console says which.
+
+## Changing slots from inside a dream
+
+`slot` goes to another dream: `the next is slot 7` and a pulse at `next.go` plays slot 7;
+`next` and `back` step to the following or previous slot. Like `scene`, it ignores pulses in the
+first 0.1 s of a scene (a clock pulses as it starts). In the editor, which has no slots, the
+status line says what the instrument would do.
 
 ## Outputs
 

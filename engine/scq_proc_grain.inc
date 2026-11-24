@@ -1044,6 +1044,9 @@ static void grn_capture(node *n, grn_eng *e, int32_t F, float dur)
 	}
 }
 static uint32_t mem_grainfreeze(float nature) { return grn_mem_tape(nature); }
+#if defined(__XTENSA__)   /* the ESP32's gcc 8.4 crashes (internal compiler error) on this one at -O2 */
+__attribute__((optimize("O1")))
+#endif
 static void run_grainfreeze(node *n, const float *const in[MAX_IN])
 {
 	grn_eng *e = (grn_eng *)n->mem;

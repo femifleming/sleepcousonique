@@ -16,9 +16,11 @@ open("firmware-wingie/SleepcousoniqueWingie/first_light.h", "w").write(
 PY
 FLAGS="-O2 -DSCQ_DEVICE -DSCQ_INSTRUMENT=1 -DSCQ_POOL_EXTERN -I$(pwd)/engine"
 mkdir -p build-wingie firmware-wingie/dist
+rm -f build-wingie/SleepcousoniqueWingie.ino.*   # never pass off an old image as new
 arduino-cli compile --fqbn "esp32:esp32:esp32:PartitionScheme=huge_app,FlashMode=dio,FlashFreq=80" \
   --build-property "compiler.c.extra_flags=$FLAGS" --build-property "compiler.cpp.extra_flags=$FLAGS" \
-  --output-dir build-wingie "$SK" 2>&1 | grep -E "error|warning: |Sketch uses|Global variables" | grep -v "deprecated" || true
+  --output-dir build-wingie "$SK" > build-wingie/compile.log 2>&1 || { grep -E "error" build-wingie/compile.log | head; echo "build failed"; exit 1; }
+grep -E "warning: |Sketch uses|Global variables" build-wingie/compile.log | grep -v deprecated || true
 test -f build-wingie/SleepcousoniqueWingie.ino.bin
 ESPTOOL=$(ls ~/Library/Arduino15/packages/esp32/tools/esptool_py/*/esptool | tail -1)
 BOOT0=$(ls ~/Library/Arduino15/packages/esp32/hardware/esp32/2.0.4/tools/partitions/boot_app0.bin)
