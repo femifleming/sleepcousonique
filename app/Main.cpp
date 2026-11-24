@@ -111,6 +111,7 @@ public:
             window->main->engine().radio.pretend (args[pr + 1].getIntValue());
         if (int st = args.indexOf ("--storm"); st >= 0) { storm (args, st); return; }
         int shot = args.indexOf ("--shot");
+        if (shot >= 0) window->main->engine().inputAllowed = false;    // a screenshot never opens a microphone
         if (shot >= 0)
         {
             // --shot out.png [file.dream]: open, settle, photograph the window, quit

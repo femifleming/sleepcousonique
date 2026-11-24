@@ -54,6 +54,8 @@ struct SceneInfo { juce::String title; bool current = false; };
 struct Message { bool error = false; int line = 0; juce::String text; };
 
 const std::vector<PlaceInfo>& catalog();
+int instrumentOf (const juce::String& text);                       // (below)
+juce::String withInstrument (const juce::String& text, int instrument);
 const PlaceInfo* findPlace (const juce::String& name);
 Signal outletSignal (const PlaceInfo&, int port);
 // Does inlet i get a panel knob (as it would on an analog module), and over what range?

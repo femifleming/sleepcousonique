@@ -590,7 +590,7 @@ bool Link::connect()
     {
         if (threadShouldExit()) return false;
         const bool ch340 = lookForWingies && mightBeWingie (path);
-        if (ch340 && notOurs.contains (path)) { if (rank < 2) { reason = explain ({ Hello::otherFirmware }, path); rank = 2; } continue; }
+        if (ch340 && notOurs.contains (path)) { if (rank < 2) { Hello other; other.what = Hello::otherFirmware; reason = explain (other, path); rank = 2; } continue; }
         auto w = open (path);
         if (w == nullptr) { if (rank < 1) { reason = busy (path); rank = 1; } continue; }
         auto h = greet (*w, [this] { return threadShouldExit(); });

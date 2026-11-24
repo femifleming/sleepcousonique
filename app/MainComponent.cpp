@@ -92,6 +92,18 @@ MainComponent::MainComponent()
     addAndMakeVisible (journal);
     addAndMakeVisible (tapestry);
     addAndMakeVisible (hands);
+    addChildComponent (wingiePanel);
+    addChildComponent (wingieMeters);
+    const char* instNames[2] = { "SP-1", "Wingie" };
+    const char* instTips[2] = { "patch for the SP-1 (a dream without an instrument line)",
+                                "patch for the Meng Qi Wingie2: writes `instrument wingie` at the top of the dream" };
+    for (int i = 0; i < 2; ++i)
+    {
+        instBtn[i].setButtonText (instNames[i]);
+        instBtn[i].setTooltip (instTips[i]);
+        instBtn[i].onClick = [this, i] { setInstrument (i); };
+        addAndMakeVisible (instBtn[i]);
+    }
     bar = std::make_unique<StretchableLayoutResizerBar> (&split, 1, true);
     addAndMakeVisible (*bar);
     split.setItemLayout (0, 260, -0.8, -0.38);
@@ -123,7 +135,9 @@ MainComponent::MainComponent()
     sendBtn.onClick = [this] { sendToSP1(); };
     soundBtn.onClick = [this]
     {
-        auto* sel = new AudioDeviceSelectorComponent (host.devices, 0, 0, 2, 2, false, false, true, false);
+        // the input is chosen here while the Wingie's microphones are listened to (listen, in its panel)
+        const int ins = host.listening() ? 2 : 0;
+        auto* sel = new AudioDeviceSelectorComponent (host.devices, 0, ins, 2, 2, false, false, true, false);
         sel->setSize (480, 360);
         DialogWindow::LaunchOptions lo;
         lo.content.setOwned (sel);
@@ -198,6 +212,23 @@ MainComponent::MainComponent()
                 if (c.src == n->id) { if (view == 2) setView (1); journal.showLine (c.line); return; }
         status (control + " isn't patched in this scene: drag its loop onto an inlet, or write  " + control + " -> somewhere");
     };
+    // the Wingie's panel: the same map, its own hands
+    wingiePanel.typing = hands.typing;
+    wingiePanel.link = &link;
+    wingiePanel.onStatus = hands.onStatus;
+    wingiePanel.mappingFor = hands.mappingFor;
+    wingiePanel.onShowControl = hands.onShowControl;
+    wingiePanel.onListen = [this] (bool on)
+    {
+        auto err = host.setListening (on);
+        if (err.isNotEmpty()) status ("can't listen: " + err);
+        else status (on ? "listening to " + host.inputName() + " as the Wingie's microphones (wear headphones, or it feeds back; the sound settings choose the input)"
+                        : "not listening: the Wingie's microphones are silent in the simulation");
+        wingiePanel.repaint();
+    };
+    wingieMeters.link = &link;
+    wingieMeters.estimate = [this] { return doc.load; };
+    wingieMeters.poolWord = [this] { return String (roundToInt ((float) doc.poolUsed / 1024.0f)) + " of " + String (roundToInt ((float) doc.poolTotal / 1024.0f)) + " KB"; };
 
     setSize (1440, 900);
     // start with the first night
@@ -235,6 +266,7 @@ void MainComponent::compile (bool force)
 {
     auto code = codeOf (doc.text);
     doc.readPositions();
+    syncInstrument();                // (an instrument line typed or taken back)
     if (! force && code == lastCode) { tapestry.refresh(); return; }
     auto chk = host.check (doc.text, nights);
     if (chk.errors > 0)
@@ -341,13 +373,25 @@ void MainComponent::resized()
             else { k.removeColour (TextButton::textColourOffId); k.removeColour (TextButton::textColourOnId); }
         }
     }
+    instBtn[0].setButtonText (pop ? "sp-1" : "SP-1");
+    instBtn[1].setButtonText (pop ? "wingie" : "Wingie");
+    sendBtn.setButtonText ("send to " + deviceText (shownInstrument == 1 ? 1 : 0));
     if (pop) { resizedPop(); return; }
     pillArea = marginArea = stripArea = contentArea = helpArea = {};
     auto r = getLocalBounds();
     auto top = r.removeFromTop (46).reduced (10, 8);
+    const bool narrow = top.getWidth() < 1240;          // room for the instrument switch: the passages as arrows only
     sendBtn.setBounds (top.removeFromLeft (128));
-    top.removeFromLeft (16);
-    for (auto& k : kindBtn) k.setBounds (top.removeFromLeft (92));
+    top.removeFromLeft (10);
+    instBtn[0].setBounds (top.removeFromLeft (58));      // SP-1 | Wingie
+    instBtn[1].setBounds (top.removeFromLeft (66));
+    top.removeFromLeft (12);
+    const char* arrowOnly[] = { "->", "~>", "=>", ">|", "?>" };
+    for (int i = 0; i < 5; ++i)
+    {
+        if (narrow) kindBtn[i].setButtonText (arrowOnly[i]);
+        kindBtn[i].setBounds (top.removeFromLeft (narrow ? 46 : 92));
+    }
     top.removeFromLeft (16);
     for (auto& v : viewBtn) v.setBounds (top.removeFromLeft (84));
     soundBtn.setBounds (top.removeFromRight (70));
@@ -361,7 +405,12 @@ void MainComponent::resized()
     linkArea = sceneArea.reduced (10, 0).removeFromRight (360);
 
     statusArea = r.removeFromBottom (24);
-    hands.setBounds (r.removeFromBottom (176));
+    {
+        auto handsRow = r.removeFromBottom (176);
+        hands.setBounds (handsRow);
+        wingieMeters.setBounds (handsRow.removeFromRight (jmin (470, handsRow.getWidth() * 2 / 5)));
+        wingiePanel.setBounds (handsRow);
+    }
     timeline.setVisible (showTimeline);
     if (showTimeline) timeline.setBounds (r.removeFromBottom (70));
 
@@ -394,7 +443,10 @@ void MainComponent::resizedPop()
         viewBtn[2].setBounds (row1);
         viewBtn[1].setBounds (row2.removeFromLeft (70)); row2.removeFromLeft (6);
         soundBtn.setBounds (row2);
-        addSceneBtn.setBounds (btns.removeFromTop (30));
+        auto row3 = btns.removeFromTop (30);           // sp-1 | wingie, and the scene add
+        instBtn[0].setBounds (row3.removeFromLeft (58)); row3.removeFromLeft (4);
+        instBtn[1].setBounds (row3.removeFromLeft (70)); row3.removeFromLeft (6);
+        addSceneBtn.setBounds (row3);
     }
     top.removeFromLeft (104);
     browser.setBounds (top.reduced (0, 2).withTrimmedBottom (12));
@@ -423,6 +475,8 @@ void MainComponent::resizedPop()
     helpArea = marginArea.withTop (marginArea.getBottom() - 70).withHeight (24).withTrimmedLeft (12).withWidth (80);
     handsArea.removeFromLeft (104);
     hands.setBounds (handsArea);
+    wingieMeters.setBounds (handsArea.removeFromRight (jmin (470, handsArea.getWidth() * 2 / 5)));
+    wingiePanel.setBounds (handsArea);
     r.removeFromLeft (104);
     inspector.setBounds (r.removeFromRight (250).withTrimmedTop (10).reduced (0, 4));
     r.removeFromRight (16);                           // the right rail
@@ -468,13 +522,13 @@ void MainComponent::paintPop (Graphics& g)
         g.drawText (t, pillArea.reduced (16, 0).withTrimmedLeft (14), Justification::centredLeft, true);
     }
 
-    // the SP-1 bar, gold
+    // the SP-1 bar, gold (or the Wingie's)
     {
-        bool open = link.connected();
-        auto h = open ? link.hands() : serial::Link::Hands {};
-        auto now = Time::getMillisecondCounter();
-        if (h.count != handsSeen) { handsSeen = h.count; handsAt = now; }
-        bool live = open && handsAt != 0 && now - handsAt < 1500;
+        auto ln = linkNow();
+        const bool open = ln.open, live = ln.live;
+        struct { int slot, scene; } h { ln.slot, ln.scene };
+        const int dreamFor = shownInstrument == 1 ? 1 : 0;
+        const bool other = open && ln.device != dreamFor;       // connected, but the other instrument
         auto b = linkArea.toFloat().reduced (0, 2);
         auto shape = art::slant (b, th.modular ? 0.0f : b.getHeight() * 0.45f);
         if (th.modular) { g.setColour (th.button); g.fillRect (b); art::bevel (g, b, true); }
@@ -488,9 +542,10 @@ void MainComponent::paintPop (Graphics& g)
         else { g.setColour (live ? th.window : (open ? th.checkA : th.chromeDim)); g.fillPath (art::slant (sq, 4)); }
         g.setColour (live && th.dark ? th.window : ink);
         g.setFont (art::label (12.5f));
-        String a = "sp-1 ", c = ! open ? "not connected" : (live ? "connected" : "waiting...");
-        g.drawText (a + "/ " + c, b.withTrimmedLeft (36), Justification::centredLeft);
-        if (live)
+        String a = deviceText (open ? ln.device : dreamFor).toLowerCase() + " ", c = ! open ? "not connected" : (live ? "connected" : "waiting...");
+        if (other) c << "  (dream: " << deviceText (dreamFor).toLowerCase() << ")";
+        g.drawText (a + "/ " + c, b.withTrimmedLeft (36), Justification::centredLeft, true);
+        if (live && ! other)
         {
             g.setFont (art::label (10));
             g.drawText ("slot " + String (h.slot) + " · scene " + String (h.scene), b.reduced (10, 0), Justification::centredRight);
@@ -594,13 +649,14 @@ void MainComponent::paintPop (Graphics& g)
             g.setColour (col); g.fillRect (bar.withWidth (jlimit (0.0f, bar.getWidth(), full * (known ? v : 0.0f))));
             g.setColour (ink); g.fillRect (Rectangle<float> (bar.getX() + full - 1, bar.getY() - 3, 2, bar.getHeight() + 6));
         };
-        auto meas = link.connected() ? link.measured() : serial::Link::Measured {};
+        const int dreamFor = shownInstrument == 1 ? 1 : 0;                 // the meters are for the instrument the dream is for
+        auto meas = measuredFor (dreamFor);
         bool fresh = meas.avg >= 0 && Time::getMillisecondCounter() - meas.when < 12000;
         auto area = s.withTrimmedLeft (78).withTrimmedRight (170);
         float w = area.getWidth() / 3;
         readout (area.removeFromLeft (w), "LOAD (estimate)", doc.load, true, {});
-        readout (area.removeFromLeft (w), "SP-1 CPU (measured)", fresh ? (float) meas.peak / 100.0f : 0.0f, fresh,
-                 fresh ? "avg " + String (meas.avg) + "%" : String ("plug in the SP-1"));
+        readout (area.removeFromLeft (w), deviceText (dreamFor).toUpperCase() + " CPU (measured)", fresh ? (float) meas.peak / 100.0f : 0.0f, fresh,
+                 fresh ? "avg " + String (meas.avg) + "%" + (meas.dropped > 0 ? "  dropped " + String (meas.dropped) : String()) : "plug in the " + deviceText (dreamFor));
         {
             // room on the SP-1: whichever runs out first (the memory pool, 96 places, 320 cords, or
             // the 16 KB of text a slot keeps), named beside the number
@@ -644,20 +700,22 @@ void MainComponent::paint (Graphics& g)
 
     // is the SP-1 there: plugged in and talking (its hands arrive ~30 times a second)
     {
-        bool open = link.connected();
-        auto h = open ? link.hands() : serial::Link::Hands {};
+        auto ln = linkNow();
+        const bool open = ln.open, live = ln.live;
         auto now = Time::getMillisecondCounter();
-        if (h.count != handsSeen) { handsSeen = h.count; handsAt = now; }
-        bool live = open && handsAt != 0 && now - handsAt < 1500;
+        const int dreamFor = shownInstrument == 1 ? 1 : 0;
+        const String dev = deviceText (open ? ln.device : dreamFor);
         auto why = open ? String() : link.note();
-        String text = ! open ? (! serial::Link::enabled ? String ("SP-1 link off (--no-link)")
+        String text = ! open ? (! serial::Link::enabled ? dev + " link off (--no-link)"
                                 : why.contains ("standby") ? String::fromUTF8 ("SP-1 is off (standby): hold \xe2\x80\xa2\xe2\x80\xa2 to turn it on")
+                                : why.contains ("if it's a Wingie") ? String ("a USB serial device without Sleepcousonique on it")
                                 : why.contains ("not as Sleepcousonique") ? String ("an SP-1 without Sleepcousonique on it")
-                                : why.contains ("in use") ? String ("SP-1 port in use by another program")
-                                : String ("SP-1 not connected"))
-                    : live ? "SP-1 connected  " + link.port().fromLastOccurrenceOf ("/", false, false)
-                             + "  slot " + String (h.slot) + "  scene " + String (h.scene)
-                    : "SP-1 found, waiting for it to answer...";
+                                : why.contains ("in use") ? dev + " port in use by another program"
+                                : dev + " not connected")
+                    : live ? dev + " connected  " + link.port().fromLastOccurrenceOf ("/", false, false)
+                             + (ln.device != dreamFor ? "  (this dream is for the " + deviceText (dreamFor) + ")"
+                                                      : "  slot " + String (ln.slot) + "  scene " + String (ln.scene))
+                    : dev + " found, waiting for it to answer...";
         auto r = linkArea.toFloat();
         auto dot = Rectangle<float> (12, 12).withCentre ({ r.getRight() - 8, r.getCentreY() });
         auto green = Colour (0xff3f8f4a);
@@ -700,14 +758,15 @@ void MainComponent::paint (Graphics& g)
     };
     int w = m.getWidth() / 3;
     {
-        // the estimate, and when an SP-1 is plugged in, what it measures (avg, and its peaks)
-        auto meas = link.connected() ? link.measured() : serial::Link::Measured {};
+        // the estimate, and when the SP-1 (or the Wingie) is plugged in, what it measures (avg, and its peaks)
+        const int dreamFor = shownInstrument == 1 ? 1 : 0;
+        auto meas = measuredFor (dreamFor);
         bool fresh = meas.avg >= 0 && Time::getMillisecondCounter() - meas.when < 12000;
         String label = "load " + String (roundToInt (doc.load * 100)) + "%";
         float v = doc.load;
         if (fresh)
         {
-            label << "   SP-1 " << meas.avg << "%, peaks " << meas.peak << "%" << (meas.over ? "  TOO HEAVY" : "");
+            label << "   " << deviceText (dreamFor) << " " << meas.avg << "%, peaks " << meas.peak << "%" << (meas.over ? "  TOO HEAVY" : "");
             v = jmax (v, (float) meas.peak / 100.0f);
         }
         bar1 (m.removeFromLeft (w - 8), label, v, th.pop ? th.checkA : art::blue);
@@ -758,7 +817,9 @@ void MainComponent::status (const String& s)
 
 void MainComponent::updateTitle()
 {
-    if (onTitle) onTitle ((doc.file.existsAsFile() ? doc.file.getFileNameWithoutExtension() : String ("first night")) + (doc.dirty ? String::fromUTF8 ("  \xe2\x80\xa2") : String()) + String::fromUTF8 ("  \xe2\x80\x94  Sleepcousonique"));
+    if (onTitle) onTitle ((doc.file.existsAsFile() ? doc.file.getFileNameWithoutExtension() : String ("first night")) + (doc.dirty ? String::fromUTF8 ("  \xe2\x80\xa2") : String())
+                          + (doc.instrument() == SCQ_WINGIE ? String::fromUTF8 ("  \xe2\x80\x94  for the Wingie") : String())
+                          + String::fromUTF8 ("  \xe2\x80\x94  Sleepcousonique"));
 }
 
 // ------------------------------------------------------------------------------------------ files
@@ -772,12 +833,71 @@ bool MainComponent::askToKeepChanges (std::function<void()> then)
     return false;
 }
 
-void MainComponent::newDream()
+// ------------------------------------------------------------------------------------------ the instrument
+
+void MainComponent::setInstrument (int i)
 {
-    askToKeepChanges ([this]
+    if (pendingTyping) { pendingTyping = false; doc.text = journal.getText(); remember(); }
+    else doc.text = journal.getText();
+    if (doc.instrument() == i) { syncInstrument(); return; }
+    doc.setInstrument (i);
+    textEdited (true);
+    // the other instrument's hands are mistakes now: say so, rather than leave them unexplained
+    const int mistakes = host.check (doc.text, nights).errors;
+    status ("this dream is now for the " + deviceText (i)
+            + (i == SCQ_WINGIE ? String (": `instrument wingie` is its first line") : String (": its instrument line is gone"))
+            + (mistakes > 0 ? "; " + String (mistakes) + (mistakes == 1 ? " line uses" : " lines use") + " what the " + deviceText (i)
+                              + " hasn't (the " + deviceText (1 - i) + "'s hands): see the journal" : String())
+            + "   (cmd-Z takes it back)");
+}
+
+void MainComponent::syncInstrument()
+{
+    const int i = doc.instrument();
+    if (i == shownInstrument) return;
+    shownInstrument = i;
+    const bool w = i == SCQ_WINGIE;
+    for (int k = 0; k < 2; ++k) instBtn[k].setToggleState (k == i, dontSendNotification);
+    hands.setVisible (! w);
+    wingiePanel.setVisible (w);
+    wingieMeters.setVisible (w);
+    browser.setInstrument (i);
+    if (w) wingiePanel.reset();           // the faders are shared (fader1-3): each panel puts back its own
+    else
+    {
+        hands.resend();
+        if (host.listening()) host.setListening (false);   // only a dream for the Wingie listens
+    }
+    updateTitle();
+    resized();
+    repaint();
+}
+
+serial::Link::Measured MainComponent::measuredFor (int instrument) const
+{
+    return link.device() == instrument ? link.measured() : serial::Link::Measured {};
+}
+
+MainComponent::LinkNow MainComponent::linkNow()
+{
+    LinkNow n;
+    n.open = link.connected();
+    n.device = link.device();
+    juce::uint32 count = 0;
+    if (n.device == serial::wingie) { auto h = link.whands(); count = h.count; n.slot = h.slot; n.scene = h.scene; }
+    else if (n.open) { auto h = link.hands(); count = h.count; n.slot = h.slot; n.scene = h.scene; }
+    auto now = Time::getMillisecondCounter();
+    if (count != handsSeen) { handsSeen = count; handsAt = now; }
+    n.live = n.open && handsAt != 0 && now - handsAt < 1500;
+    return n;
+}
+
+void MainComponent::newDream (int instrument)
+{
+    askToKeepChanges ([this, instrument]
     {
         auto today = Time::getCurrentTime().formatted ("%Y-%m-%d");
-        doc.text = "; a new dream\n\n" + today + "\n----------\nthe voice is sine 3\nvoice -> out\n";
+        doc.text = scq::starterDream (instrument, today);
         doc.file = File();
         nights = 0;
         journal.setText (doc.text);
@@ -847,12 +967,23 @@ void MainComponent::save (bool as)
     });
 }
 
-void MainComponent::sendToSP1()
+void MainComponent::sendToSP1 (int slot)
 {
     doc.text = journal.getText();
+    const int dreamFor = doc.instrument();            // the SP-1 or the Wingie: the dream says
+    const String dev = deviceText (dreamFor);
     if (doc.errors > 0) { status ("fix the mistakes in the journal before sending"); return; }
 
-    // every scene must fit the SP-1's processor, or it will stutter there
+    // the connected device is the other instrument: say so now, plainly, rather than send
+    if (link.connected() && link.device() != dreamFor)
+    {
+        AlertWindow::showMessageBoxAsync (MessageBoxIconType::WarningIcon, "send to " + dev,
+                                          serial::mismatch (dreamFor, link.device(), link.port()));
+        status ("not sent: the " + deviceText (link.device()) + " is connected, and this dream is for the " + dev);
+        return;
+    }
+
+    // every scene must fit the processor, or it will stutter there
     auto chk = host.check (doc.text, nights);
     StringArray heavy;
     for (int k = 0; k < (int) chk.sceneLoads.size(); ++k)
@@ -861,32 +992,34 @@ void MainComponent::sendToSP1()
                        + "  needs " + String (roundToInt (chk.sceneLoads[(size_t) k] * 100)) + "%");
     if (! heavy.isEmpty() && ! sendAnyway)
     {
-        AlertWindow::showOkCancelBox (MessageBoxIconType::WarningIcon, "too heavy for the SP-1",
-            "These scenes need more of the SP-1's processor than it has, so they'll stutter there:\n\n"
+        AlertWindow::showOkCancelBox (MessageBoxIconType::WarningIcon, "too heavy for the " + dev,
+            "These scenes need more of the " + dev + "'s processor than it has, so they'll stutter there:\n\n"
             + heavy.joinIntoString ("\n") + "\n\nThe load meter shows each scene as you build it. "
-            "Removing a heavy place (reverbs, choruses, the vocoder) or a few mixed cords brings it down.",
+            "Removing a heavy place (reverbs, choruses, the vocoder) or a few mixed cords brings it down"
+            + (dreamFor == SCQ_WINGIE ? String (", and so does samplerate=half on a place that can take it.") : String (".")),
             "send anyway", "don't send", this,
-            ModalCallbackFunction::create ([this] (int r) { if (r == 1) { sendAnyway = true; sendToSP1(); sendAnyway = false; } }));
+            ModalCallbackFunction::create ([this, slot] (int r) { if (r == 1) { sendAnyway = true; sendToSP1 (slot); sendAnyway = false; } }));
         return;
     }
-    auto sent = scales::withTunings (doc.text);       // the SP-1 has no scales folder: the tunings go with the dream
-    if ((int) sent.getNumBytesAsUTF8() > doc.textMost)   // a slot keeps 16 KB: the SP-1 would play it and lose it at power-off
+    auto sent = scales::withTunings (doc.text);       // the device has no scales folder: the tunings go with the dream
+    if ((int) sent.getNumBytesAsUTF8() > doc.textMost)   // a slot keeps 16 KB: it would play it and lose it at power-off
     {
-        AlertWindow::showMessageBoxAsync (MessageBoxIconType::InfoIcon, "send to SP-1",
-            "This dream is " + String ((int) sent.getNumBytesAsUTF8()) + " bytes of text; an SP-1 slot keeps " + String (doc.textMost)
+        AlertWindow::showMessageBoxAsync (MessageBoxIconType::InfoIcon, "send to " + dev,
+            "This dream is " + String ((int) sent.getNumBytesAsUTF8()) + " bytes of text; " + String (dreamFor == SCQ_WINGIE ? "a Wingie" : "an SP-1") + " slot keeps " + String (doc.textMost)
             + ". Notes after a ; and the positions at the end count too: a shorter journal, or fewer scenes, will fit.");
         return;
     }
-    if (sendJob != nullptr && sendJob->isThreadRunning()) { status ("still sending the last one to the SP-1..."); return; }
-    status (link.connected() ? "sending to the SP-1..." : "looking for the SP-1...");
+    if (sendJob != nullptr && sendJob->isThreadRunning()) { status ("still sending the last one to the " + dev + "..."); return; }
+    status (link.connected() ? "sending to the " + dev + (slot >= 0 ? ", slot " + String (slot + 1) : String()) + "..." : "looking for the " + dev + "...");
     sendBtn.setEnabled (false);
+    sendingTo = dreamFor;
     sendJob = std::make_unique<SendJob>();
     auto* l = &link;
-    sendJob->work = [l, sent] (String& port) -> String
+    sendJob->work = [l, sent, slot, dreamFor] (String& port) -> String
     {
         if (! serial::Link::enabled)                       // --no-link: nobody holds the port, open it just for this
-            return serial::send (sent, -1, port);
-        auto err = l->send (sent, -1, 8000);              // -1: the slot that is playing
+            return serial::send (sent, slot, port, dreamFor);
+        auto err = l->send (sent, slot, 8000, dreamFor);  // slot -1: the slot that is playing
         port = l->port();
         return err;
     };
@@ -900,11 +1033,12 @@ void MainComponent::sendToSP1()
 void MainComponent::sendFinished (const String& err, const String& port)
 {
     sendBtn.setEnabled (true);
-    if (err.isEmpty()) status ("sent to the SP-1 on " + port);
+    const String dev = deviceText (sendingTo);
+    if (err.isEmpty()) status ("sent to the " + dev + " on " + port);
     else
     {
-        status ("not sent to the SP-1");
-        AlertWindow::showMessageBoxAsync (MessageBoxIconType::InfoIcon, "send to SP-1", err);
+        status ("not sent to the " + dev);
+        AlertWindow::showMessageBoxAsync (MessageBoxIconType::InfoIcon, "send to " + dev, err);
     }
 }
 
@@ -1025,7 +1159,7 @@ void MainComponent::applySnapshot (const Timeline::Values& values, int scene)
             host.setAmount (it->second, v);
             doc.cords[(size_t) it->second].amt = v;
         }
-        else if (kind == "f:") { int i = rest.getIntValue(); host.control (i, v); hands.showFader (i, v); }
+        else if (kind == "f:") { int i = rest.getIntValue(); host.control (i, v); hands.showFader (i, v); wingiePanel.showFader (i, v); }
         else
         {
             auto name = rest.upToFirstOccurrenceOf (":", false, false);
@@ -1086,6 +1220,7 @@ void MainComponent::textEdited (bool recompile)
 {
     remember();
     journal.setText (doc.text);
+    syncInstrument();
     if (recompile) compile (true);
     else { lastCode = codeOf (doc.text); doc.readPositions(); tapestry.refresh(); }
     inspector.refresh();
@@ -1131,26 +1266,27 @@ bool MainComponent::keyPressed (const KeyPress& k)
         || k == KeyPress ('Z', ModifierKeys::commandModifier | ModifierKeys::shiftModifier, 0)) { undoRedo (true); return true; }
     if (k == KeyPress ('s', ModifierKeys::commandModifier, 0)) { save (false); return true; }
     if (k == KeyPress ('o', ModifierKeys::commandModifier, 0)) { openDialog(); return true; }
-    if (k == KeyPress ('n', ModifierKeys::commandModifier, 0)) { newDream(); return true; }
+    if (k == KeyPress ('n', ModifierKeys::commandModifier, 0)) { newDream (doc.instrument()); return true; }
     if (k == KeyPress ('u', ModifierKeys::commandModifier, 0)) { sendToSP1(); return true; }
     return false;
 }
 
 // ------------------------------------------------------------------------------------------ menus
 
-StringArray MainComponent::getMenuBarNames() { return { "File", "Edit", "View", "Help" }; }
+StringArray MainComponent::getMenuBarNames() { return { "File", "Edit", "View", "Device", "Help" }; }
 
 PopupMenu MainComponent::getMenuForIndex (int idx, const String&)
 {
     PopupMenu m;
     if (idx == 0)
     {
-        m.addItem (1, "New dream", true);
+        m.addItem (1, "New dream (SP-1)", true);
+        m.addItem (8, "New dream for the Wingie", true);
         m.addItem (2, "Open...", true);
         m.addItem (3, "Save", true);
         m.addItem (4, "Save as...", true);
         m.addSeparator();
-        m.addItem (5, "Send to SP-1", true);
+        m.addItem (5, "Send to " + deviceText (doc.instrument()), true);
         m.addItem (6, "Load the first night (example)", true);
         m.addItem (7, "Load a history of modular (example)", true);
     }
@@ -1204,6 +1340,27 @@ PopupMenu MainComponent::getMenuForIndex (int idx, const String&)
         m.addItem (14, "Find my patch (fit the tapestry in view)");
         m.addItem (15, "Sound settings...");
     }
+    else if (idx == 3)
+    {
+        // which instrument this dream is for, sending to it, and the Wingie's microphones
+        const int i = doc.instrument();
+        m.addItem (90, "Patch for the SP-1", true, i == SCQ_SP1);
+        m.addItem (91, "Patch for the Wingie", true, i == SCQ_WINGIE);
+        m.addSeparator();
+        m.addItem (5, "Send to " + deviceText (i) + " (the slot that is playing)", true);
+        PopupMenu slots;
+        const int n = i == SCQ_WINGIE ? 12 : 5;
+        for (int k = 0; k < n; ++k) slots.addItem (100 + k, "slot " + String (k + 1));
+        m.addSubMenu ("Send to " + deviceText (i) + " slot", slots);
+        m.addSeparator();
+        m.addItem (92, "Listen to the computer's microphone as the Wingie's", i == SCQ_WINGIE, host.listening());
+        m.addItem (15, "Sound settings...");
+        m.addSeparator();
+        auto ln = linkNow();
+        m.addItem (93, ln.open ? "connected: " + deviceText (ln.device) + " on " + link.port().fromLastOccurrenceOf ("/", false, false)
+                                 + (ln.device != i ? "  (this dream is for the " + deviceText (i) + ")" : String())
+                               : String ("no SP-1 or Wingie connected"), false);
+    }
     else
     {
         m.addItem (21, "The places (reference)");
@@ -1216,7 +1373,10 @@ void MainComponent::menuItemSelected (int id, int)
 {
     switch (id)
     {
-        case 1: newDream(); break;
+        case 1: newDream (0); break;
+        case 8: newDream (1); break;
+        case 90: case 91: setInstrument (id - 90); break;
+        case 92: if (wingiePanel.onListen) wingiePanel.onListen (! host.listening()); break;
         case 2: openDialog(); break;
         case 3: save (false); break;
         case 4: save (true); break;
@@ -1260,6 +1420,8 @@ void MainComponent::menuItemSelected (int id, int)
             f.startAsProcess();
             break;
         }
-        default: break;
+        default:
+            if (id >= 100 && id < 112) sendToSP1 (id - 100);    // the protocol counts slots from 0
+            break;
     }
 }
