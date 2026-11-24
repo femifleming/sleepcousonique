@@ -50,7 +50,7 @@
 #include <zephyr/drivers/hwinfo.h>
 #endif
 
-#define SCQ_VERSION   "1.4.0"
+#define SCQ_VERSION   "1.5.0-beta1"
 #define SLOTS         5
 #define SLOT_BYTES    (16 * 1024)
 #define STATE_OFF     (SLOTS * SLOT_BYTES)       /* 0x14000: one page of state */
@@ -71,7 +71,9 @@ static int      slot;              /* the slot that is playing */
 static uint32_t nights;            /* boots so far: drift's seed */
 static bool     link_up;
 static bool     audio_live;        /* ON and the audio thread running: flash writes must pause it */
-static volatile uint32_t eng_sum, eng_n, eng_max, eng_skipped;   /* skipped: over budget, played as silence */   /* engine cycles, from the audio thread */
+static volatile uint32_t eng_sum, eng_n, eng_max, eng_skipped;
+static volatile uint32_t skipped_total;   /* never reset: the too-heavy watch in sp1_scq_tick */
+static bool playing_try;                  /* the dream playing came by SCQ TRY: the slot still holds the one that fit */   /* skipped: over budget, played as silence */   /* engine cycles, from the audio thread */
 /* "SCQ MEASURE n": the engine's cycles over exactly the next n rendered blocks (tools/sp1fleet.py) */
 static volatile uint32_t m_left, m_n, m_max, m_skipped;
 static volatile uint64_t m_sum;
@@ -203,6 +205,7 @@ static int load_text(const char *text, int len)
 
 static void play_slot(int s)
 {
+	playing_try = false;
 	slot = (s % SLOTS + SLOTS) % SLOTS;
 	int len = slot_read(slot, staging, sizeof staging);
 	if (len > 0) {
@@ -309,6 +312,7 @@ void sp1_scq_render(float *left, float *right, uint32_t frames)
 		memset(right, 0, frames * sizeof(float));
 		eng_skipped++;
 		m_skipped++;
+		skipped_total++;
 		return;
 	}
 	const uint32_t c0 = DWT->CYCCNT;
@@ -520,6 +524,7 @@ static void serial_poll(void)
 			want = -1;
 			int e = load_text(staging, got);
 			if (e == 0 && want_slot < 0) {
+				playing_try = true;
 				reply("OK 0\n");                    /* SCQ TRY: played, not kept */
 			} else if (e == 0) {
 				/* the playing dream is the new one; keep it */
@@ -755,6 +760,65 @@ void sp1_scq_tick(uint32_t elapsed_ms, bool fnc)
 	 * engine is asleep: its pool is the sound card's ring) */
 	if (iface_mode) {
 		return;
+	}
+
+	/* too heavy: more than one block in ten played as silence over a second. Back to the scene
+	 * that last fitted (2 s without a silenced block), or to the slot's dream if this one only
+	 * came by SCQ TRY, or to the first night. */
+	{
+		static uint32_t seen, window_ms, in_window, calm_ms, said_ms;
+		static int good_scene = -1, watch_scene = -1;
+		const uint32_t sk = skipped_total;
+		const int cur = scq_scene();
+		if (cur != watch_scene || want >= 0) { watch_scene = cur; calm_ms = 0u; }
+		window_ms += elapsed_ms;
+		said_ms += elapsed_ms;
+		if (sk != seen) {
+			in_window += sk - seen;
+			seen = sk;
+			calm_ms = 0u;
+		} else if ((calm_ms += elapsed_ms) > 2000u) {
+			good_scene = cur;
+		}
+		if (window_ms >= 1000u) {
+			if (in_window > 50u && want < 0) {
+				const char *what;
+				if (good_scene >= 0 && good_scene != cur && good_scene < scq_scene_count()) {
+					k_mutex_lock(&engine_lock, K_FOREVER);
+					scq_goto_scene(good_scene);
+					k_mutex_unlock(&engine_lock);
+					what = "the last scene that fit";
+				} else if (playing_try) {
+					play_slot(slot);
+					what = "the dream kept in this slot";
+				} else {
+					load_text(SCQ_DEFAULT_DREAM, (int)strlen(SCQ_DEFAULT_DREAM));
+					what = "the first night";
+				}
+				good_scene = -1;
+				if (said_ms > 5000u) {
+					said_ms = 0u;
+					printk("SCQ too heavy: back to %s\n", what);
+				}
+			}
+			window_ms = 0u;
+			in_window = 0u;
+		}
+	}
+
+	/* a dream asking for another slot (the slot place) */
+	{
+		int to = -1, step = 0;
+		k_mutex_lock(&engine_lock, K_FOREVER);
+		const int asked = scq_wanted_slot(&to, &step);
+		k_mutex_unlock(&engine_lock);
+		if (asked && want < 0) {
+			const int s = to >= 0 ? to : (slot + step + SLOTS) % SLOTS;
+			if (s >= 0 && s < SLOTS && s != slot) {
+				play_slot(s);
+				state_save();
+			}
+		}
 	}
 	k_mutex_lock(&engine_lock, K_FOREVER);
 	if (want < 0) {                 /* not while a dream is arriving: its text is half written */
