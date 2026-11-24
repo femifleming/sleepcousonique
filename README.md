@@ -20,13 +20,16 @@ its faders, track buttons, rocker and LEDs do whatever your dream says.
   the top), the Mode buttons, the three knobs and the lights as places. Twelve slots on the Wingie,
   picked from its panel. The editor draws the real Wingie, with its own CPU and memory meters
   measured on one.
-- **237 places** (was 96): hi-fi granular (`grains`, `grainfreeze`, `particles`, `paulstretch`,
+- **239 places** (was 96): hi-fi granular (`grains`, `grainfreeze`, `particles`, `paulstretch`,
   `stretch` …), spectral (`specfilter`, `specfreeze`, `specshift`, `harmonizer` …), time (`shimmer`,
   `doppler`, `reverse`, `beauty`, `dub` …) and colour (`transient`, `eq`, `fuzz`, `autowah` …).
   Any place can run at `samplerate=half` or `quarter` on both instruments to save work.
 - **New in the language:** pitch in units (`7st`, `-50ct`, `1oct`); `resolution=fine|audio` for
   audio-rate pitch; the `slot` place, so a dream can change slot; a scene ignores pulses in its
   first 0.1 s.
+- **A processing unit for line in.** The Line In / Mic switch always picks the input; `line.left`,
+  `line.right`, `line.both`; the octave switches are free controls, and `transpose` makes one an
+  octave switch where you want it. Seven new processing dreams (`examples/wingie-proc-*`).
 - **Too heavy? It goes back** to the last dream that fit, on both instruments, instead of
   stuttering.
 - **The SP-1's load meter** is measured place by place on 1.5.0 (522 patches): it's off by

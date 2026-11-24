@@ -11,9 +11,12 @@ the bird is wingie 2.18 string
 the bath is cocoquantus 0.8 auto=flip
 the mix is crossfade
 the sway is relabi 1
+the oct1 is transpose
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
 
 mic.both -> bird
-keys1.pitch -> bird.pitch
+oct1 -> bird.pitch
 keys1.trig keys2.trig -> bird.strike
 fader2 -> bird.decay
 bird.odd -> bath

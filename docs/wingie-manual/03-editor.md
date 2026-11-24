@@ -37,7 +37,7 @@ beside Volume, and the two keyboards as round buttons, black row over white: `ke
 | click a key, or type `z s x d c v g b h n j m` | bottom keyboard, C to B |
 | type `q 2 w 3 e r 5 t 6 y 7 u` | top keyboard, C to B |
 | type `a` / `p` | left / right Mode button |
-| click the upper or lower half of an octave toggle | moves it up or down a step (−1, 0, +1) |
+| click the upper or lower half of an octave toggle | moves it up or down a step (`octave1` reads 0, 0.5, 1) |
 | click the Line In / Mic toggle | up: line in, down: microphones |
 | drag a fader | Mix, Decay, Volume (the status line shows its value) |
 
@@ -46,8 +46,11 @@ editor has no slots, so the slot combination (both Mode buttons and a key) means
 there: `a` and `p` are just the two Mode buttons, seen by the dream.
 
 **Patch from the panel.** Drag from the little loops onto a place on the tapestry, and the hand
-is patched into it: one above each fader, one under the left grille for the microphones, and,
-just outside the face's right edge, one for each keyboard, labelled `keys2` and `keys1`.
+is patched into it: one above each fader, one beside **LINE IN** (`line.both`) and one beside
+**MIC** (`mic.both`), one beside the Line In / Mic switch (`source`), one beside each octave switch
+and each Mode button, and, just outside the face's right edge, one for each keyboard, labelled
+`keys2` and `keys1`. On the tapestry, the Wingie's hands board names each row by the panel too:
+`mix fader1`, `bottom keys1.pitch`, `L.oct octave1`.
 
 **The patch map**, *what your hands do in this scene*, lists every hand and where it goes in
 the scene that is playing: `fader2 → ring.decay`, `keys1 → ring.pitch`, a dash for a hand the

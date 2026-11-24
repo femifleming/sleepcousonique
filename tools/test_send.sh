@@ -25,10 +25,10 @@ start() {   # start <mode> [args]: a pretend SP-1; its port in $PORT
 send() { SCQ_PORTS="$PORT" perl -e 'alarm 60; exec @ARGV' "$APP" --send "$1" > "$T/out" 2>&1; echo $? > "$T/rc"; }
 
 for f in examples/*.dream; do
-    start on
+    if grep -q "^instrument wingie" "$f"; then start on --wingie; else start on; fi   # each dream to its own instrument
     send "$f"
     if [ "$(cat "$T/rc")" = 0 ] && grep -q "^sent to $PORT" "$T/out" && cmp -s "$f" "$T/got.dream"; then
-        pass "$(basename "$f"): sent, and the SP-1 got it byte for byte ($(wc -c < "$f" | tr -d ' ') bytes)"
+        pass "$(basename "$f"): sent, and the instrument got it byte for byte ($(wc -c < "$f" | tr -d ' ') bytes)"
     else
         fail "$(basename "$f"): rc $(cat "$T/rc"): $(cat "$T/out")"
     fi

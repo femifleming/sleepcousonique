@@ -1,0 +1,187 @@
+instrument wingie
+; wingie-proc-caves — the Wingie's own resonators, and some cousins, ringing on line in and played
+; from the keys: two caves, strings that tune themselves to what you play, nine resonances tuned
+; to the ground, and three metals, one of them following the line's pitch. Line/Mic switch to line.
+;
+; every scene:
+;   fader1 (Mix)     from the line as it is to the resonators
+;   fader2 (Decay)   how long they ring
+;   fader3 (Volume)  the room behind them, or the scene's extra voice
+;   keys1, keys2     tune the left and right resonators and strike them; octave1 / octave2
+;                    move each keyboard an octave down or up, as on the stock Wingie
+;   mode1            held: they ring for ever (or listen, or take the line's pitch)
+;   left LED         the left resonator;  right LED  the right one
+; Step through the scenes with a held Mode button and a tap on the other.
+
+two caves
+---------
+; the left line rings a Wingie cave tuned by the bottom keys, the right line a string tuned by the
+; top keys; each key strikes its side. The string's ring is fed a little into the cave, so the two
+; sympathise. Play loud and they ring shorter, as a hand damps them. Hold mode2 and the cave keeps
+; only its odd modes (hollow, like a clarinet).
+the cave is cave 1
+the wire is wingie 2 shape=string
+the oct1 is transpose
+the oct2 is transpose
+the ear is follower attack=0.005 release=0.5
+the hand is attenuverter amount=-1
+the hollow is crossfade
+the mixl is crossfade
+the mixr is crossfade
+the room is reverblite 3 size=0.6
+the roomlevel is vca
+
+line.left -> cave
+line.right -> wire
+line.both -> ear
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> cave.shift
+octave2 -> oct2
+keys2.pitch -> oct2.pitch
+oct2 -> wire.pitch
+keys1.trig -> cave.strike
+keys2.trig -> wire.strike
+fader2 mode1 -> cave.decay wire.decay
+ear -> hand
+hand -40> cave.decay wire.decay     ; loud playing damps them
+wire ~15> cave
+cave -> hollow.a
+cave.odd -> hollow.b
+mode2 -> hollow.mix
+line.left -> mixl.a
+hollow -> mixl.b
+line.right -> mixr.a
+wire -> mixr.b
+fader1 -> mixl.mix mixr.mix
+hollow wire ~> room
+room -> roomlevel
+fader3 -> roomlevel.gain
+mixl roomlevel -> left
+mixr roomlevel -> right
+hollow -> lights.left
+wire -> lights.right
+
+strings that listen
+-------------------
+; four sympathetic strings on a chord. A tap on mode1 tunes them to the note the line is singing
+; right now (until the next tap); the bottom keys transpose them from there (C as heard, G a
+; fifth up). The top keys pick the chord. Every attack in the line knocks a talking drum whose pitch rises with how loud you play,
+; and a comb on the top keys rings under both. fader3 how much of the drum.
+the strings are sympathetic 2
+the ear is pitchtrack
+the take is samplehold
+the oct1 is transpose
+the drum is talkingdrum 2 mode=rise depth=0.5
+the env is follower attack=0.002 release=0.1
+the hit is trigger length=10
+the comb is comb 4
+the oct2 is transpose
+the drums is vca
+the mix is crossfade
+the guard is limiter ceiling=0.9
+
+line.both -> strings ear env comb
+ear.pitch -> take
+mode1.tap -> take.clock
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+take.held oct1 -> strings.pitch   ; the note it heard, moved by the keys
+keys2.key -> strings.chord
+fader2 -> strings.decay comb.decay
+env.gate -> hit -> drum.strike
+line.both -15> drum
+octave2 -> oct2
+keys2.pitch -> oct2.pitch
+oct2 -> comb.pitch
+drum -> drums
+fader3 -> drums.gain
+line.both -> mix.a
+strings comb ~> mix.b
+drums -> mix.b
+fader1 -> mix.mix
+mix -> guard -> out
+ear.confidence -> lights.left
+strings -> lights.right
+
+tuned to the ground
+-------------------
+; hold mode1 while the line plays (a chord, a room, a record); let go and nine Wingie resonators
+; tune to its nine strongest resonances. Then the line rings them, and any key strikes them. Above
+; them a granular cloud sings the same rings at the top keys' pitch, its density on fader3.
+; Hold mode2 and the cloud freezes.
+the ground is listen 1
+the sparks are grains 3 samplerate=half window=gauss spread=0.8 size=0.4
+the oct2 is transpose
+the mix is crossfade
+the guardl is limiter ceiling=0.9
+the guardr is limiter ceiling=0.9
+
+line.both -> ground
+mode1 -> ground.listen
+keys1.trig keys2.trig -> ground.strike
+fader2 -> ground.decay
+ground -> sparks
+octave2 -> oct2
+keys2.pitch -> oct2.pitch
+oct2 -> sparks.pitch
+fader3 -> sparks.density
+mode2 -> sparks.freeze
+line.both -> mix.a
+ground -> mix.b
+fader1 -> mix.mix
+mix sparks.left -> guardl
+mix sparks.right -> guardr
+guardl -> left
+guardr -> right
+ground.locked -> lights.left
+sparks.left -> lights.right
+
+three metals
+------------
+; a bar on the bottom keys, a membrane on the top keys, and a cave-shaped resonator that follows
+; the pitch the line is playing, so whatever you play is shadowed by a ringing of its own note
+; (fader3 how loud). Hold mode1 and the follower keeps the last note it heard; mode2 strikes all three.
+the bar is wingie 3 shape=bar
+the skin is wingie 1 shape=membrane
+the shadow is wingie 2 shape=cave
+the ear is pitchtrack
+the keep is samplehold
+the free is crossfade
+the oct1 is transpose
+the oct2 is transpose
+the third is vca
+the mixl is crossfade
+the mixr is crossfade
+the guardl is limiter ceiling=0.9
+the guardr is limiter ceiling=0.9
+
+line.left -> bar
+line.right -> skin
+line.both -> shadow ear
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> bar.pitch
+octave2 -> oct2
+keys2.pitch -> oct2.pitch
+oct2 -> skin.pitch
+ear.pitch -> keep free.a
+keys1.trig -> keep.clock
+keep.track -> free.b
+mode1 -> free.mix                 ; held: the last note stays
+free -> shadow.pitch
+keys1.trig mode2 -> bar.strike
+keys2.trig mode2 -> skin.strike
+mode2 -> shadow.strike
+fader2 -> bar.decay skin.decay shadow.decay
+shadow -> third
+fader3 -> third.gain
+line.left -> mixl.a
+line.right -> mixr.a
+bar third -> mixl.b
+skin third -> mixr.b
+fader1 -> mixl.mix mixr.mix
+mixl -> guardl -> left
+mixr -> guardr -> right
+bar -> lights.left
+skin -> lights.right

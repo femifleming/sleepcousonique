@@ -9,17 +9,25 @@ first light
 the low is sympathetic 2
 the high is sympathetic 4
 the room is reverblite 2
+the loud is vca
+the oct1 is transpose
+the oct2 is transpose
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+octave2 -> oct2
+keys2.pitch -> oct2.pitch
 mic.left -> low
 mic.right -> high
-keys1.pitch -> low.pitch
-keys2.pitch -> high.pitch
+oct1 -> low.pitch
+oct2 -> high.pitch
 fader2 -> low.decay high.decay
 low -> left
 high -> right
 low high ~> room
 fader1 -> room.size
-fader3 -> room.in
-room -> out
+room -> loud
+fader3 -> loud.gain
+loud -> out
 mic.both -> lights.left
 room -> lights.right
 
@@ -27,8 +35,11 @@ the dark
 --------
 the toll is comb 2
 the shelf is filterbank
+the oct1 is transpose
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
 mic.both -> toll
-keys1.pitch -> toll.pitch
+oct1 -> toll.pitch
 fader2 -> toll.decay
 toll -> shelf
 fader1 -> shelf.band2

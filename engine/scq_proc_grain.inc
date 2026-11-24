@@ -774,6 +774,7 @@ static void run_grains(node *n, const float *const in[MAX_IN])
 	float span = (float)L - 16.f;
 	float c = grn_alike(spray * span * 0.5f + dur * scq_abs(1.f - r) + rev * dur * 2.f);
 	float cnt = n->s[3];
+	cnt = scq_min(cnt, 8.f * period);   /* never wait on a density or size since left: no grain is further off than these could draw */
 	e->nv = GRN_MAXV; e->seg = 0;
 	LOOP {
 		int32_t w = frozen ? (int32_t)n->s[0] : grn_write(n, b, L, in[0][i]);
@@ -811,6 +812,7 @@ static void run_glisson(node *n, const float *const in[MAX_IN])
 	float lap = 0.25f * scq_exp2(dens * 6.f);                  /* .. 16 deep */
 	float period = scq_max(dur / lap, 1.f), span = (float)L - 16.f;
 	float cnt = n->s[3];
+	cnt = scq_min(cnt, 8.f * period);   /* never wait on a density or size since left: no grain is further off than these could draw */
 	e->nv = GRN_MAXV; e->seg = 0;
 	LOOP {
 		int32_t w = grn_write(n, b, L, in[0][i]);
@@ -858,6 +860,7 @@ static void run_harmonicgrains(node *n, const float *const in[MAX_IN])
 	float lap = 1.f * scq_exp2(dens * 4.585f);                 /* 1 .. 24 deep */
 	float period = scq_max(dur / lap, 1.f), reach = scq_min(0.15f * SR, (float)L * 0.5f);
 	float cnt = n->s[3];
+	cnt = scq_min(cnt, 8.f * period);   /* never wait on a density or size since left: no grain is further off than these could draw */
 	e->nv = GRN_MAXV; e->seg = 0;
 	LOOP {
 		int32_t w = grn_write(n, b, L, in[0][i]);
@@ -908,6 +911,7 @@ static void run_particles(node *n, const float *const in[MAX_IN])
 	float pandev = 0.15f + 0.35f * x, tdev = (0.03f + 0.22f * x) * SR, revp = 0.3f * x;
 	float span = (float)L - 16.f, period = SR / rate;
 	float cnt = n->s[3];
+	cnt = scq_min(cnt, 8.f * period);   /* never wait on a density or size since left: no grain is further off than these could draw */
 	e->nv = GRN_MAXV; e->seg = 0;
 	LOOP {
 		int32_t w = grn_write(n, b, L, in[0][i]);
@@ -951,6 +955,7 @@ static void run_granularverb(node *n, const float *const in[MAX_IN])
 	float mdur = 0.022f * SR, period = scq_max(mdur / lap, 1.f);
 	float damp = scq_coef_hz(7000.f - 4000.f * size, SR);
 	float cnt = n->s[3], y = n->s[4], lp = n->s[5];
+	cnt = scq_min(cnt, 8.f * period);   /* never wait on a density or size since left: no grain is further off than these could draw */
 	e->nv = GRN_MAXV; e->seg = 0;
 	LOOP {
 		lp += damp * (y - lp);
@@ -989,6 +994,7 @@ static void run_graindelay(node *n, const float *const in[MAX_IN])
 	float period = scq_max(dur / lap, 1.f);
 	float c = grn_alike(jit * dl * 0.5f + dur * scq_abs(1.f - r));
 	float cnt = n->s[3], y = n->s[4];
+	cnt = scq_min(cnt, 8.f * period);   /* never wait on a density or size since left: no grain is further off than these could draw */
 	e->nv = GRN_MAXV; e->seg = 0;
 	LOOP {
 		int32_t w = grn_write(n, b, L, grn_lim(in[0][i] + fb * grn_hp(y, &n->s[5], &n->s[6], 25.f)));   /* (no rumble builds up in the loop) */
@@ -1057,6 +1063,7 @@ static void run_grainfreeze(node *n, const float *const in[MAX_IN])
 	float dur = scq_min(0.25f * SR, (float)F * 0.3f);
 	float period = dur / 6.f;
 	float cnt = n->s[3];
+	cnt = scq_min(cnt, 8.f * period);   /* never wait on a density or size since left: no grain is further off than these could draw */
 	e->nv = GRN_MAXV; e->seg = F;
 	if (n->s[13] == 0.f) { n->s[13] = 1.f; n->s[12] = (float)F; n->s[8] = 0.0001f; }   /* start: record into half 0, hold the silent half 1 */
 	LOOP {
@@ -1118,6 +1125,7 @@ static void run_scrub(node *n, const float *const in[MAX_IN])
 	float k = scq_coef_time(0.001f * scq_exp2(sm * 9.966f), SR);
 	float dur = 0.06f * SR, period = dur * 0.25f;
 	float cnt = n->s[3], head = n->s[4], vel = n->s[5], dir = n->s[10] < 0.f ? -1.f : 1.f;
+	cnt = scq_min(cnt, 8.f * period);   /* never wait on a density or size since left: no grain is further off than these could draw */
 	e->nv = 12; e->seg = 0;
 	LOOP {
 		if (edge(in[2][i], &n->s[8])) { n->s[7] = 1.f; n->s[9] = 0.f; n->s[0] = -1.f; }
@@ -1854,7 +1862,7 @@ static void run_trainlet(node *n, const float *const in[MAX_IN])
 		float gv = 1.f, pf = 1.f;
 		if (!cont) {
 			if (t->ginc == 0.f) {
-				t->gcnt -= 1.f;
+				t->gcnt = scq_min(t->gcnt, 8.f * SR / grate) - 1.f;   /* no wait longer than the rate now could draw */
 				if (t->gcnt <= 0.f) {
 					t->ginc = 1.f / ((0.04f + 0.21f * scq_rand01(&n->rng)) * SR);
 					t->gph = 0.f;

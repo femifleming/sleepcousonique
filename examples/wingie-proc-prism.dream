@@ -1,0 +1,130 @@
+instrument wingie
+; wingie-proc-prism — line in taken apart in the spectrum: frozen, filtered on the keys' harmonics,
+; echoed bin by bin, reduced to its tonal skeleton, and sung through a cave. Set the Line/Mic
+; switch to line.
+;
+; every scene:
+;   fader1 (Mix)     how much of the processed sound against the line (or how many partials)
+;   fader2 (Decay)   how long the spectrum is held (feedback, smear, the room's tail)
+;   fader3 (Volume)  the colour: how deep the filter digs, how far the echoes fan out
+;   keys1            the root the spectrum is tuned to; octave1 an octave down or up
+;   mode1            held: the spectrum stops and sings on (freeze)
+;   left LED         the line in;  right LED  what the spectrum gives back
+; Step through the scenes with a held Mode button and a tap on the other.
+
+the held chord
+--------------
+; hold mode1 (or any top key) and the spectrum of that instant hangs and sings with drifting
+; phases; a tap on mode2 latches it until the next tap. The held spectrum is dug into the
+; harmonics of the bottom key you play, so a held noise becomes a chord. A small room under it
+; feeds the freeze a little of its own tail. fader1 lets the live line seep into what is held.
+the hang is specfreeze samplerate=half
+the latch is flipflop
+the teeth are specfilter 1 samplerate=half shape=harmonics
+the oct1 is transpose
+the room is reverblite 3
+the guard is limiter ceiling=0.9
+
+line.both -> hang
+mode1 keys2.gate latch -> hang.freeze
+mode2.tap -> latch
+fader1 -> hang.blend
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> teeth.pitch
+hang -> teeth
+fader3 -> teeth.shape_amount
+teeth -> room
+fader2 -> room.size
+room -20> hang                    ; the tail into the freeze
+teeth room -> guard -> out
+line.both -> lights.left
+latch -> lights.right
+
+echoes that arpeggiate
+----------------------
+; every bin of the line in gets its own echo: low ones first, high ones later, so a chord
+; becomes an arpeggio of its partials. The echo goes round through a frequency shifter, each
+; pass a little higher (keys2 sets how much: C none, B the most), then is smeared. fader1 the
+; echo time, fader2 the feedback, fader3 the fan; the louder you play the wider it fans.
+; Hold mode1 to smear everything into a still wash; a bottom key fans it by its place (C none, B all).
+the bins is spectraldelay 1 samplerate=half curve=rising
+the climb is freqshift shift=0
+the wash is smear samplerate=half blur=0.05
+the ear is follower attack=0.01 release=0.5
+the guard is limiter ceiling=0.9
+
+line.both -> bins ear
+fader1 -> bins.time
+fader2 -> bins.feedback
+fader3 -> bins.spread
+ear -30> bins.spread
+keys1.key -50> bins.spread
+bins -> climb
+keys2.key -6> climb.shift
+climb.up -30> bins                ; round again, a little higher
+bins -> wash
+mode1 -> wash.blur
+wash -> guard -> out
+line.both -25> out
+ear -> lights.left
+bins -> lights.right
+
+the tonal skeleton
+------------------
+; the room taken out of the line in (fader2 up: drier than dry; down: the room poured back in),
+; then only its loudest partials sung again as clean sines (fader1: 1 to 40 of them). keys1
+; moves the whole skeleton, mode1 or key1 (bottom C) holds it. A sine an octave under whatever
+; the line sings follows along, fader3 how loud.
+the dry is deverb 1 samplerate=quarter
+the bones is resynth 2 samplerate=half
+the ear is pitchtrack
+the shadow is sine tune=-1
+the hush is vca
+the level is vca
+the oct1 is transpose
+
+line.both -> dry ear
+fader2 -> dry.amount
+-50 -> dry.amount                 ; fader2 at the middle leaves the room as it is
+dry -> bones
+fader1 -> bones.partials
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> bones.pitch
+mode1 key1 -> bones.freeze
+ear.pitch -> shadow.pitch
+shadow -> hush -> level          ; only while the line sings, and as loud as fader3
+ear.gate => hush.gain
+fader3 -> level.gain
+bones -60> out
+level -40> out
+ear.confidence -> lights.left
+bones -> lights.right
+
+sung through the cave
+---------------------
+; the line in's spectrum laid on the phases of a Wingie cave that it rings: the cave sings
+; with the line's words. Bottom keys tune the cave (and strike it), top keys strike it too.
+; fader1 from the plain cave to the line through it, fader2 how long the cave rings, fader3
+; smooths the cross into a vocoder with no bands. Hold mode2 for the High cave's octave.
+the cave is cave 2
+the cross is morph 1 samplerate=half
+the oct1 is transpose
+the guard is limiter ceiling=0.9
+
+line.both -> cave
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> cave.shift
+mode2 -> cave.shift
+keys1.trig keys2.trig -> cave.strike
+fader2 -> cave.decay
+line.both -> cross.a
+cave -> cross.b
+fader1 -> cross.blend
+fader3 -> cross.smooth
+cross -> guard -> out
+cave -30> out
+line.both -> lights.left
+cross -> lights.right

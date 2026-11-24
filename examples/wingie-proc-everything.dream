@@ -1,0 +1,197 @@
+instrument wingie
+; wingie-proc-everything — five whole chains for line in, each grains into spectrum into time (or
+; the other way round), with feedback from the end back to the start. Line/Mic switch to line.
+;
+; every scene:
+;   fader1 (Mix)     how much the first stage does (density, speed, stretch)
+;   fader2 (Decay)   how long the last stage holds (echo feedback, room, ring)
+;   fader3 (Volume)  how much of the middle stage (spectral blend, freeze, colour)
+;   keys1            the pitch of the grains; octave1 an octave down or up
+;   keys2            the second hand: held, the spectrum freezes (or the resonance is struck)
+;   key24 (top B)    the next scene;  key23 (top A#) the one before (no Mode combo needed)
+;   mode1            held: the first stage stops time (freeze / hold)
+;   mode2            tap: latch the feedback from the end back to the start
+;   left LED         how loud the line in is;  right LED  what comes back round
+
+the whole river
+---------------
+; grains of the line, pitched to the bottom keys and denser the louder you play, into a spectral
+; freeze that any held top key stops, into a tape echo; tap mode2 and the echo runs back into the
+; grains, so the river feeds itself.
+the g is grains 2 samplerate=quarter window=hann spread=0.8
+the ear is follower attack=0.01 release=0.4
+the oct1 is transpose
+the hang is specfreeze samplerate=quarter
+the echo is tapeecho 1 time=0.8 wow=0.2 samplerate=quarter
+the latch is flipflop
+the back is vca
+the guard is limiter ceiling=0.9
+
+line.both -> g ear
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> g.pitch
+fader1 -> g.density
+ear -40> g.density
+mode1 -> g.freeze
+g.left g.right -> hang
+keys2.gate -> hang.freeze
+fader3 -> hang.blend
+hang -> echo
+fader2 -> echo.feedback
+echo.wet -> back
+mode2.tap -> latch
+latch => back.gain
+back -35> g
+hang -50> guard
+echo -> guard
+guard -> out
+key24.trig -> scene.next
+key23.trig -> scene.back
+ear -> lights.left
+echo.wet -> lights.right
+
+stretch to glass
+----------------
+; the line slowed down without falling in pitch (fader1: up is as it was, down stands still),
+; pitched by the bottom keys, into a room (fader3 how much goes in, fader2 its size). Hold mode1
+; or a top key and the stretch loops where it is; tap mode2 and the room runs back into the stretch.
+the slow is stretch 2 samplerate=quarter
+the oct1 is transpose
+the wet is vca
+the room is reverblite 4
+the latch is flipflop
+the back is vca
+the guard is limiter ceiling=0.9
+
+line.both -> slow
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> slow.pitch
+fader1 -> slow.speed
+mode1 -> slow.hold
+slow -> wet -> room
+keys2.gate -> slow.hold
+fader3 -> wet.gain
+fader2 -> room.size
+room -> back
+mode2.tap -> latch
+latch => back.gain
+back -30> slow
+slow -40> guard
+room -> guard
+guard -> out
+key24.trig -> scene.next
+key23.trig -> scene.back
+line.both -> lights.left
+room -> lights.right
+
+cave, glass, prism
+------------------
+; a Wingie cave rings on the line (the top keys strike it, fader3 how long it rings), grains
+; read the ringing at the bottom keys' pitch (fader1 density), and a ping-pong echo throws the
+; grains from side to side (fader2 the feedback). Tap mode2 and the echoes go back into the cave.
+the cave is cave 2 samplerate=half
+the g is grains 1 samplerate=half window=gauss spread=0.6
+the oct1 is transpose
+the bins is pingpong 4
+the latch is flipflop
+the back is vca
+the guardl is limiter ceiling=0.9
+the guardr is limiter ceiling=0.9
+
+line.both -> cave
+keys2.trig -> cave.strike
+fader3 -> cave.decay
+cave -> g
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> g.pitch
+fader1 -> g.density
+mode1 -> g.freeze
+g.left g.right -> bins
+fader2 -> bins.feedback
+bins.l bins.r -> back
+mode2.tap -> latch
+latch => back.gain
+back -25> cave
+cave -30> guardl guardr
+g.left bins.l -> guardl
+g.right bins.r -> guardr
+guardl -> left
+guardr -> right
+key24.trig -> scene.next
+key23.trig -> scene.back
+line.both -> lights.left
+bins.l -> lights.right
+
+the glacier
+-----------
+; the line stretched a thousand times (PaulStretch; fader1 how far: down is as it was), through a
+; Wingie resonator tuned by the bottom keys and struck by the top keys (fader2 how long it rings),
+; then shifted in frequency by fader3: the glacier slowly bends out of tune. mode1 stops time.
+the ice is paulstretch 1 samplerate=quarter
+the ring is wingie 2 samplerate=half shape=bar
+the oct1 is transpose
+the latch is flipflop
+the back is vca
+the guardl is limiter ceiling=0.9
+the guardr is limiter ceiling=0.9
+
+line.both -> ice
+fader1 -> ice.stretch
+mode1 -> ice.hold
+ice -> ring
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> ring.pitch
+keys2.trig -> ring.strike
+fader2 -> ring.decay
+ring -> back
+mode2.tap -> latch
+latch => back.gain
+back -20> ice
+ice ring -50> guardl guardr
+fader3 -> ring.strike
+guardl -> left
+guardr -> right
+key24.trig -> scene.next
+key23.trig -> scene.back
+line.both -> lights.left
+ring -> lights.right
+
+the cathedral
+-------------
+; the line sung by a granular choir on a chord built on the bottom keys (octave1 moves it),
+; fader1 how many voices; the choir goes into a long dark reverb (fader2 how long), and a held
+; top key holds the reverb for ever, letting nothing new in. fader3 how dark. Tap mode2 and the
+; reverb feeds the choir back.
+the choir is harmonicgrains 2 samplerate=half chord=fifths size=0.2
+the oct1 is transpose
+the nave is cavern samplerate=quarter
+the latch is flipflop
+the back is vca
+the guardl is limiter ceiling=0.9
+the guardr is limiter ceiling=0.9
+
+line.both -> choir
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> choir.pitch
+fader1 -> choir.density
+choir.left choir.right -> nave
+fader2 -> nave.size
+fader3 -> nave.dark
+keys2.gate mode1 -> nave.hold
+nave.left -> back
+mode2.tap -> latch
+latch => back.gain
+back -20> choir
+choir.left nave.left -> guardl
+choir.right nave.right -> guardr
+guardl -> left
+guardr -> right
+key24.trig -> scene.next
+key23.trig -> scene.back
+line.both -> lights.left
+nave.left -> lights.right

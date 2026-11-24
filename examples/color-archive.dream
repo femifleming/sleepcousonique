@@ -31,15 +31,15 @@ the pedalboard
 ; a bass line through an envelope filter into a starved fuzz (fader1 is the battery: down kills
 ; it), then the Chloe struck by the beat. fader2 is the Chloe's cutoff, fader3 its resonance
 the clock is clock 4
-the line is seq 8: 0 0 12 0 3 0 7 5
+the phrase is seq 8: 0 0 12 0 3 0 7 5
 the bass is vco 1
 the fuzz is fuzz drive=0.7
 the wah is autowah sensitivity=0.6 resonance=0.7
 the chloe is chloe mode=low drive=0.4 samplerate=half
 the wall is limiter ceiling=0.8
 
-clock.eighth -> line.next chloe.gate
-line -> bass.pitch
+clock.eighth -> phrase.next chloe.gate
+phrase -> bass.pitch
 bass.saw -> wah -> fuzz -> chloe -> wall -> out leds
 fader1 -200> fuzz.bias
 -100 -> fuzz.bias                  ; fader1 at the bottom is -1: starved; halfway is the sweet spot

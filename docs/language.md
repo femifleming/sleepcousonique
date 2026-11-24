@@ -75,7 +75,7 @@ octave up. Tuning starts from the 60 Hz hum: `sine 3` is 180 Hz.
 
 ## Where the places come from
 
-There are 237 places, each named for what it is: `vco`, `lowpass`, `adsr`, `delay`,
+There are 239 places, each named for what it is: `vco`, `lowpass`, `adsr`, `delay`,
 `quantizer`. The help line says which instrument or idea it comes from: Moog, Buchla (including
 the 100 series: 106, 107, 110, 123, 140, 144, 148, 156, 158, 180), Serge (DUSG, Dual Processor,
 Peak & Trough), Doepfer A-100, ARP, EMS, Oberheim, Roland, Ciat-Lonbarde, Mutable Instruments,
@@ -336,17 +336,33 @@ Every processing place works on both. The *hands* differ:
 
 | on the Wingie | what it gives |
 |---|---|
-| `mic` | `left`, `right`, `both`: the two microphones (or line in, by the source switch) |
-| `keys1`, `keys2` | the bottom keyboard and the top one: `pitch` of the last key (octaves; keys2 an octave up; the octave switch adds), `gate`, `trig`, `key` (0 C .. 1 B) |
+| `line`, `mic` | `left`, `right`, `both`: the Wingie's input. Its **Line In / Mic switch** picks the line input or the two microphones, always, whatever the dream says; `line` and `mic` are two names for the same sound, so write whichever reads better |
+| `keys1`, `keys2` | the bottom keyboard and the top one: `pitch` of the last key (octaves; keys2 an octave up), `gate`, `trig`, `key` (0 C .. 1 B). The octave switches don't touch it: see `transpose` below |
 | `key1` .. `key24` | one key: 1-12 the bottom keyboard C to B, 13-24 the top. `out` while held, `trig` on press |
 | `mode1`, `mode2` | the Mode buttons, L.MODE and R.MODE: `out` while held, `tap` on a quick press |
-| `octave1`, `octave2` | the octave switches, left (for `keys1`) and right (for `keys2`): -1, 0 or 1 |
-| `source` | 0 microphones, 1 line in |
+| `octave1`, `octave2` | the octave switches, L.OCT and R.OCT, as free three-way controls: 0 down, 0.5 middle, 1 up. Patch them into anything |
+| `source` | reads the Line In / Mic switch: 0 microphones, 1 line in (to know which, never to choose) |
 | `fader1` `fader2` `fader3` | the faders, labelled Mix, Decay and Volume (they are yours: nothing is fixed to them) |
 | `lights` | `left`, `right`: the two LEDs. They glow red at rest and climb through purple and yellow to white |
 
 The SP-1's own hands (`button1`-`4`, `rocker`, `play`, `dots`, `leds`, `fader4`) are errors in a
 Wingie dream, and the Wingie's in an SP-1 dream.
+
+**An octave switch, when you want one.** `transpose` turns any control into whole steps: under a
+third is a step down, over two thirds a step up, between is none, and its `pitch` inlet passes
+through. Put it between a switch and a pitch:
+
+    the oct1 is transpose
+    octave1 -> oct1                 ; the left switch...
+    keys1.pitch -> oct1.pitch       ; ...moves the bottom keyboard by octaves
+    oct1 -> ring.pitch
+
+Its nature is the step: `transpose 2` jumps two octaves, `transpose 7st` a fifth. Anything can
+drive it (a fader makes a three-way switch, a gate a one-octave jump).
+
+**`pitch` on the shifters.** `cave`, `pitchshift`, `specshift` and `formantshift` are tuned by an
+inlet called `shift` (octaves); `pitch` reaches it too, so `keys1 -> cave.pitch` plays the caves
+from the keys.
 
 On the Wingie: hold both Mode buttons and press a key on the bottom keyboard to play that slot (12 slots); hold one
 Mode button and tap the other for the next (right) or previous (left) scene. While both are held

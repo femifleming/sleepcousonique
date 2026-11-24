@@ -33,7 +33,7 @@
 typedef struct {
 	char name[24], family[12];
 	char in[MAXIO][16], out[MAXIO][16];
-	int  nin, nout, pitch, tune;
+	int  nin, nout, pitch, tune, wingie;   /* wingie: a place only Wingie dreams have (catalog I line) */
 } pinfo;
 
 static pinfo P[MAXP];
@@ -71,6 +71,11 @@ static void read_catalog(void)
 			p->pitch = -1;
 			for (int i = 0; i < p->nin; i++) if (!strcmp(p->in[i], "pitch")) p->pitch = i;
 			NP++;
+		} else if (c[0] == 'I' && c[1] == ' ') {
+			char nm[24] = "", in1[16] = "";
+			int k = sscanf(c, "I %23s %15s", nm, in1);   /* one instrument per line */
+			if (k == 2 && !strcmp(in1, "wingie"))
+				for (int i = 0; i < NP; i++) if (!strcmp(P[i].name, nm)) P[i].wingie = 1;
 		} else if (c[0] == 'O' && c[1] == ' ' && NP > 0) {
 			const char *t = strstr(c, "tune=");
 			if (t && t < e) P[NP - 1].tune = 1;
@@ -107,6 +112,7 @@ static const char *const ST_NAME[ST_COUNT] = { "fed", "bare", "half", "tune+12",
 static int build(char *t, int cap, const pinfo *p, int inlet, int state, float att, int with_att)
 {
 	int n = 0;
+	if (p->wingie) n += snprintf(t + n, (size_t)(cap - n), "instrument wingie\n");
 	n += snprintf(t + n, (size_t)(cap - n), "the x is %s", p->name);
 	if (state == ST_HALF) n += snprintf(t + n, (size_t)(cap - n), " samplerate=half");
 	if (state == ST_TUNE_HI) n += snprintf(t + n, (size_t)(cap - n), " tune=12");

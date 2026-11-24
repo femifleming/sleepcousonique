@@ -9,7 +9,10 @@ the dub plate
 the teeth are specfilter shape=harmonics
 the stack is bassman 2
 mic.both -> teeth
-keys1.pitch -> teeth.pitch
+the oct1 is transpose
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> teeth.pitch
 the depth is value 90
 depth -> teeth.shape_amount
 teeth -> stack
@@ -23,9 +26,12 @@ the choir in the traffic
 ------------------------
 ; the mics sung in three just voices (4:5:6:7 over what you hear), the bottom keys move the
 ; whole chord, fader1 is how much of the choir
-the choir is harmonizer chord=otonal detune=6
+the choir is harmonizer samplerate=half chord=otonal detune=6
+the oct1 is transpose
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
 mic.both -> choir
-keys1.pitch -> choir.pitch
+oct1 -> choir.pitch
 fader1 -> choir.mix
 choir.left -> left
 choir.right -> right
@@ -37,9 +43,12 @@ the highway sings the chord
 ; a just chord takes the spectrum of the traffic: its partials, the hiss's colours.
 ; fader1 blends, fader2 smooths it into a vocoder, fader3 is the hall it sounds in
 the drone is chord 2
-the cross is morph
+the cross is morph samplerate=half
 the hall is reverblite 3
-keys1.pitch -> drone.pitch
+the oct1 is transpose
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> drone.pitch
 mic.both -> cross.a
 drone -> cross.b
 fader1 -> cross.blend

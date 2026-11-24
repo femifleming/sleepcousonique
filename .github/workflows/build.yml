@@ -37,7 +37,7 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          cmake --build build --config Release --parallel 4 --target Sleepcousonique ScqTests ScqSerialTest scqtool ScqSweep
+          cmake --build build --config Release --parallel 4 --target Sleepcousonique ScqTests ScqSerialTest scqtool ScqSweep ScqWingieHands ScqPitchCheck
           if [ "$RUNNER_OS" = "macOS" ]; then cmake --build build --config Release --parallel 4 --target SleepcousoniqueArray fakesp1; fi
 
       - name: Test
@@ -55,6 +55,19 @@ jobs:
           echo "== $st"; "$st"
           echo "== the ports this runner would try (none expected)"; "$st" --ports
           if [ "$RUNNER_OS" = "macOS" ]; then tools/test_send.sh build; fi
+
+      - name: The Wingie's hands (octave switches, transpose, every pitch inlet follows the keys)
+        shell: bash
+        run: |
+          for t in ScqWingieHands ScqPitchCheck; do
+            exe="$(find build -type f \( -name $t -o -name $t.exe \) | head -n 1)"
+            echo "== $exe"; "$exe" | tail -3
+          done
+
+      - name: Every example played like a gig (line in, hands moved at random, scenes, reloads)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: tools/test_dreams.sh -r 3
 
       - name: Sweep (every place, every inlet, fader and attenuverter at their ends)
         shell: bash

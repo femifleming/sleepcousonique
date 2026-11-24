@@ -44,10 +44,13 @@ room.room -> lights.left lights.right
 ; the bottom keys set where the unison stands, fader3 the dust, mode2 held staggers them
 the mass is metastaseis 20 chordb=cluster cycle=off
 the mix is crossfade
+the oct1 is transpose
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
 
 mic.both -> mass
 mode1.tap -> mass.go
-keys1.pitch -> mass.pitch
+oct1 -> mass.pitch
 mode2 -> mass.stagger
 fader3 -> mass.density
 fader2 -> mass.decay

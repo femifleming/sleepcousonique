@@ -12,6 +12,12 @@ the violin is wingie 4.36 string        ; G above middle C
 the piano is wingie 2.75 bar            ; E
 the cello is wingie 1.09 string         ; C two octaves down
 the vol is quadvca
+the oct1 is transpose
+the oct2 is transpose
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+octave2 -> oct2
+keys2.pitch -> oct2.pitch
 
 mic.both -> score
 mode1.tap -> score.capture
@@ -19,8 +25,8 @@ mode2.tap -> score.reset
 score.violin -> violin.strike
 score.piano -> piano.strike
 score.cello -> cello.strike
-keys1.pitch -> violin.pitch
-keys2.pitch -> cello.pitch
+oct1 -> violin.pitch
+oct2 -> cello.pitch
 fader2 -> violin.decay piano.decay cello.decay
 violin -> vol.in1
 cello -> vol.in2
@@ -39,13 +45,19 @@ the ring is rollz 3
 the wave is relabi 0.5
 the low is cave 1
 the high is cave 2
+the oct1 is transpose
+the oct2 is transpose
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+octave2 -> oct2
+keys2.pitch -> oct2.pitch
 
 wave.sum -> ring.drama
 fader3 -> ring.speed
 ring.a ring.c -> low.strike
 ring.b ring.d -> high.strike
-keys1.pitch -> low.shift
-keys2.pitch -> high.shift
+oct1 -> low.pitch
+oct2 -> high.pitch
 fader2 -> low.decay high.decay
 mic.left -> low
 mic.right -> high

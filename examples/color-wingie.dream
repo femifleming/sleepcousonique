@@ -9,7 +9,7 @@ under the highway
 ; Something hums in the concrete: a sine follows it an octave down
 the ear is onset sensitivity=0.6
 the singer is pitchtrack
-the line is seq 8: 0 3 7 10 12 7 3 -2
+the phrase is seq 8: 0 3 7 10 12 7 3 -2
 the bass is vco 1
 the room is chloe mode=low drive=0.5 cutoff=0.35 resonance=0.6
 the shadow is sine 1 tune=-1
@@ -18,8 +18,8 @@ the cassette is tape age=0.4
 the wall is limiter ceiling=0.8
 
 mic.both -> ear singer
-ear.pulse -> line.next room.gate
-line -> bass.pitch
+ear.pulse -> phrase.next room.gate
+phrase -> bass.pitch
 bass.saw -> room
 singer.pitch -> shadow.pitch
 singer.gate => hush.level

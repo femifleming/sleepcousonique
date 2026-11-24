@@ -2,7 +2,7 @@
 //
 // The same engine as the SP-1 (engine/, copied into src/engine by tools/build_wingie.sh), built
 // for the Wingie: dreams that start with `instrument wingie` play here, with the Wingie's hands
-// as places (mic, keys1 keys2, key, mode1 mode2, octave1 octave2, source, fader1-3, lights).
+// as places (mic and line: whichever the Line/Mic switch picks, keys1 keys2, key, mode1 mode2, octave1 octave2, source, fader1-3, lights).
 // Pins, codec setup and I2S are Meng Qi's (Wingie2 firmware, GPLv3).
 //
 // Panel:      both Mode buttons held + a key on the bottom keyboard n      -> dream slot n (12 slots)
@@ -281,6 +281,8 @@ static void controlTask(void *) {
   bool both = false, comboUsed = false;
   bool prevMode[2] = {false, false};
   bool lineIn = !aw1.digitalRead(sourcePin);
+  srcState = lineIn;
+  acWriteReg(ADC_SRC, SOURCES[lineIn]);          // the Line/Mic switch as it is at power-up (the codec starts on the mics)
   panelSource = lineIn;
   scq_control(SCQ_CTL_SOURCE, lineIn ? 1.f : 0.f);
   for (;;) {

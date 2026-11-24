@@ -8,7 +8,7 @@ using namespace scq;
 
 static const char* const familyNames[5] = { "sources", "shapes", "spaces", "currents", "hands" };
 // hands that are always part of the instrument: used by their names, never placed
-static const StringArray alwaysThere { "fader", "keys", "mode", "octave", "source", "mic", "button", "rocker", "play", "dots" };
+static const StringArray alwaysThere { "fader", "keys", "mode", "octave", "source", "mic", "line", "button", "rocker", "play", "dots" };
 
 PlaceBrowser::PlaceBrowser()
 {
@@ -60,7 +60,7 @@ void PlaceBrowser::pick (const Cell& c)
     {
         if (onHover) onHover (c.name + " is always there on the " + String (instrument == 1 ? "Wingie" : "SP-1")
                               + ": drag its loop from the hands panel onto an inlet, or write  "
-                              + (c.name == "keys" ? "keys1.pitch" : c.name == "mic" ? "mic.both" : c.name == "fader" || c.name == "button" || c.name == "mode" || c.name == "octave" ? c.name + "1" : c.name)
+                              + (c.name == "keys" ? "keys1.pitch" : c.name == "mic" ? "mic.both" : c.name == "line" ? "line.both" : c.name == "fader" || c.name == "button" || c.name == "mode" || c.name == "octave" ? c.name + "1" : c.name)
                               + " -> place.inlet");
         return;
     }

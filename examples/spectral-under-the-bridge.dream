@@ -25,11 +25,14 @@ the tonal skeleton
 ------------------
 ; only the strongest partials of the traffic, sung again as sines, then each one echoed at its
 ; own time. Hold Mode 2 to freeze the skeleton; the bottom keys transpose it.
-the bones are resynth 2
-the echoes are spectraldelay 1 curve=rising
+the bones are resynth 2 samplerate=half
+the echoes are spectraldelay 1 samplerate=half curve=rising
 the field is ambi
 mic.both -> bones
-keys1.pitch -> bones.pitch
+the oct1 is transpose
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> bones.pitch
 mode2 -> bones.freeze
 fader1 -> bones.partials
 bones -> echoes
@@ -47,8 +50,8 @@ the drier room
 --------------
 ; the same place with its reverberation taken away (fader1 down: wetter, up: drier),
 ; and the hiss under it gated off: only the events stay
-the dry is deverb
-the clean is specgate
+the dry is deverb samplerate=half
+the clean is specgate samplerate=half
 the ear is crossfeed
 mic.both -> dry
 fader1 -> dry.amount

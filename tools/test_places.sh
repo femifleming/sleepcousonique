@@ -11,9 +11,11 @@ for p in $(./tools/scqtool catalog | awk '$1=="P" && $3!="hands" && $3!="ears" &
   [ "$ins" = "|" ] && ins=""
   outs=$(echo "$line" | awk -F' [|] ' '{print $2}' | tr ',' ' ')
   {
+    ./tools/scqtool catalog | grep -qx "I $p wingie" && echo "instrument wingie"   # a Wingie place: a Wingie dream
     echo "the x is $p"; echo "the clk is clock"; echo "the src is vco 3"
     for i in $ins; do case "$p.$i" in
       trigdelay.in|bernoulli.in|trigger.in) echo "clk.eighth -> x.$i";;
+      transpose.pitch) echo "src -> x.$i";;
       *.in|*.left|*.right|*.a|*.b|*.carrier|*.modulator|*.in1|*.in2|*.in3|*.in4|*.in5|*.in6) echo "src -> x.$i";;
       *.strike|*.capture|*.pluck|*.trig|*.trig1|*.trig2|*.cv1|*.cv2|*.clock|*.gate|*.next|*.record|*.burst|*.sync|*.hold) echo "clk.eighth -> x.$i";;
     esac; done

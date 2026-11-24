@@ -120,6 +120,7 @@ typedef struct {
 extern world W;
 
 int place_port(const place *p, int out, const char *port, int len);
+extern int place_wingie_names;   /* the dream being read is for the Wingie: "pitch" also names cave.shift and the like */
 int place_nports(const char *list);
 const char *place_renamed(const char *old, int len);
 /* "name=a|b|c" switches (default a) and "name=5" params, space separated; "" if none */

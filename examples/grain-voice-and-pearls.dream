@@ -7,8 +7,11 @@ a choir boy grown up overnight
 ; PSOLA: keys1 moves the pitch of your voice and keeps its vowels; fader1
 ; (Mix) moves the formants on purpose; the left LED follows the pitch it hears
 the voice is psola samplerate=half   ; one voice: two PSOLAs are more than the Wingie has
+the oct1 is transpose
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
 mic.both -> voice
-keys1.pitch -> voice.pitch
+oct1 -> voice.pitch
 fader1 -40> voice.formant
 voice -> out
 voice.period -> lights.left
@@ -21,12 +24,15 @@ a broken string of pearls
 ; fader3 their length
 the pearls is wavesets repeat
 the hand is beatgrains 3 burst=2 pattern=fifths samplerate=half
+the oct1 is transpose
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
 mic.both -> pearls hand
 fader1 -> pearls.amount
 mode1.tap -> hand.clock
 fader2 -> hand.slices
 fader3 -> hand.length
-keys1.pitch -> hand.pitch
+oct1 -> hand.pitch
 pearls hand -> left
 pearls hand.right -> right
 mic.both -> lights.left

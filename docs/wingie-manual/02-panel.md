@@ -5,9 +5,9 @@ switch and fader is a **hand**, and the dream says what each one does.
 
 | On the panel | In a dream | What it gives |
 |---|---|---|
-| two microphones (the grilles top left and right) | `mic.left`, `mic.right`, `mic.both` | sound; the line input instead when the source switch says so |
-| source switch (Line Input ↑ / Microphone ↓) | `source` | 0 microphones, 1 line in; `mic` follows it |
-| L.Octave / R.Octave switches | `octave1`, `octave2` | −1, 0 or 1; also added to `keys1.pitch` / `keys2.pitch` |
+| two microphones (the grilles top left and right) | `mic.left`, `mic.right`, `mic.both` | sound: the Wingie's input, whichever the Line In / Mic switch picks |
+| Line In / Mic switch (Line Input ↑ / Microphone ↓) | `source` | it always picks the input, whatever the dream; `source` reads it: 0 microphones, 1 line in |
+| L.Octave / R.Octave switches | `octave1`, `octave2` | free controls: 0 down, 0.5 middle, 1 up; through `transpose` they move a pitch by octaves |
 | L.Mode / R.Mode buttons | `mode1`, `mode2` | `out` 1 while held, `tap` a pulse when let go within 0.6 s |
 | Mix fader | `fader1` | 0 to 1 |
 | Decay fader | `fader2` | 0 to 1 |
@@ -15,7 +15,7 @@ switch and fader is a **hand**, and the dream says what each one does.
 | bottom keyboard (`keys1`, C to B) | `keys1`, `key1` … `key12` | `keys1.pitch` of the last key in octaves, `gate`, `trig`, `key` (0 for C … 1 for B) |
 | top keyboard (`keys2`, C to B) | `keys2`, `key13` … `key24` | the same, an octave up |
 | the two LEDs right of the faders | `lights.left`, `lights.right` | red at rest, then purple, yellow and white as what comes in climbs to 1 |
-| line in, out, MIDI in (TRS) and USB-C on the edge | `mic` (line), `out`, `midi` `midicc` `midiclock` | the MIDI jack feeds the MIDI-to-CV places, as the SP-1's USB-MIDI does |
+| line in, out, MIDI in (TRS) and USB-C on the edge | `line.left`, `line.right`, `line.both` (the same sound as `mic`), `out`, `midi` `midicc` `midiclock` | the line in sounds when the switch is up; the MIDI jack feeds the MIDI-to-CV places, as the SP-1's USB-MIDI does |
 
 > **The faders are yours.** On the stock Wingie, Mix is dry/wet, Decay the resonator's ring and
 > Volume the input level. In Sleepcousonique they're numbers from 0 to 1 and **nothing is fixed
@@ -58,7 +58,8 @@ things borrow them for a moment:
 
 ### Pitch on the keys
 
-`keys1.pitch` is in octaves: C is 0, B is 11/12. The octave switch adds −1, 0 or 1, and
-`keys2.pitch` sits one octave above `keys1.pitch` at the same switch position, as on the stock
-Wingie. Patch it into any `pitch` inlet: a place at nature 2.18 (2.18 × 60 Hz ≈ 131 Hz, the C
+`keys1.pitch` is in octaves: C is 0, B is 11/12, and `keys2.pitch` sits one octave above, as on
+the stock Wingie. The octave switches are yours to patch anywhere; to use one as an octave switch,
+put a `transpose` between it, the keys and the pitch (`octave1 -> oct1`, `keys1.pitch ->
+oct1.pitch`, `oct1 -> ring.pitch`). The examples do. Patch it into any `pitch` inlet: a place at nature 2.18 (2.18 × 60 Hz ≈ 131 Hz, the C
 below middle C) then plays in tune from C.

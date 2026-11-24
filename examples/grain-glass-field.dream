@@ -8,8 +8,11 @@ glass field
 -----------
 the field is grains 6 gauss
 the hall is reverblite 2
+the oct1 is transpose
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
 mic.both -> field
-keys1.pitch -> field.pitch
+oct1 -> field.pitch
 fader1 -> field.density
 fader2 -> field.size
 fader3 -> field.position
@@ -26,7 +29,7 @@ the photograph that breathes
 ; tap mode1 to hold the last moment as a drone; fader1 from the room to the
 ; held moment, fader2 how restless it is; keys1 sets a glisson choir above it
 the photo is grainfreeze 3 samplerate=half
-the swallows are glisson 2
+the swallows are glisson 2 samplerate=half
 mic.both -> photo swallows
 mode1.tap -> photo.capture
 fader1 -> photo.blend
@@ -42,10 +45,13 @@ the choir in the empty church
 -----------------------------
 ; the microphones transposed onto a minor chord on keys1; fader1 density,
 ; fader2 size; fader3 how much of the cathedral of grains
-the choir is harmonicgrains 3 minor
-the sand is granularverb 3
+the choir is harmonicgrains 3 samplerate=half minor
+the sand is granularverb 3 samplerate=quarter
+the oct1 is transpose
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
 mic.both -> choir
-keys1.pitch -> choir.pitch
+oct1 -> choir.pitch
 fader1 -> choir.density
 fader2 -> choir.size
 choir choir.right -> sand

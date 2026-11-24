@@ -815,7 +815,8 @@ static void run_dots(node *n, const float *const in[MAX_IN])
 
 /* ------------------------------------------------------------------ the Wingie's hands */
 
-/* mic — the sound coming in: the Wingie's two microphones (or line in), the editor's audio input */
+/* mic / line — the sound coming in: the Wingie's two microphones or its line in (its Line/Mic switch picks,
+ * never the dream: both names give whichever it is), the editor's audio input */
 static void run_mic(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
@@ -826,8 +827,9 @@ static void run_mic(node *n, const float *const in[MAX_IN])
 }
 
 /* keys1 / keys2 — a keyboard: pitch of the last key pressed (octaves; keys2 sits an octave
- * above, as on the stock Wingie; the octave switch adds), gate while any key is held, a pulse
- * at every press, and which key (0 for C .. 1 for B) */
+ * above, as on the stock Wingie), gate while any key is held, a pulse at every press, and which
+ * key (0 for C .. 1 for B). The octave switches are free controls: patch one through transpose
+ * to make it an octave switch again. */
 static void run_keys(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
@@ -838,8 +840,7 @@ static void run_keys(node *n, const float *const in[MAX_IN])
 	float last = n->s[1], pt = n->s[2];
 	uint32_t pressed = held & ~prev;
 	if (pressed) { for (int k = 11; k >= 0; k--) if (pressed & (1u << k)) last = (float)k; pt = PULSE_SAMPLES; }
-	float oct = W.ctl[(side ? SCQ_CTL_OCTAVE2 : SCQ_CTL_OCTAVE1)];
-	float pitch = (last + 12.f * oct) / 12.f + (float)side;
+	float pitch = last / 12.f + (float)side;
 	float gate = held ? 1.f : 0.f;
 	LOOP {
 		n->out[0][i] = pitch; n->out[1][i] = gate;
@@ -879,8 +880,22 @@ static void run_mode(node *n, const float *const in[MAX_IN])
 static void run_octave(node *n, const float *const in[MAX_IN])
 {
 	(void)in;
-	float v = W.ctl[SCQ_CTL_OCTAVE1 + natural(n->nature, 1, 2) - 1];
+	float v = 0.5f + 0.5f * W.ctl[SCQ_CTL_OCTAVE1 + natural(n->nature, 1, 2) - 1];   /* down 0, middle 0.5, up 1 */
 	LOOP n->out[0][i] = v;
+}
+
+/* transpose — any control into whole octaves: under a third is one step down, over two thirds
+ * one step up, between none; nature is how far a step goes (1 an octave, 2 two; 7st a fifth).
+ * Its pitch inlet passes through, so it sits between keys and an oscillator, or alone:
+ * octave1 -> transpose -> vco.pitch is the octave switch again. */
+static void run_transpose(node *n, const float *const in[MAX_IN])
+{
+	float step = n->nature != 0.f ? n->nature : 1.f;
+	LOOP {
+		float s = in[0][i];
+		float o = s < (1.f / 3.f) ? -step : s > (2.f / 3.f) ? step : 0.f;
+		n->out[0][i] = scq_clamp(in[1][i] + o, -12.f, 12.f);   /* twelve octaves either way, as far as tune goes: fed itself, it stays a pitch */
+	}
 }
 
 /* source — the source switch: 0 microphones, 1 line in */
@@ -1056,17 +1071,21 @@ P("visitors", FAM_CURRENT, 0, 30, 0, "", "", "arrive leave pulse voice", run_vis
 P("fader",   FAM_HANDS, PF_SINGLE | PF_COUNTED, 20, 1, "", "", "out", run_fader, 0, 0,
   "faders: fader1 - fader4, 0 to 1 (the Wingie: fader1 Mix, fader2 Decay, fader3 Volume)"),
 P("mic",     FAM_HANDS, PF_SINGLE | PF_WINGIE, 20, 0, "", "", "left right both", run_mic, 0, 0,
-  "the Wingie's microphones (or line in, by its source switch): left, right and both mixed"),
+  "the Wingie's input: its microphones or line in, whichever its Line/Mic switch picks (the same as line): left, right and both mixed"),
+P("line",    FAM_HANDS, PF_SINGLE | PF_WINGIE, 20, 0, "", "", "left right both", run_mic, 0, 0,
+  "the Wingie's line in: left, right and both mixed (the same as mic: its Line/Mic switch picks line in or the microphones, never the dream)"),
 P("keys",    FAM_HANDS, PF_SINGLE | PF_COUNTED | PF_WINGIE, 30, 1, "", "", "pitch gate trig key", run_keys, 0, 0,
-  "a Wingie keyboard: keys1 the bottom keyboard, keys2 the top (an octave up). pitch of the last key in octaves with the octave switch, gate while any is held, trig on each press, key 0 (C) to 1 (B)"),
+  "a Wingie keyboard: keys1 the bottom keyboard, keys2 the top (an octave up). pitch of the last key in octaves, gate while any is held, trig on each press, key 0 (C) to 1 (B). Add an octave switch with transpose"),
 P("key",     FAM_HANDS, PF_WINGIE, 20, 1, "", "", "out trig", run_key, 0, 0,
   "one Wingie key: key 1-12 the bottom keyboard C to B, 13-24 the top; 1 while held, trig on press"),
 P("mode",    FAM_HANDS, PF_SINGLE | PF_COUNTED | PF_WINGIE, 20, 1, "", "", "out tap", run_mode, 0, 0,
   "the Wingie's Mode buttons: mode1 is L.MODE (it goes with keys1), mode2 R.MODE (with keys2); 1 while held, tap pulses on a quick press"),
 P("octave",  FAM_HANDS, PF_SINGLE | PF_COUNTED | PF_WINGIE, 20, 1, "", "", "out", run_octave, 0, 0,
-  "the Wingie's octave switches: octave1 the left one (for keys1), octave2 the right (for keys2); -1, 0 or 1"),
+  "the Wingie's octave switches as free controls: octave1 the left one, octave2 the right; 0 down, 0.5 middle, 1 up (through transpose they are octaves again)"),
+P("transpose", FAM_CURRENT, PF_WINGIE, 20, 1, "in pitch", "0.5 0", "out", run_transpose, 0, 0,
+  "any control into whole octaves: in under a third is a step down, over two thirds a step up; nature is the step (1 an octave, 7st a fifth); pitch passes through, so octave1 -> transpose -> vco.pitch is an octave switch"),
 P("source",  FAM_HANDS, PF_SINGLE | PF_WINGIE, 20, 0, "", "", "out", run_source, 0, 0,
-  "the Wingie's source switch: 0 microphones, 1 line in"),
+  "the Wingie's Line/Mic switch, to read: 0 microphones, 1 line in (the switch alone picks what mic and line hear)"),
 P("button",  FAM_HANDS, PF_SINGLE | PF_COUNTED | PF_SP1, 20, 1, "", "", "out", run_button, 0, 0,
   "track buttons: button1 - button4, 1 while held"),
 P("rocker",  FAM_HANDS, PF_SINGLE | PF_SP1, 20, 0, "", "", "out up down", run_rocker, 0, 0,
@@ -1156,7 +1175,7 @@ const char *place_opts(const char *name)
 
 int place_has_att(const place *p)
 {
-	return p->family == FAM_SOURCE || port_in(p->ins, "pitch", 5) >= 0;
+	return p->family == FAM_SOURCE || place_port(p, 0, "pitch", 5) >= 0;
 }
 
 const char *place_renamed(const char *old, int len)
@@ -1168,10 +1187,27 @@ const char *place_renamed(const char *old, int len)
 
 /* port lookup: index of `port` in the place's ins (out=0) or outs (out=1), -1 if absent.
  * Old port names (before the rename) still work. */
+/* places tuned in octaves whose tuning inlet has its own name: "pitch" reaches it too, so
+ * keys1 -> cave.pitch tunes the cave (and it gets a tune knob like every other pitch inlet).
+ * Only in Wingie dreams: the SP-1's firmware 1.5.0 reads SP-1 dreams without it. */
+int place_wingie_names = 0;
+static const struct { const char *place, *inlet; } PITCH_IS[] = {
+	{ "cave", "shift" }, { "pitchshift", "shift" }, { "specshift", "shift" }, { "formantshift", "shift" },
+};
+
 int place_port(const place *p, int out, const char *port, int len)
 {
 	int k = port_in(out ? p->outs : p->ins, port, len);
 	if (k >= 0) return k;
+	if (!out && place_wingie_names && len == 5 && port[0] == 'p' && port[1] == 'i' && port[2] == 't' && port[3] == 'c' && port[4] == 'h')
+		for (unsigned i = 0; i < sizeof PITCH_IS / sizeof PITCH_IS[0]; i++) {
+			const char *a = PITCH_IS[i].place, *b = p->name;
+			while (*a && *a == *b) a++, b++;
+			if (*a || *b) continue;
+			int n = 0;
+			while (PITCH_IS[i].inlet[n]) n++;
+			return port_in(p->ins, PITCH_IS[i].inlet, n);
+		}
 	for (int i = 0; i < NWAS; i++) {
 		const char *a = WAS[i].now, *b = p->name;
 		while (*a && *a == *b) a++, b++;

@@ -1,0 +1,159 @@
+instrument wingie
+; wingie-proc-looper — line in caught and played like an instrument: a tape loop the top keys cut
+; into stutters, a reel scrubbed from the bottom keys, a fader's movement recorded and looped,
+; and a sampler that answers the line with its own slices. Line/Mic switch to line.
+;
+; every scene:
+;   mode1            held: record (punch in, catch the reel, record the gesture, fill the sampler)
+;   mode2            tap: the scene's second hand (a latch: see each scene)
+;   keys1            where in the recording to play (each key a twelfth of it) or its speed
+;   keys2            play it: each top key fires a slice, a stutter, a note
+;   fader1 (Mix)     how much of the loop against the line
+;   fader2 (Decay)   how long each piece is / how smooth the hand
+;   fader3 (Volume)  the wear, the echo, the scene's colour
+;   left LED         recording;  right LED  what plays back
+; Step through the scenes with a held Mode button and a tap on the other.
+
+the loop and the platter
+------------------------
+; hold mode1 and the line goes onto a four-second tape loop (over what's there; some of the old
+; stays). The bottom keys play the loop at their pitch (C as recorded), octave1 at half or double
+; speed. Every top key fires a stutter from one of the last beats of the loop (C the newest, B the
+; oldest), pitched up the pattern; a tap on mode2 latches a steady stutter on the loop's own beat.
+; fader1 the loop against the line, fader2 how long each stutter is, fader3 how worn the tape gets.
+the loop is tapeloop seconds=4 gap=0.5
+the hands are beatgrains 2 samplerate=half pattern=fifths burst=2
+the beat is clock 4 rate=0.4
+the latch is flipflop
+the steady is vca
+the oct1 is transpose
+the mix is crossfade
+the guardl is limiter ceiling=0.9
+the guardr is limiter ceiling=0.9
+
+line.both -> loop
+mode1 -> loop.punch
+fader3 -> loop.age
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> loop.speed
+loop.left -> hands
+keys2.trig -> hands.clock
+beat.eighth -> steady
+mode2.tap -> latch
+latch -> steady.gain
+steady -> hands.clock
+keys2.key -> hands.slices
+fader2 -> hands.length
+line.both -> mix.a
+loop.left -> mix.b
+fader1 -> mix.mix
+mix hands.left -> guardl
+mix hands.right loop.right -> guardr
+guardl -> left
+guardr -> right
+mode1 -> lights.left
+hands.left -> lights.right
+
+a hand on the reel
+------------------
+; hold mode1 to catch the reel (0.6 s of the line); let go and the bottom keys jump the head to
+; each twelfth of it (C the start, B the end) while fader1 moves it by hand between them. Slow
+; moves keep the pitch, fast ones rise like tape; fader2 how slowly the head follows the hand.
+; The top keys pitch it through a shifter; the grains behind it sing it back and, with mode2
+; tapped, feed back on themselves. fader3 how much comes back.
+the reel is scrub 3 samplerate=half
+the where is mixer
+the shift is pitchshift
+the oct2 is transpose
+the back is graindelay 2 samplerate=quarter time=0.4 density=0.5
+the latch is flipflop
+the guardl is limiter ceiling=0.9
+the guardr is limiter ceiling=0.9
+
+line.both -> reel
+mode1 -> reel.record
+keys1.key -80> where.in1
+fader1 -20> where.in2
+where -> reel.position
+fader2 -> reel.smooth
+reel -> shift
+octave2 -> oct2
+keys2.key -> oct2.pitch            ; C as it is, B almost an octave up
+oct2 -> shift.pitch
+shift -> back
+fader3 -60> back.feedback
+mode2.tap -> latch
+latch -30> back.feedback
+shift back.left -> guardl
+shift back.right -> guardr
+guardl -> left
+guardr -> right
+mode1 -> lights.left
+reel -> lights.right
+
+the gesture
+-----------
+; hold mode1 and move fader1: the movement is recorded (up to 8 s) and loops when you let go; it
+; reads the grains' tape (where in the last 0.3 s they play). Hold mode2 and move fader2: the
+; same for the grain size. A bottom key pitches the grains; a top key held freezes the tape.
+; fader3 how dense they are. Everything you played with your hands plays itself on.
+the arm is gesture
+the wrist is gesture
+the g is grains 3 window=tukey spread=0.6
+the oct1 is transpose
+the shine is freqshift shift=0
+the guardl is limiter ceiling=0.9
+the guardr is limiter ceiling=0.9
+
+line.both -> g
+fader1 -> arm
+mode1 -> arm.record
+fader2 -> wrist
+mode2 -> wrist.record
+arm -> g.position
+wrist -> g.size
+fader3 -> g.density
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> g.pitch
+keys2.gate -> g.freeze
+g.left -> shine
+arm -2> shine.shift                ; the gesture also tilts a frequency shifter a little
+g.left shine.up -> guardl
+g.right shine.down -> guardr
+guardl -> left
+guardr -> right
+arm -> lights.left
+wrist -> lights.right
+
+the answering sampler
+---------------------
+; hold mode1 and the line is cut into 25 ms slices (the last 16 kept, each known by how bright
+; and loud it is). Let go: every attack in the line is answered by the slice nearest its own
+; brightness and loudness, chopped in time by a gate on those attacks. fader1 the brightness it
+; looks for, fader2 the loudness; tap mode2 and it follows the line by itself instead. The top
+; keys fire it too; fader3 how much spring it sounds in.
+the sampler is concat
+the ear is onset sensitivity=0.5
+the latch is flipflop
+the chop is slicer pattern=gallop len=0.6
+the splash is spring
+the wet is vca
+the guard is limiter ceiling=0.9
+
+line.both -> sampler ear
+mode1 -> sampler.record
+fader1 -> sampler.bright
+fader2 -> sampler.loud
+mode2.tap -> latch
+latch -> sampler.follow
+ear.pulse keys2.trig -> sampler.trig chop.clock
+sampler -> chop
+chop -> splash
+splash -> wet
+fader3 -> wet.gain
+chop wet -> guard -> out
+line.both -40> out
+mode1 -> lights.left
+ear.env -> lights.right

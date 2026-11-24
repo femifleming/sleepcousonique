@@ -9,6 +9,9 @@
  * --save FILE writes the last dream it was sent, byte for byte, so a test can compare. */
 #define _XOPEN_SOURCE 600
 #define _DARWIN_C_SOURCE
+#ifndef SCQ_FIRMWARE_VERSION
+#define SCQ_FIRMWARE_VERSION "1.5.0"
+#endif
 #include "fakesp1.h"
 #include <fcntl.h>
 #include <poll.h>
@@ -32,7 +35,7 @@ static struct fake_sp1 f;
 int main(int argc, char **argv)
 {
 	int mode = FAKE_ON, log_lines = 20, once = 0, wingie = 0;
-	const char *version = "1.4.0", *save = NULL;
+	const char *version = SCQ_FIRMWARE_VERSION, *save = NULL;   /* the firmware this editor comes with */
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "on")) mode = FAKE_ON;
 		else if (!strcmp(argv[i], "standby")) mode = FAKE_STANDBY;

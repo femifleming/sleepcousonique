@@ -137,6 +137,7 @@ static const struct { const char *name; unsigned short cycles; } SCQ_MEASURED[] 
 	{ "lfo", 100 },
 	{ "lights", 20 },
 	{ "limiter", 81 },
+	{ "line", 20 },
 	{ "listen", 500 },
 	{ "logic", 55 },
 	{ "logistic", 51 },

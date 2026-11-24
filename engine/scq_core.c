@@ -528,7 +528,8 @@ static int make_node(int p, const char *name, int nl, float nature)
 		return -1;
 	}
 	if ((pl->flags & PF_WINGIE) && G.instrument == SCQ_SP1) {
-		say('E', "", name, nl, " is one of the Wingie's hands: write `instrument wingie` at the top of the dream");
+		say('E', "", name, nl, pl->family == FAM_HANDS ? " is one of the Wingie's hands: write `instrument wingie` at the top of the dream"
+		                                               : " is for the Wingie: write `instrument wingie` at the top of the dream");
 		return -1;
 	}
 	if (G.instrument == SCQ_WINGIE && str_eq(pl->name, str_len(pl->name), "fader") && natural_nat(nature) > 3) {
@@ -697,7 +698,8 @@ static void st_the(tok *t, int nt)
 	if (SCQ_PLACES[p].flags & PF_SINGLE) { say('E', "", t[3].s, t[3].n, " is part of the SP-1; use it by name"); return; }
 	float nature = SCQ_PLACES[p].nature;
 	int k = 4;
-	if (k < nt && t[k].t == T_NUM) nature = parse_num(t[k].s, t[k].n), k++;
+	if (k < nt && t[k].t == T_NUM)   /* transpose 7st: units in octaves (Wingie dreams; the SP-1's 1.5.0 reads a bare number) */
+		nature = G.instrument == SCQ_WINGIE ? num_unit(t[k].s, t[k].n, 1.f) : parse_num(t[k].s, t[k].n), k++;
 	int id = make_node(p, t[1].s, t[1].n, nature);
 	if (id < 0) return;
 	while (k < nt && t[k].t == T_WORD) {                       /* switches and params */
@@ -1120,6 +1122,7 @@ static void compile_scene(int idx, int report)
 {
 	G.nn = 0; G.nc = 0; G.used = 0; G.wanted = 0; G.drift = 0.f; G.nk = 0;
 	G.quiet = !(report & 1);            /* the prelude is reported once */
+	place_wingie_names = G.instrument == SCQ_WINGIE;   /* this dream's, every time (a check of another dream may have run between) */
 	read_tunings();
 	compile_range(0, G.pre_end, 1);
 	G.quiet = !(report & 2);
@@ -1282,6 +1285,7 @@ int scq_load(const char *text, int len, uint32_t nights)
 	G.len = len;
 	G.nights = nights;
 	G.instrument = read_instrument();
+	place_wingie_names = G.instrument == SCQ_WINGIE;   /* pitch on the shifters: Wingie dreams only */
 	if (Gp == &G0) W.instrument = G.instrument;
 	G.msgn = 0; G.msg[0] = 0; G.errors = 0;
 	if (!G.rng) G.rng = 0x5eed1234u ^ nights;

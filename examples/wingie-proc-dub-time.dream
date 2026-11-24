@@ -1,0 +1,158 @@
+instrument wingie
+; wingie-proc-dub-time — line in through the dub mixer, a tape loop, Pauline Oliveros' delays and
+; a PT2399 with a Coco behind it: time bent, thrown, looped and worn. Set the Line/Mic switch to line.
+;
+; every scene:
+;   fader1 (Mix)     the time: echo length, loop speed, how fast the delays wander
+;   fader2 (Decay)   the feedback: how long things come round (past the top: careful)
+;   fader3 (Volume)  the tone or the wear inside the loop
+;   mode1            held: throw the line into the echo / punch it onto the tape / hold it
+;   keys             filter sweeps, pitch for the heads, strikes; octave1 an octave on the keys
+;   left LED         the line in;  right LED  what comes round
+; Step through the scenes with a held Mode button and a tap on the other.
+
+the siren in the yard
+---------------------
+; a dub send: only while mode1 (or any bottom key) is held does the line go into the echo, with
+; its spring splash and a tone inside the loop. The echo runs through a band filter the bottom
+; keys place (C low, B high) and out across a ping-pong; hold mode2 and an LFO sweeps it. When
+; you play, the echoes duck under you and swell back when you stop.
+the send is dub
+the sweep is svf 8 res=0.6
+the wobble is lfo rate=0.3
+the wobbler is vca
+the ear is follower attack=0.01 release=0.35
+the duck is ducker
+the bounce is pingpong 4 time=0.75 feedback=0.3
+the guardl is limiter ceiling=0.9
+the guardr is limiter ceiling=0.9
+
+line.both -> send ear
+mode1 keys1.gate -> send.throw
+fader1 -> send.time
+fader2 -> send.feedback
+fader3 -> send.tone
+send.wet -> sweep
+keys1.key -> sweep.cutoff
+wobble.sine -> wobbler
+mode2 => wobbler.gain
+wobbler -50> sweep.cutoff
+sweep.band -> duck
+ear -> duck.side
+duck -> bounce
+send.out bounce.l -> guardl
+send.out bounce.r -> guardr
+bounce.l -15> send               ; the ping-pong back into the send
+guardl -> left
+guardr -> right
+ear -> lights.left
+send.wet -> lights.right
+
+frippertronics
+--------------
+; a six-second tape loop: hold mode1 and the line in is recorded over it (some of the old
+; stays); let go and it goes round, wearing as it goes (fader3 how fast it ages). The bottom
+; keys play the tape at their pitch (C as recorded), octave1 an octave slower or faster. A tap
+; on mode2 throws the second head into a ping-pong. fader1 how much of the loop, fader2 how
+; much of the ping-pong comes back round onto the tape.
+the loop is tapeloop seconds=6 gap=0.37
+the oct1 is transpose
+the second is vca
+the latch is flipflop
+the bounce is pingpong 3 time=0.6 feedback=0.4
+the blur is diffuser
+the wide is widener width=0.8
+the mix is vca
+
+line.both -> loop
+mode1 -> loop.punch
+fader3 -> loop.age
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> loop.speed
+loop.right -> second
+mode2.tap -> latch
+latch => second.gain
+second -> bounce
+bounce.l bounce.r -> blur
+fader2 -> blur.amount
+blur -30> loop                    ; the ping-pong onto the tape
+loop.left -> mix
+fader1 -> mix.gain
+mix -> wide
+loop.right -60> wide.right
+wide.left bounce.l -> left
+wide.right bounce.r -> right
+line.both -40> out
+mode1 -> lights.left
+loop.left -> lights.right
+
+the expanded instrument
+-----------------------
+; four delays whose times wander, feeding each other and turning around the room (after Pauline
+; Oliveros' EIS), fed by a granular delay that sings back pitched to the bottom keys: an
+; octave up and fed back it climbs like a shimmer. fader1 how fast the four wander, fader2 how
+; far, fader3 the feedback among them. The louder you play the more the grains scatter. Hold
+; mode1 and the grains feed back on themselves; a top key held freezes the wandering.
+the eis is eis samplerate=half
+the glass is graindelay 2 samplerate=half time=0.5 density=0.5
+the ear is follower attack=0.01 release=0.6
+the oct1 is transpose
+the hold is crossfade
+the guardl is limiter ceiling=0.9
+the guardr is limiter ceiling=0.9
+
+line.both -> glass ear
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> glass.pitch
+ear -60> glass.jitter
+mode1 -50> glass.feedback
+glass.left glass.right -> eis
+line.both -40> eis
+fader1 -> hold.a
+keys2.gate -> hold.mix
+hold -> eis.rate                  ; fader1, or nothing while a top key is held
+fader2 -> eis.depth
+fader3 -> eis.feedback
+eis.left glass.left -> guardl
+eis.right glass.right -> guardr
+guardl -> left
+guardr -> right
+ear -> lights.left
+eis.left -> lights.right
+
+the chip and the coco
+---------------------
+; a PT2399 echo (turn fader1 and the pitch bends), then a Chloe tube and filter, then a Coco:
+; an 8-bit delay whose clock is its time. Every attack in the line in strikes the Chloe's gate;
+; the top keys place its filter. mode1 freezes the Coco's loop, a tap on mode2 flips it backwards,
+; any bottom key makes its head skip. fader2 the chip's feedback, fader3 the Coco's.
+the chip is pt2399
+the valve is chloe mode=band drive=0.4 resonance=0.5
+the ear is follower attack=0.002 release=0.12
+the hit is trigger length=20
+the coco is coco 1 rate=0.6
+the latch is flipflop
+the guard is limiter ceiling=0.9
+
+line.both -> chip ear
+ear.gate -> hit
+fader1 -> chip.time
+fader2 -80> chip.feedback         ; never quite into the scream
+chip -> valve
+hit -> valve.gate
+keys2.key -> valve.cutoff
+valve -> coco
+mode1 -> coco.freeze
+mode2.tap -> latch
+latch -> coco.flip
+keys1.trig -> coco.skip
+fader3 -> coco.feedback
+chip -60> guard
+valve -40> guard
+coco.verso -> left
+coco.inverso -> right
+guard -> out
+ear -> lights.left
+coco -> lights.right

@@ -105,7 +105,8 @@ void WingiePanel::resized()
         const float x = s == 0 ? 78.0f : 183.0f;
         octSw[s] = Rectangle<float> (26 * unit, 46 * unit).withCentre (at (x, 290));
         modeBtn[s] = circle (x, 442, 30);
-        modeLoop[s] = {};
+        modeLoop[s] = Rectangle<float> (12, 12).withCentre (at (x + 54, 442));   // drag these onto an inlet: mode1 / mode2
+        octLoop[s] = Rectangle<float> (12, 12).withCentre (at (x + 44, 290));     // octave1 / octave2
         lampR[s] = circle (s == 0 ? 595.0f : 702.0f, 442, 11);
         const float y = s == 1 ? 586.0f : 780.0f;        // keys2 on top, keys1 below
         keybed[s] = Rectangle<float> (at (44, y - 78), at (736, y + 78));
@@ -118,7 +119,9 @@ void WingiePanel::resized()
         faderR[i] = Rectangle<float> (at (x - 14, 147), at (x + 14, 437));
         faderLoop[i] = Rectangle<float> (12, 12).withCentre (at (x + 30, 140));
     }
-    micLoop = Rectangle<float> (14, 14).withCentre (at (80, 210));
+    micLoop = Rectangle<float> (14, 14).withCentre (at (100, 182));        // beside the panel's MIC
+    lineLoop = Rectangle<float> (14, 14).withCentre (at (100, 92));        // beside LINE IN
+    sourceLoop = Rectangle<float> (12, 12).withCentre (at (171 + 46, 134));
 
     r.removeFromLeft (40);                               // room for the keyboards' loops and names
     auto top = r.removeFromTop (24);
@@ -193,6 +196,8 @@ void WingiePanel::paint (Graphics& g)
     };
     silk ("LINE IN", 171, 92); silk ("MIC", 171, 182);
     toggle (sourceSw, source == 1 ? 1 : -1);
+    art::drawLoop (g, sourceLoop.getCentre(), false, art::blue);
+    art::drawLoop (g, lineLoop.getCentre(), false, art::umber);
 
     // the lights, in their holes by Volume: red underneath, then purple, yellow, white
     for (int s = 0; s < 2; ++s)
@@ -213,6 +218,8 @@ void WingiePanel::paint (Graphics& g)
         const float x = s == 0 ? 78.0f : 183.0f;
         silk (s == 0 ? "L.OCT" : "R.OCT", x, 250);
         toggle (octSw[s], octave[s]);
+        art::drawLoop (g, octLoop[s].getCentre(), false, art::blue);
+        art::drawLoop (g, modeLoop[s].getCentre(), false, art::blue);
         silk (s == 0 ? "L.MODE" : "R.MODE", x, 398);
         auto r = modeBtn[s];
         const bool down = modeBy[s] != 0;
@@ -325,7 +332,7 @@ void WingiePanel::paint (Graphics& g)
     }
     static const char* const controls[] = { "fader1", "fader2", "fader3", "keys1", "keys1.gate", "keys1.trig", "keys1.key",
                                             "keys2", "keys2.gate", "keys2.trig", "keys2.key", "mode1", "mode1.tap", "mode2",
-                                            "mode2.tap", "octave1", "octave2", "source", "mic", "mic.right", "mic.both" };
+                                            "mode2.tap", "octave1", "octave2", "source", "mic", "mic.right", "mic.both", "line", "line.right", "line.both" };
     StringArray patched, idle;
     std::map<String, StringArray> where;
     for (auto* c : controls)
@@ -366,6 +373,13 @@ void WingiePanel::mouseDown (const MouseEvent& e)
     for (int i = 0; i < 3; ++i) if (faderLoop[i].expanded (4).contains (p)) { dragHand ("fader" + String (i + 1)); return; }
     for (int s = 0; s < 2; ++s) if (keysLoop[s].expanded (4).contains (p)) { dragHand ("keys" + String (s + 1)); return; }
     if (micLoop.expanded (4).contains (p)) { dragHand ("mic.both"); return; }
+    if (lineLoop.expanded (4).contains (p)) { dragHand ("line.both"); return; }
+    if (sourceLoop.expanded (3).contains (p)) { dragHand ("source"); return; }
+    for (int s = 0; s < 2; ++s)
+    {
+        if (octLoop[s].expanded (3).contains (p)) { dragHand ("octave" + String (s + 1)); return; }
+        if (modeLoop[s].expanded (3).contains (p)) { dragHand ("mode" + String (s + 1)); return; }
+    }
     for (auto& [c, row] : mapRows)
         if (row.contains (p)) { if (onShowControl) onShowControl (c); return; }
 

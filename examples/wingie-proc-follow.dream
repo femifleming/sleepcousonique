@@ -1,0 +1,152 @@
+instrument wingie
+; wingie-proc-follow — the line in plays the patch: its pitch, its loudness and its attacks move
+; everything, the hands only steer. A second singer, an envelope-driven echo chamber, an attack
+; sequencer for a cave, and a spectral gate that listens. Line/Mic switch to line.
+;
+; every scene:
+;   fader1 (Mix)     how much of the processing against the line
+;   fader2 (Decay)   how hard the line pushes the processing (depth of the follower)
+;   fader3 (Volume)  the scene's colour (formant, tone, room)
+;   keys1            an interval or a root (C none, up to B); octave1 an octave down or up
+;   keys2            a second root, or a scale step
+;   mode1            held: the follower lets go (what it last heard stays)
+;   left LED         what the ear hears (loudness or pitch);  right LED  what it plays
+; Step through the scenes with a held Mode button and a tap on the other.
+
+a second singer
+---------------
+; a second voice, the line's own, sung an interval above it (the bottom key: C unison, G a
+; fifth...), formants kept so a voice stays a voice; fader3 moves the formants on purpose,
+; fader1 from the line alone to the second voice alone.
+the second is psola samplerate=half
+line.both -> second
+the oct1 is transpose
+the mix is crossfade
+the guard is limiter ceiling=0.9 samplerate=half
+octave1 -> oct1
+keys1.key -> oct1.pitch
+oct1 -> second.pitch
+fader3 -> second.formant
+line.both -> mix.a
+second -> mix.b
+fader1 -> mix.mix
+mix -> guard
+guard -> out
+line.both -> lights.left
+second -> lights.right
+
+the chamber breathes
+--------------------
+; the louder the line, the brighter a band filter opens on it and the shorter the echo gets; the
+; quieter, the longer the tail. Hold mode1 and every attack repeats its last slice (a beat
+; repeat that shrinks); the top keys make the slice longer (C short, B long). fader2 how far the
+; loudness pushes, fader3 how much of the room; fader1 the echo against the line.
+the ear is follower attack=0.005 release=0.3
+the hits is onset sensitivity=0.5
+the bright is svf 6 res=0.4
+the push is vca
+the calm is attenuverter amount=-1 offset=0.7
+the repeat is stutter decay=0.6 shrink=0.3
+the only is vca
+the echo is pingpong 3 time=0.5
+the room is reverblite 3 size=0.6
+the roomlevel is vca
+the mix is crossfade
+
+line.both -> ear hits bright
+ear -> push
+fader2 -> push.gain
+push -> bright.cutoff
+push -> calm
+calm -> echo.feedback
+bright.band -> repeat
+hits.pulse -> only
+mode1 -> only.gain
+only -> repeat.trig
+keys2.key -20> repeat.length
+repeat -> echo
+echo.l echo.r -> room
+room -> roomlevel
+fader3 -> roomlevel.gain
+line.both -> mix.a
+echo.l -> mix.b
+fader1 -> mix.mix
+mix roomlevel -> left
+mix echo.r roomlevel -> right
+ear -> lights.left
+hits.pulse -> lights.right
+
+the attack sequencer
+--------------------
+; every attack in the line takes a step through eight notes and strikes a cave tuned to that
+; step (the Wingie's threshold sequencer, grown up). The bottom keys transpose the sequence;
+; a top key held stops it on its step. The cave's ring goes through grains that sing it back
+; at the top key's step above; fader2 how long the cave rings, fader3 how dense the grains.
+the hits is onset sensitivity=0.5
+the steps is seq 8: 0 3 7 10 12 10 7 5
+the stop is vca
+the go is attenuverter amount=-1 offset=1
+the root is transpose
+the cave is cave 2 samplerate=half
+the sing is grains 2 samplerate=half window=gauss spread=0.7
+the up is transpose
+the mix is crossfade
+the guardl is limiter ceiling=0.9
+the guardr is limiter ceiling=0.9
+
+line.both -> hits cave
+hits.pulse -> stop
+keys2.gate -> go
+go -> stop.gain                   ; a held top key: no steps
+stop -> steps.next cave.strike
+octave1 -> root
+keys1.key -> root.pitch
+steps root -> cave.shift
+fader2 -> cave.decay
+cave -> sing
+octave2 -> up
+keys2.key -> up.pitch
+up -> sing.pitch
+fader3 -> sing.density
+mode1 -> sing.freeze
+line.both -> mix.a
+cave -> mix.b
+fader1 -> mix.mix
+mix sing.left -> guardl
+mix sing.right -> guardr
+guardl -> left
+guardr -> right
+hits.env -> lights.left
+steps.pulse -> lights.right
+
+the gate that listens
+---------------------
+; a spectral gate lets only the loud partials of the line through (fader2 how loud they must be);
+; play softly and it closes further, loud and it opens. What passes is played backwards in
+; slices (fader1 from forwards to all reversed) whose size follows how sure the ear is of a pitch:
+; a sung note gives long slices, noise short ones. Hold mode1 and the gate keeps only the hiss.
+; fader3 how wide the stereo.
+the sieve is specgate 1 samplerate=quarter
+the hiss is specgate 1 samplerate=quarter keep=quiet
+the which is crossfade
+the ear is follower attack=0.01 release=0.4 samplerate=half
+the sure is pitchtrack samplerate=quarter
+the back is reverse samplerate=half
+the wide is widener samplerate=quarter
+the guard is limiter ceiling=0.9 samplerate=half
+
+line.both -> sieve hiss ear sure
+fader2 -> sieve.threshold hiss.threshold
+ear -30> sieve.threshold
+sieve -> which.a
+hiss -> which.b
+mode1 -> which.mix
+which -> back
+fader1 -> back.mix
+sure.confidence -> back.size
+back -> guard -> wide
+fader3 -> wide.width
+wide.left -> left
+wide.right -> right
+ear -> lights.left
+sure.confidence -> lights.right

@@ -15,7 +15,7 @@ static const char* EAR_ROWS[]  = { "left", "right", "out", "leds", "leds.track",
 // the Wingie's: its three faders, the two keyboards, Mode, octave and source switches, the microphones
 static const char* WINGIE_HAND_ROWS[] = { "fader1", "fader2", "fader3", "keys1", "keys1.gate", "keys1.trig", "keys1.key",
                                           "keys2", "keys2.gate", "keys2.trig", "keys2.key", "mode1", "mode1.tap", "mode2",
-                                          "mode2.tap", "octave1", "octave2", "source", "mic", "mic.right", "mic.both" };
+                                          "mode2.tap", "octave1", "octave2", "source", "mic", "mic.right", "mic.both", "line", "line.right", "line.both" };
 static const char* WINGIE_EAR_ROWS[] = { "left", "right", "out", "lights", "lights.right", "scene.next", "scene.back", "scene.miss" };
 static constexpr float BW = 168, HEAD = 46, ROW = 17;
 
@@ -26,10 +26,26 @@ static int rowIndex (const std::vector<String>& rows, const String& t)
 }
 
 // how a row is labelled on the board: an outlet 0 by its own name too ("keys1" is keys1.pitch)
+static String rowLabel (const String& t);
+
+// the Wingie's rows say which control they are on the panel: "mix  fader1", "bottom keys  keys1.pitch"
+static String wingieRowLabel (const String& t)
+{
+    static const std::pair<const char*, const char*> panel[] = {
+        { "fader1", "mix" }, { "fader2", "decay" }, { "fader3", "volume" },
+        { "keys1", "bottom" }, { "keys2", "top" },
+        { "mode1", "L.mode" }, { "mode2", "R.mode" }, { "octave1", "L.oct" }, { "octave2", "R.oct" },
+        { "source", "line/mic" }, { "mic", "input" }, { "line", "input" } };
+    for (auto& [name, what] : panel)
+        if (t == name) return String (what) + "  " + rowLabel (t);
+    return rowLabel (t);
+}
+
 static String rowLabel (const String& t)
 {
     if (t.startsWith ("keys") && ! t.contains (".")) return t + ".pitch";
     if (t == "mic") return "mic.left";
+    if (t == "line") return "line.left";
     if (t == "lights") return "lights.left";
     return t;
 }
@@ -122,16 +138,16 @@ void Tapestry::layout()
 
     Board hands;
     hands.node = -1; hands.key = "@hands"; hands.title = wingie ? "Wingie" : "SP-1"; hands.sub = "hands"; hands.family = Hands;
-    hands.help = wingie ? "the Wingie's faders (Mix, Decay, Volume), its two keyboards, Mode, octave and source switches, and its microphones"
+    hands.help = wingie ? "the Wingie's faders (Mix, Decay, Volume), its two keyboards, Mode, octave and Line/Mic switches, and its input (mic and line: the switch picks)"
                         : "the SP-1's faders, track buttons, rocker, PLAY and dots";
     for (auto& t : handRows)
     {
         int sig = t.startsWith ("fader") || t == "rocker" || t.startsWith ("octave") || t == "source" ? Flow : Pulse;
         if (wingie && (t.startsWith ("keys") && (! t.contains (".") || t.endsWith (".key")))) sig = Flow;
-        if (wingie && t.startsWith ("mic")) sig = Sound;
-        hands.outs.push_back ({ rowLabel (t), t, sig });
+        if (wingie && (t.startsWith ("mic") || t.startsWith ("line"))) sig = Sound;
+        hands.outs.push_back ({ wingie ? wingieRowLabel (t) : rowLabel (t), t, sig });
     }
-    hands.r = { 0, 0, 120, HEAD + ROW * (float) hands.outs.size() + 8 };
+    hands.r = { 0, 0, wingie ? 168.0f : 120.0f, HEAD + ROW * (float) hands.outs.size() + 8 };
     hands.r.setPosition (pos ("@hands", { 30, 40 }));
     boards.push_back (hands);
 
@@ -594,7 +610,10 @@ void Tapestry::paint (Graphics& g)
                 if (art::theme().modular) art::drawJack (g, p, true, hoverPort.board == i && hoverPort.out && hoverPort.port == k, art::signalColour (b.outs[(size_t) k].signal));
                 else art::drawLoop (g, p, hoverPort.board == i && hoverPort.out && hoverPort.port == k, art::signalColour (b.outs[(size_t) k].signal));
                 g.setColour (bink);
-                g.drawText (b.outs[(size_t) k].label, Rectangle<float> (p.x - 9 - r.getWidth() * 0.5f, p.y - 7, r.getWidth() * 0.5f, 14), Justification::right);
+                {
+                    const float w = b.node == -1 ? r.getWidth() - 20.0f : r.getWidth() * 0.5f;   // the hands board has no inlets: the whole width
+                    g.drawText (b.outs[(size_t) k].label, Rectangle<float> (p.x - 9 - w, p.y - 7, w, 14), Justification::right);
+                }
             }
             if (light < 0.999f)                // lights down: the boards go dark, what's lit stays lit
             {
@@ -1221,7 +1240,7 @@ void Tapestry::canvasMenu (Point<float> d)
     // the hands of the instrument this dream is for (the other's are left out)
     PopupMenu handsMenu;
     std::vector<String> handIds;
-    static const StringArray always { "fader", "keys", "mode", "octave", "source", "mic", "button", "rocker", "play", "dots" };
+    static const StringArray always { "fader", "keys", "mode", "octave", "source", "mic", "line", "button", "rocker", "play", "dots" };
     for (auto& p : catalog())
     {
         if (p.family != Hands || ! p.on (doc.instrument())) continue;
@@ -1247,7 +1266,7 @@ void Tapestry::canvasMenu (Point<float> d)
             if (always.contains (h))           // part of the instrument: used by its name, never placed
             {
                 if (onStatus) onStatus (h + " is always there: drag its loop from the hands panel onto an inlet, or write  "
-                                        + (h == "keys" ? "keys1.pitch" : h == "mic" ? "mic.both" : h == "fader" || h == "button" || h == "mode" || h == "octave" ? h + "1" : h)
+                                        + (h == "keys" ? "keys1.pitch" : h == "mic" ? "mic.both" : h == "line" ? "line.both" : h == "fader" || h == "button" || h == "mode" || h == "octave" ? h + "1" : h)
                                         + " -> place.inlet");
                 return;
             }

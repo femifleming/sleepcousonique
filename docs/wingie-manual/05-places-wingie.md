@@ -12,6 +12,26 @@ for.
 
 ![wingie-ground.dream on the tapestry (faltung, dark): listen, dust and a crossfade, with the Wingie's hands on the left.](fig/ground-tapestry-faltung-dark.png)
 
+#### transpose — the octave switch, wherever you want one
+*Dreamt: a lever between your hand and the pitch.*
+
+Any control into whole steps: under a third is a step down, over two thirds a step up, between
+is none; its `pitch` inlet passes through. Its nature is the step: 1 an octave, `2` two,
+`7st` a fifth. The Wingie's octave switches are free controls (0, 0.5, 1); a `transpose` makes
+one an octave switch again.
+
+<!-- place transpose -->
+
+```dream
+the oct1 is transpose
+the ring is comb 2
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> ring.pitch
+line.both -> ring
+ring -> out
+```
+
 #### wingie — the Wingie2's resonator
 *Dreamt: the instrument you're holding, opened up.*
 

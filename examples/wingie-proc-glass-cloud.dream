@@ -1,0 +1,149 @@
+instrument wingie
+; wingie-proc-glass-cloud — line in as hi-fi grains: a cloud, a slow-motion replay, a
+; photograph that breathes. Set the Line/Mic switch to line and play anything into it.
+;
+; every scene:
+;   fader1 (Mix)     how much is happening (grain density, or how fast time runs)
+;   fader2 (Decay)   how long each thing lasts (grain size, smear, drift)
+;   fader3 (Volume)  where in the past the grains read, or how much of the room
+;   keys1            the pitch the grains are played at; octave1 throws it an octave down or up
+;   mode1            held: the tape stops and what is in it goes on (freeze / hold / capture)
+;   left LED         how loud the line in is;  right LED  how loud what comes out is
+; Step through the scenes with a held Mode button and a tap on the other.
+
+the bead curtain
+----------------
+; grains of the last 0.4 s spread wide; the louder you play the denser they fall. Hold mode2
+; and the whole curtain jumps an octave up. keys2 held lets the room behind the grains back
+; into the tape, so the curtain feeds on itself; let go and it dries.
+the ear is follower attack=0.005 release=0.4
+the g is grains 4 window=hann spread=0.7 spray=0.05
+the oct1 is transpose
+the air is diffuser amount=0.6
+the room is reverblite 3 size=0.7
+the back is vca
+the guardl is limiter ceiling=0.9
+the guardr is limiter ceiling=0.9
+
+line.both -> ear g
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> g.pitch
+mode2 -> g.pitch                  ; held: an octave up
+mode1 -> g.freeze
+fader1 -> g.density
+ear -40> g.density                ; play harder, more grains
+fader2 -> g.size
+fader3 -> g.position
+ear -20> g.spray                  ; a loud phrase scatters them further back
+g.left g.right ~> air
+air -> room
+room -> back
+keys2.gate => back.gain            ; the room back into the tape while a top key is held
+back -35> g
+g.left room -30> guardl
+g.right room -30> guardr
+guardl -> left
+guardr -> right
+line.both -> lights.left
+guardl -> lights.right
+
+slow motion
+-----------
+; the line in replayed slower and slower without the pitch falling (WSOLA), then smeared
+; across the spectrum. fader1 is the speed (down: time stands still), fader2 the smear,
+; mode1 holds the tape and loops; a top key held smears to a still wash; key12 (the bottom B)
+; plays the replay backwards. Hold mode2 and the wash runs back into the replay, round and
+; round, a little darker each time.
+the slow is stretch 3 samplerate=quarter
+the wash is smear samplerate=quarter blur=0.1
+the oct1 is transpose
+the back is vca
+the rev is attenuverter amount=-1
+
+line.both -> slow
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+oct1 -> slow.pitch
+fader1 -> slow.speed
+key12 -> rev
+rev -120> slow.speed              ; backwards while B is held
+mode1 -> slow.hold
+slow -> wash
+fader2 -> wash.blur
+keys2.gate -> wash.blur
+wash -> back
+mode2 => back.gain
+back -40> slow                    ; the wash back into the replay while mode2 is held
+slow -70> out
+wash -> out
+line.both -> lights.left
+wash -> lights.right
+
+the photograph that breathes
+----------------------------
+; a tap on mode1 holds the last moment as a seamless drone; hold mode2 and every attack in the
+; line in takes a new photograph by itself; any bottom key takes one too. A swarm of tiny
+; grains reads the drone again at the keys' pitch; key1 (bottom C) held sets the swarm loose.
+; fader1 from the line to the photograph, fader2 how restless it breathes, fader3 how many
+; insects swarm above it.
+the photo is grainfreeze 3 samplerate=quarter
+the ear is follower attack=0.002 release=0.15
+the hit is trigger
+the only is vca
+the bugs is swarm chaos=0.2 samplerate=quarter
+the oct1 is transpose
+the guardl is limiter ceiling=0.9
+the guardr is limiter ceiling=0.9
+
+line.both -> photo ear
+ear.gate -> hit
+hit -> only                       ; an attack, let through only while mode2 is held
+mode2 -> only.gain
+mode1.tap only keys1.trig -> photo.capture
+fader1 -> photo.blend
+fader2 -> photo.drift
+octave1 -> oct1
+keys1.pitch -> oct1.pitch
+photo.left photo.right -> bugs
+oct1 -> bugs.pitch
+fader3 -> bugs.density
+key1 -> bugs.chaos
+photo.left bugs.left -> guardl
+photo.right bugs.right -> guardr
+guardl -> left
+guardr -> right
+ear -> lights.left
+photo.left -> lights.right
+
+glass rain
+----------
+; grains that glide in pitch as they sound, falling or rising by as much as keys2 says
+; (C none, B almost an octave); octave2 sends them the other way. A pair of insects swarms
+; around them out of the same line in. fader1 density, fader2 grain size, fader3 the swarm.
+; mode1 held lets the swarm loose (chaos), mode2 held ducks the room away.
+the swallows are glisson 3 samplerate=half window=gauss spread=0.5
+the bugs is swarm chaos=0.3
+the dir is transpose
+the room is reverblite 3 size=0.6
+the dry is ducker
+the guardl is limiter ceiling=0.9
+the guardr is limiter ceiling=0.9
+
+line.both -> swallows bugs
+octave2 -> dir
+keys2.key -> dir.pitch
+dir -> swallows.glide
+fader1 -> swallows.density
+fader2 -> swallows.size
+fader3 -> bugs.density
+mode1 -> bugs.chaos
+swallows.left swallows.right bugs.left bugs.right ~> room
+room -> dry
+mode2 -> dry.side                 ; held: the room ducks away
+swallows.left bugs.left dry -> guardl
+swallows.right bugs.right dry -> guardr
+guardl -> left
+guardr -> right
+line.both -> lights.left
+swallows.left -> lights.right

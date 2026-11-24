@@ -53,6 +53,15 @@ endif()
 # go silent, stick or stop being a number, and everything comes back with no restart
 add_executable(ScqSweep tests/sweep.c)
 target_link_libraries(ScqSweep PRIVATE scq_engine)
+# the Wingie's hands: octave switches, transpose, pitch on the shifters; and every pitch inlet follows the keys
+add_executable(ScqWingieHands tests/wingiehands.c)
+target_link_libraries(ScqWingieHands PRIVATE scq_engine)
+add_executable(ScqPitchCheck tests/pitchcheck.c)
+target_link_libraries(ScqPitchCheck PRIVATE scq_engine)
+if (NOT WIN32)
+    target_link_libraries(ScqWingieHands PRIVATE m)
+    target_link_libraries(ScqPitchCheck PRIVATE m)
+endif()
 if(UNIX)
     target_link_libraries(ScqSweep PRIVATE m)
 endif()
@@ -135,6 +144,7 @@ target_link_libraries(ScqSerialTest PRIVATE scq_engine juce::juce_core PUBLIC ju
 if(UNIX)
     add_executable(fakesp1 tests/fakesp1_pty.c tests/fakesp1.c)
     target_link_libraries(fakesp1 PRIVATE scq_engine m)
+    target_compile_definitions(fakesp1 PRIVATE SCQ_FIRMWARE_VERSION="${SCQ_FIRMWARE_VERSION}")
 endif()
 
 # Sleepcousonique Array: SP-1s in interface mode as one multichannel output (macOS)

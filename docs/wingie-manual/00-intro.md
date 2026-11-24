@@ -12,7 +12,7 @@
 
 The Wingie2 is a listening instrument. You hold it, it hears what is around you, and it
 rings. Sleepcousonique keeps the listening and opens the inside: the same engine that runs
-on the SP-1, with **237 places**, now runs on the Wingie's ESP32, and a dream can be
+on the SP-1, with **239 places**, now runs on the Wingie's ESP32, and a dream can be
 anything from the Wingie's own resonator to a granular field, a spectral freeze, a dub
 echo or Alvin Lucier's room.
 
