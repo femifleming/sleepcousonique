@@ -1,0 +1,54 @@
+instrument wingie
+; the music bed under the video manual: the Wingie's own resonators, rung by wind and dust,
+; three chords as three scenes, in a long dark cavern. Rendered offline by bed.c.
+
+C and G
+-------
+the air is wind
+the motes is dust 1
+the low is wingie 2.18 string decay=0.85
+the mid is wingie 2.18 string tune=7st decay=0.85
+the high is wingie 2.18 bar tune=16st decay=0.85
+the soft is eq high=0.35
+the under is cavern samplerate=half size=0.6 dark=0.7
+air ~> low mid high
+motes ~> mid.strike
+motes ~> high.strike
+low mid high -> soft
+soft ~> under
+under.left soft ~> left
+under.right soft ~> right
+
+A minor
+-------
+the air is wind
+the motes is dust 1
+the low is wingie 2.18 string tune=-3st decay=0.85
+the mid is wingie 2.18 string tune=4st decay=0.85
+the high is wingie 2.18 bar tune=12st decay=0.85
+the soft is eq high=0.35
+the under is cavern samplerate=half size=0.6 dark=0.7
+air ~> low mid high
+motes ~> mid.strike
+motes ~> high.strike
+low mid high -> soft
+soft ~> under
+under.left soft ~> left
+under.right soft ~> right
+
+F major
+-------
+the air is wind
+the motes is dust 1
+the low is wingie 2.18 string tune=-7st decay=0.85
+the mid is wingie 2.18 string tune=5st decay=0.85
+the high is wingie 2.18 bar tune=9st decay=0.85
+the soft is eq high=0.35
+the under is cavern samplerate=half size=0.6 dark=0.7
+air ~> low mid high
+motes ~> mid.strike
+motes ~> high.strike
+low mid high -> soft
+soft ~> under
+under.left soft ~> left
+under.right soft ~> right
