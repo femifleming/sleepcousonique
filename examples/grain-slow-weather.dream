@@ -1,0 +1,50 @@
+instrument wingie
+; grain — slow weather: time made elastic, the Wingie listening.
+; Each scene: the left LED is what the microphones hear, the right one the place.
+
+one minute becomes one hour
+---------------------------
+; PaulStretch of the room. fader1 (Mix) how far it stretches (1x .. 1000x),
+; hold mode1 to stop time; fader3 (Volume) the level
+the glacier is paulstretch 2
+the level is vca
+mic.both -> glacier
+fader1 -> glacier.stretch
+mode1 -> glacier.hold
+glacier -> level
+fader3 -> level.gain
+level -> out
+mic.both -> lights.left
+glacier -> lights.right
+
+slow-motion replay
+------------------
+; WSOLA: fader1 the speed (0 stands still, 1 as it was), keys1 the pitch on
+; its own; hold mode1 to loop the tape; fader2 a mirrored corridor behind it
+the replay is stretch 6
+the corridor is graindelay 4
+mic.both -> replay
+fader1 -> replay.speed
+keys1.pitch -> replay.pitch
+mode1 -> replay.hold
+replay -> corridor
+fader2 -> corridor.feedback
+replay corridor -> left
+replay corridor.right -> right
+mic.both -> lights.left
+replay -> lights.right
+
+shimmer corridor
+----------------
+; a granular delay feeding back an octave up (keys1 moves it), fader1 time,
+; fader2 feedback, fader3 jitter
+the corridor is graindelay 6
+mic.both -> corridor
+keys1.pitch -> corridor.pitch
+fader1 -> corridor.time
+fader2 -> corridor.feedback
+fader3 -> corridor.jitter
+corridor -> left
+corridor.right -> right
+mic.both -> lights.left
+corridor -> lights.right

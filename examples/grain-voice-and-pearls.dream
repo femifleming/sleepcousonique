@@ -1,0 +1,50 @@
+instrument wingie
+; grain — voice and pearls: sing or talk into the Wingie.
+; The left LED is the microphones, the right one what the scene makes.
+
+a choir boy grown up overnight
+------------------------------
+; PSOLA: keys1 moves the pitch of your voice and keeps its vowels; fader1
+; (Mix) moves the formants on purpose; the left LED follows the pitch it hears
+the voice is psola
+the twin is psola
+mic.left -> voice
+mic.right -> twin
+keys1.pitch -> voice.pitch
+keys2.pitch -> twin.pitch
+fader1 -40> voice.formant twin.formant
+voice -> left
+twin -> right
+voice.period -> lights.left
+voice -> lights.right
+
+a broken string of pearls
+-------------------------
+; Wishart's wavesets: each tap of mode1 is the clock for the stutters below;
+; fader1 how many times a waveset repeats, fader2 the stutters' slices,
+; fader3 their length
+the pearls is wavesets repeat
+the hand is beatgrains 6 burst=2 pattern=fifths
+mic.both -> pearls hand
+fader1 -> pearls.amount
+mode1.tap -> hand.clock
+fader2 -> hand.slices
+fader3 -> hand.length
+keys1.pitch -> hand.pitch
+pearls hand -> left
+pearls hand.right -> right
+mic.both -> lights.left
+hand -> lights.right
+
+a hand on the reel
+------------------
+; hold mode1 to record (at least 0.15 s), then fader1 is the tape head:
+; move it slowly to stretch, fast to sing, stop to hold; fader2 smooths the hand
+the reel is scrub 6
+mic.both -> reel
+mode1 -> reel.record
+fader1 -> reel.position
+fader2 -> reel.smooth
+reel -> out
+mic.both -> lights.left
+reel -> lights.right
