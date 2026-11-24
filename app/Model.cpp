@@ -87,7 +87,9 @@ bool knobRange (const PlaceInfo& p, int i, float& lo, float& hi)
     auto n = p.ins[i];
     static const juce::StringArray none { "in", "in1", "in2", "in3", "in4", "a", "b", "mod", "trig", "trig1", "trig2", "strike",
                                           "pluck", "gate", "clock", "reset", "sync", "next", "back", "learn", "follow", "s1", "s2",
-                                          "s3", "s4", "s5", "s6", "s7", "s8", "x", "y" };
+                                          "s3", "s4", "s5", "s6", "s7", "s8", "x", "y", "record", "overdub", "erase", "punch", "throw",
+                                          "freeze", "hold", "capture", "listen", "go", "skip", "flip", "left", "right",
+                                          "carrier", "modulator" };
     if (none.contains (n)) return false;                // sound and pulses come from cords, not knobs
     if (n == "pitch")
     {
