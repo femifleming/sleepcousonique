@@ -1,0 +1,32 @@
+; grain — after Xenakis: stochastic sound with nothing coming in (runs on the SP-1 too).
+; fader1 - fader3 are written next to each scene
+
+storm over mycenae
+------------------
+; GENDY: fader1 how far the heights wander, fader2 how far the lengths (and the
+; pitch); a slow random voltage moves its pitch; a dust of particles from it
+the storm is gendy 2 dist=cauchy
+the drift is smoothrandom 1
+the dust is particles 3 dist=cauchy
+fader1 -> storm.amp_step
+fader2 -> storm.dur_step
+drift -50> storm.pitch
+storm -> dust
+fader3 -> dust.screen
+storm -50> out
+dust -> left
+dust.right -> right
+
+a voice from the radiator pipes
+-------------------------------
+; FOF trainlets: fader1 the formant, fader2 how wide it rings, fader3 from
+; bursts to a steady voice; the pitch walks a little
+the pipes is trainlet 2 chroma=40
+the walk is steprandom 1
+fader1 -> pipes.formant
+fader2 -> pipes.bandwidth
+fader3 -> pipes.density
+walk -30> pipes.pitch
+the room is reverb 2
+pipes -> room
+pipes room -> out

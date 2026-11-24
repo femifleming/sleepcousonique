@@ -1,0 +1,56 @@
+instrument wingie
+; grain — glass field: the Wingie's microphones as hi-fi grains.
+; fader1 (Mix) density, fader2 (Decay) grain size, fader3 (Volume) where in the
+; last 0.6 s the grains read. keys1 plays their pitch; hold mode1 to freeze the tape.
+; The left LED follows the microphones, the right one the grains.
+
+glass field
+-----------
+the field is grains 6 gauss
+the hall is reverblite 2
+mic.both -> field
+keys1.pitch -> field.pitch
+fader1 -> field.density
+fader2 -> field.size
+fader3 -> field.position
+mode1 -> field.freeze
+field -> left
+field.right -> right
+field field.right ~30> hall
+hall -> out
+mic.both -> lights.left
+field -> lights.right
+
+the photograph that breathes
+----------------------------
+; tap mode1 to hold the last moment as a drone; fader1 from the room to the
+; held moment, fader2 how restless it is; keys1 sets a glisson choir above it
+the photo is grainfreeze 6
+the swallows are glisson 2
+mic.both -> photo swallows
+mode1.tap -> photo.capture
+fader1 -> photo.blend
+fader2 -> photo.drift
+keys1.pitch -> swallows.glide
+fader3 -> swallows.density
+photo swallows -> left
+photo.right swallows.right -> right
+photo -> lights.left
+swallows -> lights.right
+
+the choir in the empty church
+-----------------------------
+; the microphones transposed onto a minor chord on keys1; fader1 density,
+; fader2 size; fader3 how much of the cathedral of grains
+the choir is harmonicgrains 3 minor
+the sand is granularverb 3
+mic.both -> choir
+keys1.pitch -> choir.pitch
+fader1 -> choir.density
+fader2 -> choir.size
+choir choir.right -> sand
+fader3 -> sand.size
+choir sand -> left
+choir.right sand.right -> right
+mic.both -> lights.left
+sand -> lights.right
