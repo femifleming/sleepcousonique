@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Universal binary")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS")
 
-project(Sleepcousonique VERSION 1.4.1 LANGUAGES C CXX)
+project(Sleepcousonique VERSION 1.5.0 LANGUAGES C CXX)
 # the SP-1 firmware that ships with this editor (firmware/dist/sleepcousonique-sp1.bin, SCQ_VERSION
 # in firmware/app/src/sp1_scq.c): the editor tells an SP-1 running an older one to update
 set(SCQ_FIRMWARE_VERSION "1.4.0")

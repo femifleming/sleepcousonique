@@ -551,6 +551,8 @@ juce::String Link::version() const { const juce::ScopedLock sl (lock); return sp
 juce::String Link::note() const { const juce::ScopedLock sl (lock); return isConnected ? juce::String() : why; }
 Link::Hands Link::hands() const { const juce::ScopedLock sl (lock); return latest; }
 Link::WHands Link::whands() const { const juce::ScopedLock sl (lock); return latestW; }
+juce::String Link::lastEvent (juce::uint32& count) const { const juce::ScopedLock sl (lock); count = eventCount; return event; }
+
 Link::Measured Link::measured() const { const juce::ScopedLock sl (lock); return meas; }
 
 void Link::finishSend (const juce::String& result)
@@ -654,6 +656,13 @@ void Link::handle (const juce::String& line)
         const juce::ScopedLock sl (lock);
         h.count = latestW.count + 1;
         latestW = h;
+        return;
+    }
+    if (line.startsWith ("SCQ too heavy"))     // the device went back to something lighter
+    {
+        const juce::ScopedLock sl (lock);
+        event = line.fromFirstOccurrenceOf ("SCQ ", false, false).trim();
+        ++eventCount;
         return;
     }
     if (line.contains ("SCQ engine avg="))

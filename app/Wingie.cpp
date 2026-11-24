@@ -633,8 +633,9 @@ void WingieMeters::paint (Graphics& g)
         auto cell = [&] (int i, const String& name, const String& value, Colour c)
         {
             auto row = Rectangle<float> (left.getX() + (float) (i % 2) * left.getWidth() * 0.5f, left.getY() + (float) (i / 2) * lh, left.getWidth() * 0.5f - 4, lh);
-            g.setColour (th.chromeDim); g.drawText (name, row, Justification::left);
-            g.setColour (c); g.drawText (value, row, Justification::right);
+            auto nameArea = row.removeFromLeft (jmin (row.getWidth() * 0.42f, 70.0f));   // the value never runs under the name
+            g.setColour (th.chromeDim); g.drawText (name, nameArea, Justification::left, true);
+            g.setColour (c); g.drawFittedText (value, row.toNearestInt(), Justification::right, 1, 0.8f);
         };
         const String dash ("--");
         cell (0, "control core", fresh && last.core1 >= 0 ? String (last.core1) + "%" : dash, fresh && last.core1 > 85 ? overC : ink);
@@ -642,7 +643,7 @@ void WingieMeters::paint (Graphics& g)
               fresh && last.heap >= 0 && last.heap < 16384 ? overC : ink);
         String poolSay = poolWord ? poolWord() : String();
         cell (2, "pool", fresh && last.memTotal > 0 ? String (roundToInt ((float) last.memUsed / 1024.0f)) + " of " + String (roundToInt ((float) last.memTotal / 1024.0f)) + " KB"
-                                                    : poolSay.isNotEmpty() ? poolSay + " (est.)" : dash,
+                                                    : poolSay.isNotEmpty() ? "~" + poolSay : dash,
               fresh && last.memTotal > 0 && last.memUsed > last.memTotal ? overC : ink);
         const bool drops = fresh && last.dropped > 0;
         cell (3, "dropped", fresh && last.dropped >= 0 ? String (last.dropped) + (last.blocks > 0 ? " of " + String (last.blocks) : String()) : dash, drops ? overC : ink);
@@ -711,8 +712,8 @@ void WingieMeters::paint (Graphics& g)
         {
             auto c = Rectangle<float> (right.getX() + cw * (float) i, right.getY(), cw - 6, right.getHeight());
             g.setColour (th.chromeDim);
-            g.drawText (String (names[i]) + (hw ? "" : (i < 2 ? " (mic)" : " (sim)")), c.removeFromTop (11), Justification::left);
-            g.drawText (lv[i] <= -99 ? String ("-inf") : String (lv[i]) + " dB", c.withTrimmedTop (-11).removeFromTop (11), Justification::right);
+            g.drawText (String (names[i]) + (hw ? "" : (i < 2 ? " mic" : " sim")), c.removeFromTop (11), Justification::left, true);   // the name on its own line,
+            g.drawText (lv[i] <= -99 ? String ("-inf") : String (lv[i]) + " dB", c.removeFromTop (11), Justification::left, true);   // the reading under it
             auto b = c.removeFromTop (6).withTrimmedTop (1);
             g.setColour (th.pop ? th.rail : (th.dark ? Colour (0x22ffffff) : Colour (0x22000000))); g.fillRect (b);
             const float v = jlimit (0.0f, 1.0f, ((float) lv[i] + 60.0f) / 60.0f);   // -60 .. 0 dBFS

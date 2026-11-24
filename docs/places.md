@@ -400,6 +400,22 @@ chance of landing on a random one instead.
   note: `delya` is taken as `delay`.
 - **Mistakes.** While the journal has mistakes, the last dream that made sense keeps playing.
 
+## The Wingie's limits
+
+Measured on a Wingie2 (ESP32 at 240 MHz, no PSRAM), 48 kHz: 5000 processor cycles a sample.
+
+- **Memory, 70 KB a scene.** Tapes, delay lines and FFT frames share it. A granular tape is its
+  nature in tenths of a second (`grains 6`: 0.6 s, about 58 KB), so one big tape fits, or two
+  shorter ones; `samplerate=half` (or lower) holds the same seconds in half the memory's worth of
+  samples. `tapeloop` and `eis` take about 40 KB each. The editor says "the house is full" where
+  the Wingie would.
+- **Processor.** An empty dream takes 3 %. Some measured places: `sine` 2 %, `reverb` 8 %,
+  `vco` 6 %, the `wingie` resonator 14 %, `grains` 35 %, `stretch` 41 %, `specfilter` 60 %,
+  `morph` 86 %, `harmonizer` 129 % (only at `samplerate=half`), `paulstretch` 71 % (run it at
+  `samplerate=half`: 40 %). The editor's load meter uses these figures; a dream over about 85 %
+  may glitch, and one that goes on missing its deadline falls back to the last dream that fit.
+- **12 slots**, each a dream of up to 16 KB.
+
 ## The SP-1's limits
 
 The editor shows **load** (how much of the SP-1's processor the dream needs) and **room**

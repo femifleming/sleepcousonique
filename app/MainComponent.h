@@ -83,6 +83,7 @@ private:
     scq::Document doc;
     Host host;
     serial::Link link { true };      // an SP-1 or a Wingie, whichever is plugged in
+    juce::uint32 eventShown = 0;     // the last device event shown on the status line
     // a send runs on its own thread (it can take seconds): the window stays live meanwhile.
     // Declared after the link, so it is finished (and gone) before the link is.
     struct SendJob : juce::Thread

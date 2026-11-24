@@ -136,6 +136,9 @@ public:
     bool connected() const { return isConnected.load(); }
     int device() const { return isConnected.load() ? connectedDevice.load() : (int) noDevice; }   // what is connected now
     Measured measured() const;
+    // the last thing the device told a person (a dream too heavy and what it went back to); `count`
+    // goes up with each, so the editor shows each once
+    juce::String lastEvent (juce::uint32& count) const;
     juce::String port() const;
     juce::String version() const;     // the device's firmware, from its HELLO
     // why there is no SP-1 connected, for a person: "" while connected (or still looking)
@@ -167,6 +170,8 @@ private:
     Hands latest;
     WHands latestW;
     Measured meas;
+    juce::String event;
+    juce::uint32 eventCount = 0;
     juce::String partial;
 
     // a send handed to the link thread

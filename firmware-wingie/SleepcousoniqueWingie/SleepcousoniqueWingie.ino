@@ -260,6 +260,7 @@ static void setLed(int s, uint8_t code) { for (int b = 0; b < 2; b++) digitalWri
 
 static uint32_t flashUntil = 0;
 static uint8_t flashCode = 3;
+static uint32_t flashMs = 120;   // blink half-period (mistakes flicker faster)
 
 static void controlTask(void *) {
   Wire.begin(17, 18);
@@ -328,11 +329,29 @@ static void controlTask(void *) {
       scq_control(SCQ_CTL_KEYS1 + k, (!hide && keyState[0][k]) ? 1.f : 0.f);
       scq_control(SCQ_CTL_KEYS2 + k, (!hide && keyState[1][k]) ? 1.f : 0.f);
     }
-    scq_control(SCQ_CTL_MODE1, (!hide && m0) ? 1.f : 0.f);
-    scq_control(SCQ_CTL_MODE2, (!hide && m1) ? 1.f : 0.f);
+    // the Mode buttons as the dream sees them: a combo freezes them (the one held first stays
+    // held, the second never shows), and a button let go after a combo is let go only once it
+    // has been down 0.65 s, so the dream never sees a quick tap
+    {
+      static bool shown[2] = {false, false}, combo[2] = {false, false};
+      static uint32_t downAt[2] = {0, 0};
+      static bool physPrev[2] = {false, false};
+      bool phys[2] = {m0, m1};
+      for (int i = 0; i < 2; i++) {
+        if (phys[i] && !physPrev[i]) downAt[i] = now;
+        if (both) combo[i] = true;
+        if (!both && !combo[i]) shown[i] = phys[i];                         // ordinary use
+        else if (both) { /* frozen: keep what the dream saw */ }
+        else if (!phys[i] && shown[i]) { if (now - downAt[i] >= 650) shown[i] = false; }   // let go after a combo
+        if (!phys[i] && !shown[i]) combo[i] = false;
+        physPrev[i] = phys[i];
+      }
+      scq_control(SCQ_CTL_MODE1, shown[0] ? 1.f : 0.f);
+      scq_control(SCQ_CTL_MODE2, shown[1] ? 1.f : 0.f);
+    }
 
     // LEDs: the dream's lights, or a flash after a slot / scene change / mistakes
-    if ((int32_t)(flashUntil - now) > 0) { bool on = (now / 120) & 1; setLed(0, on ? flashCode : 0); setLed(1, on ? flashCode : 0); }
+    if ((int32_t)(flashUntil - now) > 0) { bool on = (now / flashMs) & 1; setLed(0, on ? flashCode : 0); setLed(1, on ? flashCode : 0); }
     else { setLed(0, lampCode(scq_lamp(0))); setLed(1, lampCode(scq_lamp(1))); }
 
     core1Busy += XTHAL_GET_CCOUNT() - c0;
@@ -373,7 +392,7 @@ static void handleLine() {
     fallbackOn = line[13] != '0';
     Serial.print("OK 0\n");
   } else if (!strncmp(line, "SCQ SHOW", 8)) {
-    flashUntil = millis() + 3000; flashCode = 3;
+    flashUntil = millis() + 3000; flashCode = 3; flashMs = 120;
     Serial.print("OK 0\n");
   } else if (!strncmp(line, "SCQ MODE", 8) || !strncmp(line, "SCQ UNIT", 8)) {
     Serial.print("OK DREAM\n");   // the Wingie has no interface mode or array unit
@@ -391,14 +410,14 @@ static void serialPoll() {
       textBuf[rxBuf][got] = 0;
       want = -1;
       int e = loadBuffer(rxBuf, got);
-      if (e) { Serial.printf("ERR %d mistakes\n", e); flashUntil = millis() + 900; flashCode = 0; continue; }
+      if (e) { Serial.printf("ERR %d mistakes\n", e); flashUntil = millis() + 900; flashCode = 3; flashMs = 50; continue; }   // mistakes: a fast white flicker
       if (wantSlotLoad < 0) { Serial.print("OK 0\n"); continue; }
       slot = wantSlotLoad;
       bool ok = slotWrite(slot, textBuf[playing], got);
       stateWrite();
       if (ok) Serial.print("OK 0\n"); else Serial.print("ERR could not save (playing it anyway)\n");
       Serial.printf("SCQ received %d bytes into slot %d\n", got, slot + 1);
-      flashUntil = millis() + 500; flashCode = 3;
+      flashUntil = millis() + 500; flashCode = 3; flashMs = 120;
       continue;
     }
     if (c == '\n' || c == '\r') { if (lineN) handleLine(); }
@@ -521,7 +540,7 @@ void loop() {
           loadBuffer(other, n);
           if (t - lastSaid > 5000) { lastSaid = t; Serial.print("SCQ too heavy for the Wingie: back to the first light\n"); }
         }
-        flashUntil = t + 900; flashCode = 1;
+        flashUntil = t + 900; flashCode = 1; flashMs = 120;
       }
     } else if (t - calmSince > 2000) {
       goodBuf = playing; goodLen = playingLen; goodText = textBuf[playing]; goodScene = scq_scene();
@@ -537,11 +556,11 @@ void loop() {
     xSemaphoreGive(engineLock);
     if (asked) {
       int to = s >= 0 ? s : (slot + st + SLOTS) % SLOTS;
-      if (to >= 0 && to < SLOTS && to != slot) { playSlot(to); stateWrite(); flashUntil = millis() + 400; flashCode = 2; }
+      if (to >= 0 && to < SLOTS && to != slot) { playSlot(to); stateWrite(); flashUntil = millis() + 400; flashCode = 2; flashMs = 120; }
     }
   }
   int ws = wantSlot;
-  if (ws >= 0) { wantSlot = -1; if (ws != slot) { playSlot(ws); stateWrite(); } flashUntil = millis() + 400; flashCode = 2; }
+  if (ws >= 0) { wantSlot = -1; if (ws != slot) { playSlot(ws); stateWrite(); } flashUntil = millis() + 400; flashCode = 2; flashMs = 120; }
   int sc = wantScene;
   if (sc) {
     wantScene = 0;

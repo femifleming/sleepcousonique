@@ -322,6 +322,11 @@ void MainComponent::timerCallback()
         remember();                  // a burst of typing is one step
         compile();
     }
+    {   // the device says a dream was too heavy and what it went back to
+        juce::uint32 c = 0;
+        auto e = link.lastEvent (c);
+        if (c != eventShown) { eventShown = c; status ((link.device() == serial::wingie ? "the Wingie: " : "the SP-1: ") + e); }
+    }
     {   // the slot place: the computer has no slots, so say what the instrument would do
         int to = -1, step = 0;
         if (scq_wanted_slot (&to, &step))

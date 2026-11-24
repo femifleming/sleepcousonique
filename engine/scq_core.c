@@ -382,6 +382,7 @@ static int rate_set(node *n, const tok *name, const tok *val)
 	}
 	if (SCQ_PLACES[n->type].flags & PF_SINGLE) { say('E', "", name->s, name->n, ": the SP-1's own places run at full rate"); return 1; }
 	n->rdiv = (uint8_t)(1u << pos);
+	if (n->rdiv > 1 && n->res) say('W', "", name->s, name->n, ": resolution is only for full rate; at a lower samplerate it is ignored");
 	return 1;
 }
 
@@ -400,6 +401,7 @@ static int res_set(node *n, const tok *name, const tok *val)
 	if (pos < 0) { say('E', "resolution is block, fine or audio, not ", w->s, w->n, ""); return 1; }
 	if (SCQ_PLACES[n->type].flags & PF_SINGLE) { say('E', "", name->s, name->n, ": the instrument's own places run once a block"); return 1; }
 	n->res = (uint8_t)(pos == 0 ? 0 : (pos == 1 ? 4 : 1));
+	if (n->rdiv > 1 && n->res) say('W', "", name->s, name->n, ": resolution is only for full rate; at a lower samplerate it is ignored");
 	return 1;
 }
 
