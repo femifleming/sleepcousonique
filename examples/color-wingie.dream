@@ -1,0 +1,54 @@
+instrument wingie
+; color-wingie — the Wingie listening. Its microphones hear the room: every attack steps a
+; sequence (as its own threshold sequencer does), whatever sings is followed by a second voice.
+; fader1 (Mix) how easily it hears, fader2 (Decay) how worn the tape is
+
+under the highway
+-----------------
+; a truck thumps the deck: the bass line takes a step and the Chloe's gate is struck.
+; Something hums in the concrete: a sine follows it an octave down
+the ear is onset sensitivity=0.6
+the singer is pitchtrack
+the line is seq 8: 0 3 7 10 12 7 3 -2
+the bass is vco 1
+the room is chloe mode=low drive=0.5 cutoff=0.35 resonance=0.6
+the shadow is sine 1 tune=-1
+the hush is lpg
+the cassette is tape age=0.4
+the wall is limiter ceiling=0.8
+
+mic.both -> ear singer
+ear.pulse -> line.next room.gate
+line -> bass.pitch
+bass.saw -> room
+singer.pitch -> shadow.pitch
+singer.gate => hush.level
+shadow -25> hush
+room hush -> cassette -> wall -> out
+fader1 -> ear.sensitivity
+fader2 -> cassette.age
+ear.env -> lights.left
+singer.confidence -> lights.right
+
+the shortwave confession
+------------------------
+; what the microphones hear goes out over a dying radio; how hard each attack is turns the dial.
+; Each attack slices the broadcast into a dub skank
+the ear is onset sensitivity=0.5
+the set is radio drift=0.5
+the dial is slew
+the cut is slicer pattern=offbeat len=0.6
+the echo is tapeecho 4
+the wall is limiter ceiling=0.8
+
+mic.both -> ear set
+ear.strength -> dial
+40 -> set.tune
+dial -20> set.tune               ; 0.4 to 0.6: wobbling across the station
+ear.pulse -> cut.clock
+set -> cut -> echo -> wall -> out
+cut -40> wall
+fader1 -> ear.sensitivity
+fader2 -> echo.feedback
+ear.env -> lights.left
+ear.pulse -> lights.right
