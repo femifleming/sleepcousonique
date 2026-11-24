@@ -33,7 +33,9 @@ enum {            /* place flags */
 	PF_SINGLE = 1,  /* one per scene, named after itself (controls, outputs) */
 	PF_DRIFT  = 2,  /* its nature drifts from night to night */
 	PF_COUNTED = 4, /* name+digit picks the nature: lean1, door3 */
-	PF_KEEPMEM = 8  /* its memory is written in the dream (a seq's steps): never cleared */
+	PF_KEEPMEM = 8, /* its memory is written in the dream (a seq's steps): never cleared */
+	PF_SP1 = 16,    /* one of the SP-1's own hands or lamps: not on the Wingie */
+	PF_WINGIE = 32  /* one of the Wingie's own hands or lamps: not on the SP-1 */
 };
 
 typedef struct {
@@ -105,6 +107,8 @@ typedef struct {
 	float    miss;
 	int      nb;          /* the block the running place sees: SCQ_BLOCK, or less at a lower samplerate */
 	float    sr, isr;     /* the sample rate it sees, and 1/that */
+	const float *inL, *inR;   /* this block of sound coming in (scq_input), never 0 */
+	int      instrument;  /* SCQ_SP1 / SCQ_WINGIE: the dream's */
 } world;
 
 extern world W;

@@ -62,6 +62,7 @@ typedef struct {
 #endif
 
 	uint32_t nights;
+	int      instrument;         /* SCQ_SP1 / SCQ_WINGIE: from the dream's `instrument` line */
 	float    drift;
 	float    load;
 	float    scene_load[SCQ_MAX_SCENES];
@@ -459,6 +460,8 @@ static int opt_set(node *n, const tok *name, const tok *val)
 	return -1;
 }
 
+static int natural_nat(float x) { return (int)(x + 0.5f); }
+
 /* where an outlet a place doesn't have points: written, never read */
 static float SPARE[B];
 
@@ -466,6 +469,18 @@ static int make_node(int p, const char *name, int nl, float nature)
 {
 	const place *pl = &SCQ_PLACES[p];
 	if (G.nn >= MAX_NODES) { say('E', "the dream is too crowded (", 0, 0, "96 places at most)"); return -1; }
+	if ((pl->flags & PF_SP1) && G.instrument == SCQ_WINGIE) {
+		say('E', "", name, nl, " is one of the SP-1's hands, and this dream is for the Wingie");
+		return -1;
+	}
+	if ((pl->flags & PF_WINGIE) && G.instrument == SCQ_SP1) {
+		say('E', "", name, nl, " is one of the Wingie's hands: write `instrument wingie` at the top of the dream");
+		return -1;
+	}
+	if (G.instrument == SCQ_WINGIE && str_eq(pl->name, str_len(pl->name), "fader") && natural_nat(nature) > 3) {
+		say('E', "", name, nl, ": the Wingie has three faders (fader1 Mix, fader2 Decay, fader3 Volume)");
+		return -1;
+	}
 	if (nl >= NAME_LEN) nl = NAME_LEN - 1;
 	node *n = &G.n[G.nn];
 	uint8_t *raw = (uint8_t *)n;
@@ -612,7 +627,7 @@ static void st_the(tok *t, int nt)
 		int same = t[1].n == t[3].n;
 		for (int i = 0; same && i < t[1].n; i++) if (t[1].s[i] != t[3].s[i]) same = 0;
 		if (same) { say('W', "", t[3].s, t[3].n, " is always there (it's on the SP-1): no need to name it, just use it"); return; }
-		say('E', "", t[3].s, t[3].n, " is on the SP-1 and always there: use it by its own name (like fader1 -> lfo.rate), not a new one");
+		say('E', "", t[3].s, t[3].n, " is part of the instrument and always there: use it by its own name (like fader1 -> lfo.rate or keys1.pitch), not a new one");
 		return;
 	}
 	int other = find_place(t[1].s, t[1].n);
@@ -741,6 +756,7 @@ static void statement(const char *s, int n)
 		G.drift = parse_num(t[1].s, t[1].n);    /* otherwise "drift" is just a name */
 		return;
 	}
+	if (t[0].t == T_WORD && str_eq(t[0].s, t[0].n, "instrument") && nt == 2 && t[1].t == T_WORD) return;   /* read at load */
 	if (t[0].t == T_WORD && str_eq(t[0].s, t[0].n, "sleepers")) { say('W', "sleepers (voices) are not awake yet", 0, 0, ""); return; }
 	st_chain(t, nt);
 }
@@ -903,7 +919,13 @@ static float cost_estimate(void)
 	cost_count(t, w);
 	for (int i = 0; i < CT_N; i++) cyc += t[i] * COST_TERM[i];
 	for (int i = 0; i < SCQ_NPLACES && i < 256; i++) if (w[i] != 0.f) cyc += w[i] * place_cycles(i);
+	if (G.instrument == SCQ_WINGIE) return cyc * SCQ_WINGIE_SCALE / (float)SCQ_WINGIE_CYCLES_PER_SAMPLE;
 	return cyc / (float)SCQ_CYCLES_PER_SAMPLE;
+}
+
+float scq_cycles_per_sample(int instrument)
+{
+	return instrument == SCQ_WINGIE ? (float)SCQ_WINGIE_CYCLES_PER_SAMPLE : (float)SCQ_CYCLES_PER_SAMPLE;
 }
 
 /* a block that holds v forever, shared by every inlet that wants it (0 if the table is full) */
@@ -993,6 +1015,30 @@ static void read_tunings(void)
 		for (int j = n - 1; j >= 1; j--) d[2 + j] = d[2 + j - 1];
 		d[2] = 0.f;
 	}
+}
+
+/* `instrument wingie` / `instrument sp1` anywhere in the dream (usually its first line); without
+ * one, a dream is for the instrument the engine was built for (the SP-1 on the desktop) */
+#ifndef SCQ_INSTRUMENT
+#define SCQ_INSTRUMENT SCQ_SP1
+#endif
+static int read_instrument(void)
+{
+	int i = 0;
+	while (i < G.len) {
+		int e = line_end(i), a = i;
+		while (a < e && (G.text[a] == ' ' || G.text[a] == '\t')) a++;
+		if (e - a > 11 && str_eq(G.text + a, 10, "instrument") && (G.text[a + 10] == ' ' || G.text[a + 10] == '\t')) {
+			int w = a + 10;
+			while (w < e && (G.text[w] == ' ' || G.text[w] == '\t')) w++;
+			int we = w;
+			while (we < e && G.text[we] > ' ' && G.text[we] != ';') we++;
+			if (str_eq(G.text + w, we - w, "wingie")) return SCQ_WINGIE;
+			if (str_eq(G.text + w, we - w, "sp1") || str_eq(G.text + w, we - w, "sp-1")) return SCQ_SP1;
+		}
+		i = e + 1;
+	}
+	return SCQ_INSTRUMENT;
 }
 
 static void compile_scene(int idx, int report)
@@ -1160,9 +1206,19 @@ int scq_load(const char *text, int len, uint32_t nights)
 #endif
 	G.len = len;
 	G.nights = nights;
+	G.instrument = read_instrument();
+	if (Gp == &G0) W.instrument = G.instrument;
 	G.msgn = 0; G.msg[0] = 0; G.errors = 0;
 	if (!G.rng) G.rng = 0x5eed1234u ^ nights;
 	find_scenes();
+#if defined(SCQ_DEVICE)
+	if (G.instrument != SCQ_INSTRUMENT) {
+		say('E', SCQ_INSTRUMENT == SCQ_WINGIE ? "this dream is for the SP-1, and this is a Wingie"
+		                                      : "this dream is for the Wingie, and this is an SP-1", 0, 0, "");
+		G.nn = 0; G.nc = 0; G.nsc = 0;
+		return G.errors;
+	}
+#endif
 	for (int s = 0; s < G.nsc; s++) { compile_scene(s, s == 0 ? 3 : 2); G.scene_load[s] = G.load; }
 	int errors = G.errors;
 	if (G.cur >= G.nsc) G.cur = 0;
@@ -1210,7 +1266,9 @@ const char *scq_cost_terms(int scene)
 static engine G1;
 static float checked_load[SCQ_MAX_SCENES];
 static int checked_scenes;
+static int checked_instrument;
 int scq_checked_scenes(void) { return checked_scenes; }
+int scq_checked_instrument(void) { return checked_instrument; }
 float scq_checked_load(int s) { return (s >= 0 && s < checked_scenes) ? checked_load[s] : 0.f; }
 
 int scq_check(const char *text, int len, uint32_t nights, char *msgs, int cap)
@@ -1222,6 +1280,7 @@ int scq_check(const char *text, int len, uint32_t nights, char *msgs, int cap)
 	while (G.msg[n] && n < cap - 1) { msgs[n] = G.msg[n]; n++; }
 	if (cap > 0) msgs[n] = 0;
 	checked_scenes = G.nsc;
+	checked_instrument = G.instrument;
 	for (int k = 0; k < G.nsc; k++) checked_load[k] = G.scene_load[k];
 	Gp = &G0;
 	return e;
@@ -1555,9 +1614,16 @@ static inline float out_clip(float x)
 	return x == x ? scq_softclip(x) : 0.f;
 }
 
+static const float *in_l, *in_r;
+static const float SILENT_IN[SCQ_BLOCK];
+void scq_input(const float *left, const float *right) { in_l = left; in_r = right; }
+int scq_instrument(void) { return G.instrument; }
+
 void scq_render(float *left, float *right, int frames)
 {
 	for (int f = 0; f + B <= frames; f += B) {
+		W.inL = in_l ? in_l + f : SILENT_IN;
+		W.inR = in_r ? in_r + f : (in_l ? in_l + f : SILENT_IN);
 		if (G.pending >= 0 && G.fading == 0) G.fading = -1;
 		if (G.nn > 0 && !G.waiting) run_block();
 		else LOOP { W.outL[i] = W.outR[i] = 0.f; }
@@ -1570,7 +1636,7 @@ void scq_render(float *left, float *right, int frames)
 			right[f + i] = out_clip(W.outR[i]) * G.gain;
 		}
 		if (G.fading < 0 && G.gain <= 0.f) {
-#ifdef SCQ_DEVICE
+#if defined(SCQ_DEVICE)
 			G.waiting = 1;                      /* the main loop compiles it */
 #else
 			G.cur = G.pending;

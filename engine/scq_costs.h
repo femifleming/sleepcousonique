@@ -6,6 +6,11 @@
  * The chip runs 64 MHz and the codec clocks 48 kHz, so a sample has 1333 cycles. */
 #define SCQ_CYCLES_PER_SAMPLE 1333
 
+/* The Wingie (ESP32, 240 MHz, 48 kHz): 5000 cycles a sample. Its cost of a place is the SP-1's
+ * figure times SCQ_WINGIE_SCALE until the Wingie has its own measurements (tools/wingiebench.py). */
+#define SCQ_WINGIE_CYCLES_PER_SAMPLE 5000
+#define SCQ_WINGIE_SCALE             1.5f
+
 #define SCQ_COST_FIXED       86   /* an empty dream: the output stage and the block loop */
 #define SCQ_COST_MIXED       7    /* an inlet that is summed (the first cord writes it) */
 #define SCQ_COST_HALL        8    /* cords into a summed inlet, by kind (a lone plain wire is free) */

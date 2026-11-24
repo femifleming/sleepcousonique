@@ -19,7 +19,11 @@ extern "C" {
 #define SCQ_MAX_TEXT    (16 * 1024) /* largest patch file */
 #define SCQ_SLOT_TEXT   (SCQ_MAX_TEXT - 8) /* largest dream an SP-1 slot keeps (a slot is 16 KB with its 8-byte header) */
 #define SCQ_MAX_SCENES  16
-#define SCQ_LEDS        8           /* 0-3 track row (above T1-T4), 4-7 play row */
+#define SCQ_LEDS        8           /* 0-3 track row (above T1-T4), 4-7 play row; the Wingie: 0 left, 1 right */
+
+/* ---- instruments: a dream says which it is for with an `instrument wingie` line (else sp1) ---- */
+#define SCQ_SP1         0
+#define SCQ_WINGIE      1           /* Meng Qi Wingie2: two 12-key keyboards, mic, 3 faders */
 
 /* ---- controls (the SP-1's hands) ---- */
 enum {
@@ -28,6 +32,12 @@ enum {
 	SCQ_CTL_LIFT,                                                   /* rocker -1 / 0 / +1 */
 	SCQ_CTL_WAKE,                                                   /* PLAY   0/1         */
 	SCQ_CTL_LUCID,                                                  /* ••     0/1         */
+	/* the Wingie's hands (its three faders are LEAN1-LEAN3: Mix, Decay, Volume) */
+	SCQ_CTL_KEYS1,                                                  /* left keys C..B: +0..+11, 0/1  */
+	SCQ_CTL_KEYS2 = SCQ_CTL_KEYS1 + 12,                             /* right keys C..B: +0..+11      */
+	SCQ_CTL_MODE1 = SCQ_CTL_KEYS2 + 12, SCQ_CTL_MODE2,              /* Mode buttons 0/1            */
+	SCQ_CTL_OCTAVE1, SCQ_CTL_OCTAVE2,                               /* octave switches -1 / 0 / +1 */
+	SCQ_CTL_SOURCE,                                                 /* 0 microphones, 1 line in    */
 	SCQ_CTL_COUNT
 };
 
@@ -55,6 +65,15 @@ const char *scq_describe(void);
 const char *scq_catalog(void);
 
 void  scq_control(int which, float value);
+/* Sound coming in (the Wingie's microphones or line in; the editor's audio input), for the mic
+ * place: the same number of frames as the next scq_render(). 0 = silence. */
+void  scq_input(const float *left, const float *right);
+/* The instrument the loaded dream is for (SCQ_SP1 or SCQ_WINGIE). On a device the engine is
+ * built for one (SCQ_INSTRUMENT) and refuses dreams for the other. */
+int   scq_instrument(void);
+int   scq_checked_instrument(void);     /* after scq_check */
+/* cycles one sample has on an instrument (its processor at its rate) */
+float scq_cycles_per_sample(int instrument);
 /* MIDI bytes in (any mix of messages, running status, real time), for the midi, midicc and
  * midiclock places. Call it from the thread that calls scq_render. */
 void  scq_midi(const uint8_t *bytes, int len);

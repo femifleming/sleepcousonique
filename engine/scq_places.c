@@ -813,6 +813,94 @@ static void run_dots(node *n, const float *const in[MAX_IN])
 	LOOP n->out[0][i] = v;
 }
 
+/* ------------------------------------------------------------------ the Wingie's hands */
+
+/* mic — the sound coming in: the Wingie's two microphones (or line in), the editor's audio input */
+static void run_mic(node *n, const float *const in[MAX_IN])
+{
+	(void)in;
+	LOOP {
+		float l = W.inL[i], r = W.inR[i];
+		n->out[0][i] = l; n->out[1][i] = r; n->out[2][i] = 0.5f * (l + r);
+	}
+}
+
+/* keys1 / keys2 — a keyboard: pitch of the last key pressed (octaves; keys2 sits an octave
+ * above, as on the stock Wingie; the octave switch adds), gate while any key is held, a pulse
+ * at every press, and which key (0 for C .. 1 for B) */
+static void run_keys(node *n, const float *const in[MAX_IN])
+{
+	(void)in;
+	int side = natural(n->nature, 1, 2) - 1;
+	int base = side ? SCQ_CTL_KEYS2 : SCQ_CTL_KEYS1;
+	uint32_t held = 0, prev = (uint32_t)n->s[0];
+	for (int k = 0; k < 12; k++) if (W.ctl[base + k] > 0.5f) held |= 1u << k;
+	float last = n->s[1], pt = n->s[2];
+	uint32_t pressed = held & ~prev;
+	if (pressed) { for (int k = 11; k >= 0; k--) if (pressed & (1u << k)) last = (float)k; pt = PULSE_SAMPLES; }
+	float oct = W.ctl[(side ? SCQ_CTL_OCTAVE2 : SCQ_CTL_OCTAVE1)];
+	float pitch = (last + 12.f * oct) / 12.f + (float)side;
+	float gate = held ? 1.f : 0.f;
+	LOOP {
+		n->out[0][i] = pitch; n->out[1][i] = gate;
+		n->out[2][i] = pt > 0.f ? 1.f : 0.f;
+		n->out[3][i] = last / 11.f;
+		if (pt > 0.f) pt -= 1.f;
+	}
+	n->s[0] = (float)held; n->s[1] = last; n->s[2] = pt;
+}
+
+/* key — one key: key 1-12 are the left keyboard C..B, 13-24 the right. 1 while held, a pulse on press */
+static void run_key(node *n, const float *const in[MAX_IN])
+{
+	(void)in;
+	int k = natural(n->nature, 1, 24) - 1;
+	float v = W.ctl[SCQ_CTL_KEYS1 + k] > 0.5f ? 1.f : 0.f, pt = n->s[1];
+	if (v > 0.5f && n->s[0] <= 0.5f) pt = PULSE_SAMPLES;
+	n->s[0] = v;
+	LOOP { n->out[0][i] = v; n->out[1][i] = pt > 0.f ? 1.f : 0.f; if (pt > 0.f) pt -= 1.f; }
+	n->s[1] = pt;
+}
+
+/* mode1 / mode2 — the Mode buttons: 1 while held; tap pulses when one is let go quickly (< 0.6 s) */
+static void run_mode(node *n, const float *const in[MAX_IN])
+{
+	(void)in;
+	float v = W.ctl[SCQ_CTL_MODE1 + natural(n->nature, 1, 2) - 1] > 0.5f ? 1.f : 0.f;
+	float held = n->s[1], pt = n->s[2];
+	if (v > 0.5f) held += (float)B;
+	else { if (n->s[0] > 0.5f && held < 0.6f * SR) pt = PULSE_SAMPLES; held = 0.f; }
+	n->s[0] = v;
+	LOOP { n->out[0][i] = v; n->out[1][i] = pt > 0.f ? 1.f : 0.f; if (pt > 0.f) pt -= 1.f; }
+	n->s[1] = held; n->s[2] = pt;
+}
+
+/* octave1 / octave2 — the octave switches: -1, 0 or 1 */
+static void run_octave(node *n, const float *const in[MAX_IN])
+{
+	(void)in;
+	float v = W.ctl[SCQ_CTL_OCTAVE1 + natural(n->nature, 1, 2) - 1];
+	LOOP n->out[0][i] = v;
+}
+
+/* source — the source switch: 0 microphones, 1 line in */
+static void run_source(node *n, const float *const in[MAX_IN])
+{
+	(void)in; (void)n;
+	float v = W.ctl[SCQ_CTL_SOURCE];
+	LOOP n->out[0][i] = v;
+}
+
+/* lights — the Wingie's two LEDs. They glow red at rest; 0..1 climbs red, purple, yellow, white */
+static void run_lights(node *n, const float *const in[MAX_IN])
+{
+	float a = n->s[0], b = n->s[1];
+	float x = scq_clamp(scq_abs(in[0][0]), 0.f, 1.f), y = scq_clamp(scq_abs(in[1][0]), 0.f, 1.f);
+	a += (x - a) * 0.3f; b += (y - b) * 0.3f;
+	n->s[0] = a; n->s[1] = b;
+	W.lamp[0] = a; W.lamp[1] = b;
+}
+
 /* ------------------------------------------------------------------ ears */
 
 static void run_left(node *n, const float *const in[MAX_IN])  { (void)n; LOOP W.outL[i] += in[0][i]; }
@@ -938,20 +1026,34 @@ P("crowd",   FAM_CURRENT, 0, 30, 0, "", "", "out count near strength", run_crowd
 P("visitors", FAM_CURRENT, 0, 30, 0, "", "", "arrive leave pulse voice", run_visitors, 0, 0,
   "the same devices as they come and go: a pulse when one arrives, when one leaves and on every signal heard; voice is the number (0 to 1) of the one heard last"),
 P("fader",   FAM_HANDS, PF_SINGLE | PF_COUNTED, 20, 1, "", "", "out", run_fader, 0, 0,
-  "faders: fader1 - fader4, 0 to 1"),
-P("button",  FAM_HANDS, PF_SINGLE | PF_COUNTED, 20, 1, "", "", "out", run_button, 0, 0,
+  "faders: fader1 - fader4, 0 to 1 (the Wingie: fader1 Mix, fader2 Decay, fader3 Volume)"),
+P("mic",     FAM_HANDS, PF_SINGLE | PF_WINGIE, 20, 0, "", "", "left right both", run_mic, 0, 0,
+  "the Wingie's microphones (or line in, by its source switch): left, right and both mixed"),
+P("keys",    FAM_HANDS, PF_SINGLE | PF_COUNTED | PF_WINGIE, 30, 1, "", "", "pitch gate trig key", run_keys, 0, 0,
+  "a Wingie keyboard: keys1 left, keys2 right (an octave up). pitch of the last key in octaves with the octave switch, gate while any is held, trig on each press, key 0 (C) to 1 (B)"),
+P("key",     FAM_HANDS, PF_WINGIE, 20, 1, "", "", "out trig", run_key, 0, 0,
+  "one Wingie key: key 1-12 the left keyboard C to B, 13-24 the right; 1 while held, trig on press"),
+P("mode",    FAM_HANDS, PF_SINGLE | PF_COUNTED | PF_WINGIE, 20, 1, "", "", "out tap", run_mode, 0, 0,
+  "the Wingie's Mode buttons: mode1 left, mode2 right; 1 while held, tap pulses on a quick press"),
+P("octave",  FAM_HANDS, PF_SINGLE | PF_COUNTED | PF_WINGIE, 20, 1, "", "", "out", run_octave, 0, 0,
+  "the Wingie's octave switches: octave1 left, octave2 right; -1, 0 or 1"),
+P("source",  FAM_HANDS, PF_SINGLE | PF_WINGIE, 20, 0, "", "", "out", run_source, 0, 0,
+  "the Wingie's source switch: 0 microphones, 1 line in"),
+P("button",  FAM_HANDS, PF_SINGLE | PF_COUNTED | PF_SP1, 20, 1, "", "", "out", run_button, 0, 0,
   "track buttons: button1 - button4, 1 while held"),
-P("rocker",  FAM_HANDS, PF_SINGLE, 20, 0, "", "", "out up down", run_rocker, 0, 0,
+P("rocker",  FAM_HANDS, PF_SINGLE | PF_SP1, 20, 0, "", "", "out up down", run_rocker, 0, 0,
   "the rocker: out is -1, 0 or 1; up and down pulse"),
-P("play",    FAM_HANDS, PF_SINGLE, 20, 0, "", "", "out", run_play, 0, 0,
+P("play",    FAM_HANDS, PF_SINGLE | PF_SP1, 20, 0, "", "", "out", run_play, 0, 0,
   "PLAY, 1 while held"),
-P("dots",    FAM_HANDS, PF_SINGLE, 20, 0, "", "", "out", run_dots, 0, 0,
+P("dots",    FAM_HANDS, PF_SINGLE | PF_SP1, 20, 0, "", "", "out", run_dots, 0, 0,
   "the dots button, 1 while held"),
 P("left",    FAM_EARS, PF_SINGLE, 20, 0, "in", "0", "", run_left, 0, 0, "left output"),
 P("right",   FAM_EARS, PF_SINGLE, 20, 0, "in", "0", "", run_right, 0, 0, "right output"),
 P("out",     FAM_EARS, PF_SINGLE, 20, 0, "in", "0", "", run_out, 0, 0, "both outputs"),
-P("leds",    FAM_EARS, PF_SINGLE, 40, 0, "in track play", "0 0 0", "out", run_leds, 0, 0,
+P("leds",    FAM_EARS, PF_SINGLE | PF_SP1, 40, 0, "in track play", "0 0 0", "out", run_leds, 0, 0,
   "the eight LEDs: sound lights both rows as a bar; track and play light one row each"),
+P("lights",  FAM_EARS, PF_SINGLE | PF_WINGIE, 20, 0, "left right", "0 0", "", run_lights, 0, 0,
+  "the Wingie's two LEDs: red at rest, then purple, yellow and white as what comes in climbs to 1"),
 P("scene",   FAM_EARS, PF_SINGLE, 20, 0, "next back miss", "0 0 0", "", run_scene, 0, 0,
   "goes to the next or previous scene on a pulse; miss is the chance of landing on a random one"),
 };
