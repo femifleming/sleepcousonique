@@ -35,7 +35,7 @@ the line is seq 8: 0 0 12 0 3 0 7 5
 the bass is vco 1
 the fuzz is fuzz drive=0.7
 the wah is autowah sensitivity=0.6 resonance=0.7
-the chloe is chloe mode=low drive=0.4
+the chloe is chloe mode=low drive=0.4 samplerate=half
 the wall is limiter ceiling=0.8
 
 clock.eighth -> line.next chloe.gate

@@ -8,15 +8,15 @@ the bus garage
 ; fader4 the echo's feedback. The skank only speaks on the offbeat, and its echo is spread wide
 ; while the drums and the bass stay in the middle
 the clock is clock 4
-the kick is kick
-the chords is chord 4 samplerate=half
-the skank is slicer pattern=offbeat len=0.5
-the pedal is drive type=od drive=0.3 tone=0.6
+the kick is kick samplerate=half
+the chords is chord 4 samplerate=quarter
+the skank is slicer pattern=offbeat len=0.5 samplerate=half
+the pedal is drive type=od drive=0.3 tone=0.6 samplerate=half
 the echo is delay 6 feedback=0.5 samplerate=half   ; a darker echo, and half the work
-the air is widener width=0.9
-the punch is transient
-the desk is eq
-the wall is limiter ceiling=0.85
+the air is widener width=0.9 samplerate=half
+the punch is transient samplerate=half
+the desk is eq samplerate=half
+the wall is limiter ceiling=0.85 samplerate=half
 
 clock.beat -> kick.strike
 clock.eighth -> skank.clock
@@ -37,7 +37,7 @@ the organ in the back room
 ; fader1 how hard the valve amp is pushed, fader2 the tremolo on the bass
 the clock is clock 3
 the organ is chord 4 type=0.6
-the amp is drive type=crunch
+the amp is drive type=crunch samplerate=half
 the leslie is rotary
 the bass is vco 1
 the throb is tremolo type=harmonic stereo=on shape=0.4

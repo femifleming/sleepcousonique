@@ -5,9 +5,9 @@ storm over mycenae
 ------------------
 ; GENDY: fader1 how far the heights wander, fader2 how far the lengths (and the
 ; pitch); a slow random voltage moves its pitch; a dust of particles from it
-the storm is gendy 2 dist=cauchy
+the storm is gendy 2 dist=cauchy samplerate=half
 the drift is smoothrandom 1
-the dust is particles 3 dist=cauchy
+the dust is particles 3 dist=cauchy samplerate=half
 fader1 -> storm.amp_step
 fader2 -> storm.dur_step
 drift -50> storm.pitch

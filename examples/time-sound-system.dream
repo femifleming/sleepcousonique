@@ -38,8 +38,8 @@ Beauty
 ; eight mirrors: a pluck fanned across the room, each reflection drifting on its own
 the clk is clock 3
 the note is string 6
-the hall is beauty time=0.7 spread=1 feedback=0.4 jitter=0.5
-the turn is reverse size=0.6 mix=1 feedback=0.3
+the hall is beauty time=0.7 spread=1 feedback=0.4 jitter=0.5 samplerate=half
+the turn is reverse size=0.6 mix=1 feedback=0.3 samplerate=half
 clk.beat -> note.pluck
 note -> hall
 fader1 -> hall.jitter
