@@ -22,7 +22,7 @@ These are two different jobs. People mix them up, so read this first:
 - **The editor never flashes.** Its **send to SP-1** does not install firmware and never needs
   boot mode: plug the SP-1 in normally, turn it on with **••**, press send.
 - **Stuck in boot mode** (T1 lit, nothing else, the editor sees nothing)? Unplug, plug in
-  again *without* holding any buttons, hold **••** about a second to turn it on, and send.
+  again *without* holding any buttons, hold **••** about half a second to turn it on, and send.
 
 ## Flashing the firmware (once)
 
@@ -37,7 +37,7 @@ You need: the SP-1, a USB-C data cable, and **Chrome or Edge** (the updater uses
 5. When the updater says it's done, the SP-1 restarts into Sleepcousonique **switched off
    (standby)**: it was started by the USB cable, so it sits there charging, dark or showing
    the charge bar, and makes no sound. That is normal, not a failed flash. **Hold •• for
-   about a second** to turn it on: it plays the first night.
+   about half a second** to turn it on: it plays the first night.
 6. Open the editor: the scene bar says **SP-1 connected** when it hears it. Now **send to
    SP-1** works. (While the SP-1 is off the scene bar says *SP-1 is off (standby)*, and a send
    tells you to turn it on: the firmware only listens while it plays.)
@@ -56,7 +56,7 @@ plug in, and flash any `.bin` again: this one, Wakes, the tape looper or anythin
   the SP-1 can play, so it leaves out a block now and then to keep the sound running (since
   1.4 only as many as it must). Send a lighter one (lite places, `samplerate=half`).
 - Reflashing may clear the five dream slots on the SP-1: keep your `.dream` files.
-- **send to SP-1 says "switched off (standby)"**: hold **••** about a second to turn it on
+- **send to SP-1 says "switched off (standby)"**: hold **••** about half a second to turn it on
   and send again. Every time the SP-1 is plugged in while off (and right after flashing) it
   waits in standby.
 - **send to SP-1 says "not as Sleepcousonique" / "Flash sleepcousonique-sp1.bin"**: the SP-1

@@ -634,12 +634,14 @@ static const uint16_t SHM_T[4] = { 2203, 2621, 3109, 3677 };
 static uint32_t mem_shimmer(float nature) { (void)nature; return SHM_TOTAL * sizeof(int16_t) + 9 * sizeof(uint32_t); }
 static void run_shimmer(node *n, const float *const in[MAX_IN])
 {
-	int16_t *base = (int16_t *)n->mem, *ap[4], *tk[4], *ps;
+	/* the write places first: after the 16-bit lines (an odd number of samples in all) they sat
+	 * two bytes off a word, and the SP-1's Cortex-M4 faults on a multi-word load from there */
+	uint32_t *wi = (uint32_t *)n->mem;            /* write places: 4 allpasses, 4 tank lines, the shifter */
+	int16_t *base = (int16_t *)(wi + 9), *ap[4], *tk[4], *ps;
 	uint32_t off = 0;
 	for (int k = 0; k < 4; k++) { ap[k] = base + off; off += SHM_AP[k]; }
 	for (int k = 0; k < 4; k++) { tk[k] = base + off; off += SHM_T[k]; }
 	ps = base + off;
-	uint32_t *wi = (uint32_t *)(ps + SHM_PS);     /* write places: 4 allpasses, 4 tank lines, the shifter */
 	for (int k = 0; k < 4; k++) {
 		if (wi[k] >= SHM_AP[k]) wi[k] = 0;
 		if (wi[4 + k] >= SHM_T[k]) wi[4 + k] = 0;

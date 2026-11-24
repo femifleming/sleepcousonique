@@ -75,7 +75,7 @@ octave up. Tuning starts from the 60 Hz hum: `sine 3` is 180 Hz.
 
 ## Where the places come from
 
-There are about 125 places, each named for what it is: `vco`, `lowpass`, `adsr`, `delay`,
+There are 237 places, each named for what it is: `vco`, `lowpass`, `adsr`, `delay`,
 `quantizer`. The help line says which instrument or idea it comes from: Moog, Buchla (including
 the 100 series: 106, 107, 110, 123, 140, 144, 148, 156, 158, 180), Serge (DUSG, Dual Processor,
 Peak & Trough), Doepfer A-100, ARP, EMS, Oberheim, Roland, Ciat-Lonbarde, Mutable Instruments,
@@ -376,11 +376,11 @@ hear the difference. It can't be combined with a lower samplerate.
 When a dream asks more of the processor than there is, it doesn't fall silent or break up. The
 instrument goes back to what last played calmly for two seconds: the previous scene if a heavy
 scene did it, else the dream that was playing before (on the SP-1, the dream kept in the slot
-when the heavy one only came to try), else the first dream. The console says which.
+when the heavy one only came to try), else the first dream (the SP-1's first night, the Wingie's first light). The console says which.
 
 ## Changing slots from inside a dream
 
-`slot` goes to another dream: `the next is slot 7` and a pulse at `next.go` plays slot 7;
+`slot` goes to another dream: `the next is slot 3` and a pulse at `next.go` plays slot 3 (the SP-1 has 5 slots, the Wingie 12; a slot past the last is ignored);
 `next` and `back` step to the following or previous slot. Like `scene`, it ignores pulses in the
 first 0.1 s of a scene (a clock pulses as it starts). In the editor, which has no slots, the
 status line says what the instrument would do.

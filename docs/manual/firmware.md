@@ -208,12 +208,17 @@ The SP-1 shows up as a USB serial port named *Sleepcousonique*. The editor speak
 protocol to it, which you can also type in a serial terminal:
 
 ```
-SCQ HELLO                    -> SLEEPCOUSONIQUE 1.4.0
-SCQ LOAD <bytes> <slot>      then exactly <bytes> of the .dream text
+SCQ HELLO                    -> SLEEPCOUSONIQUE 1.5.0-beta2
+SCQ LOAD <bytes> <slot>      then exactly <bytes> of the .dream text, kept in slot 0-4
                              -> OK 0      or  ERR <why>
+SCQ TRY <bytes>              then the text: plays it without keeping it (no slot is written)
 SCQ SLOT <1-5>               -> plays that slot
 SCQ WATCH 1                  -> about 30 times a second, until WATCH 0 or the port closes:
                                 SCQ HANDS f1 f2 f3 f4 buttons scene slot leds
+SCQ MEASURE <n>              -> after n blocks: SCQ MEASURED <avg> <max> <budget> <blocks> <dropped> <mem> <total>
+SCQ FALLBACK 0|1             -> turn off (1: on) going back to the last dream that fit (for measuring)
+SCQ MODE IFACE | DREAM       -> interface mode (a USB sound card) or dreams
+SCQ UNIT <n> / WHO / SHOW    -> its number in an array / who are you / flash the LEDs
 ```
 
 The editor keeps this link open while the SP-1 is plugged in, so its hands panel follows the

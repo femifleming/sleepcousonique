@@ -207,7 +207,7 @@ scene, and `scene.miss` is the chance of landing on a random one.
 - **load:** how much of the SP-1's processor the scene needs. The figures behind it were fitted
   to whole patches measured on SP-1s (`tools/sp1fleet.py`, `tools/calibrate.py`), so this is
   close to what the SP-1 will report itself (within a few percent). It turns amber above 85%
-  and red above 100%. Keep every scene under about 90%: **send to SP-1** warns you before
+  and red above 100%. Keep every scene under about 85%: **send to SP-1** warns you before
   sending one that is heavier. A plain wire costs nothing; a cord with an amount or a part in
   it, several cords into one inlet, an attenuverter or a turned knob cost a little; a place at
   `samplerate=half` (or lower) costs about half, and two slow places wired together exchange

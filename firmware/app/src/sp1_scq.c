@@ -50,7 +50,7 @@
 #include <zephyr/drivers/hwinfo.h>
 #endif
 
-#define SCQ_VERSION   "1.5.0-beta1"
+#define SCQ_VERSION   "1.5.0-beta2"
 #define SLOTS         5
 #define SLOT_BYTES    (16 * 1024)
 #define STATE_OFF     (SLOTS * SLOT_BYTES)       /* 0x14000: one page of state */
