@@ -907,15 +907,22 @@ static void run_concat(node *n, const float *const in[MAX_IN])
 #define SP_M 256
 #define SP_K 257
 #define SP_BITS 8
+#define SP_T 44     /* the tasks of a hop (see sp_task) */
+#if defined(__GNUC__)    /* the bin loops apart, as they were, so the ESP32's gcc inlines scq_sin2pi into them */
+#define SP_APART __attribute__((noinline))
+#else
+#define SP_APART
+#endif
 typedef struct {
 	float win[SP_N], ring[SP_N], z[SP_N], X[2 * SP_K];
 	float mag[SP_K], dev[SP_K], prev[SP_K], acc[SP_K], fmag[SP_K], fdev[SP_K];
-	float ola[SP_N], outq[SP_H];
+	float ola[SP_N], outq[SP_H];   /* ola: a ring from ob */
 	float tw[SP_M];          /* cos, sin of 2 pi j / M, j < M/2 */
 	float sw[2 * SP_K];      /* cos, sin of 2 pi k / N, k <= M */
 	uint8_t rev[SP_M];
-	uint32_t rw, cnt, ready, frames, capture;
+	uint32_t rw, cnt, ready, frames, capture, task, thru, ob;
 	float fx, gate;          /* specfreeze: how frozen it sounds; the gate */
+	float c, q, leak;        /* this hop's blur (smear) or blend (specfreeze) */
 } sp_state;
 static uint32_t mem_spectral(float nature) { (void)nature; return sizeof(sp_state); }
 
@@ -947,29 +954,38 @@ static void sp_make(sp_state *st)
 		for (int b = 0; b < SP_BITS; b++) if (j & (1 << b)) r |= 1 << (SP_BITS - 1 - b);
 		st->rev[j] = (uint8_t)r;
 	}
+	st->task = SP_T;     /* nothing owed before the first hop */
 	st->ready = 1;
 }
-static void sp_fft(float *z, const float *tw, const uint8_t *rev, int inverse)
+enum { SP_SMEAR, SP_FREEZE };
+
+/* The work of a hop, as SP_T small tasks of about the same cost, run in order and spread over
+ * the hop in proportion to the samples that went by: at any block size and any samplerate= each
+ * block carries its share (four big stages left a reduced-rate smear with every other block
+ * doing all the work, and late blocks on the Wingie while the meter showed 40 %).
+ *   0-7 forward transform, a pass each (0 windows the input first)  |  8-11 the split
+ *   12-19, 25-30 the bins (20-24 spare)
+ *   31-34 the split back  |  35-42 inverse transform, a pass each  |  43 overlap-add */
+static void sp_pass(float *z, const float *tw, const uint8_t *rev, int pass, int inverse)
 {
-	for (int i = 0; i < SP_M; i++) {
-		int j = rev[i];
-		if (j > i) {
-			float t = z[2 * i]; z[2 * i] = z[2 * j]; z[2 * j] = t;
-			t = z[2 * i + 1]; z[2 * i + 1] = z[2 * j + 1]; z[2 * j + 1] = t;
-		}
-	}
-	const float sg = inverse ? 1.f : -1.f;
-	for (int len = 2; len <= SP_M; len <<= 1) {
-		int half = len >> 1, step = SP_M / len;
-		for (int s = 0; s < SP_M; s += len)
-			for (int k = 0; k < half; k++) {
-				float wr = tw[2 * k * step], wi = sg * tw[2 * k * step + 1];
-				float *a = z + 2 * (s + k), *b = z + 2 * (s + k + half);
-				float tr = b[0] * wr - b[1] * wi, ti = b[0] * wi + b[1] * wr;
-				b[0] = a[0] - tr; b[1] = a[1] - ti;
-				a[0] += tr; a[1] += ti;
+	if (pass == 0)
+		for (int i = 0; i < SP_M; i++) {
+			int j = rev[i];
+			if (j > i) {
+				float t = z[2 * i]; z[2 * i] = z[2 * j]; z[2 * j] = t;
+				t = z[2 * i + 1]; z[2 * i + 1] = z[2 * j + 1]; z[2 * j + 1] = t;
 			}
-	}
+		}
+	const float sg = inverse ? 1.f : -1.f;
+	const int len = 2 << pass, half = len >> 1, step = SP_M / len;
+	for (int s = 0; s < SP_M; s += len)
+		for (int k = 0; k < half; k++) {
+			float wr = tw[2 * k * step], wi = sg * tw[2 * k * step + 1];
+			float *a = z + 2 * (s + k), *b = z + 2 * (s + k + half);
+			float tr = b[0] * wr - b[1] * wi, ti = b[0] * wi + b[1] * wr;
+			b[0] = a[0] - tr; b[1] = a[1] - ti;
+			a[0] += tr; a[1] += ti;
+		}
 }
 /* atan2 in turns, -0.5..0.5 */
 static inline float sp_atan2t(float y, float x)
@@ -983,56 +999,73 @@ static inline float sp_atan2t(float y, float x)
 	if (y < 0.f) r = -r;
 	return r * 0.159154943f;
 }
+static inline float sp_wrap(float x) { return x - scq_floor(x + 0.5f); }   /* to -0.5..0.5 */
 
-enum { SP_SMEAR, SP_FREEZE };
-static void sp_bins(node *n, sp_state *st, int k0, int k1, int mode, float c, float q, float leak)
+/* smear, a bin at a time, as it always sounded: magnitude and frequency blurred in time, the
+ * magnitude a little across frequency too (the bin below already this frame's, the one above
+ * still the last), the phases carried on from what the frequency says */
+static SP_APART void sp_smear_bins(sp_state *st, int k0, int k1)
 {
 	float *X = st->X;
+	const float c = st->c, q = st->q;
 	for (int k = k0; k < k1; k++) {
 		float re = X[2 * k], im = X[2 * k + 1];
-		float m2 = re * re + im * im;
-		float m = scq_sqrt_from(m2, scq_abs(re) + scq_abs(im));
+		float m = scq_sqrt_from(re * re + im * im, scq_abs(re) + scq_abs(im));
 		float ph = sp_atan2t(im, re);
-		float d = ph - st->prev[k] - (float)(k & 3) * 0.25f;
-		d -= scq_floor(d + 0.5f);
+		float d = sp_wrap(ph - st->prev[k] - (float)(k & 3) * 0.25f);
 		st->prev[k] = ph;
-		float mo, adv, jit = 0.f;
-		if (mode == SP_SMEAR) {
-			st->mag[k] += c * (m - st->mag[k]);
-			st->dev[k] += c * (d - st->dev[k]);
-			if (c >= 0.999f) { st->acc[k] = ph; continue; }      /* no blur: the sound as it was */
-			float lo = k > 0 ? st->mag[k - 1] : st->mag[k], hi = k < SP_K - 1 ? st->mag[k + 1] : st->mag[k];
-			mo = st->mag[k] + q * (0.5f * (lo + hi) - st->mag[k]);
-			adv = st->dev[k];
-		} else {
-			if (st->capture) {
-				if (st->capture == 4) { st->fmag[k] = m; st->fdev[k] = d; }
-				else { st->fmag[k] += 0.5f * (m - st->fmag[k]); st->fdev[k] += 0.5f * (d - st->fdev[k]); }
-			} else if (st->gate > 0.5f) {
-				st->fmag[k] += leak * (m - st->fmag[k]);
-				st->fdev[k] += leak * (d - st->fdev[k]);
-			}
-			float fx = st->fx;
-			if (fx <= 0.0001f) { st->acc[k] = ph; continue; }
-			mo = m + (st->fmag[k] - m) * fx;
-			adv = d + (st->fdev[k] - d) * fx;
-			jit = fx * 0.03f * scq_noise(&n->rng);     /* the phases drift around where they belong, never away */
-		}
-		float a = st->acc[k] + (float)(k & 3) * 0.25f + adv;
+		st->mag[k] += c * (m - st->mag[k]);
+		st->dev[k] += c * (d - st->dev[k]);
+		if (st->thru) { st->acc[k] = ph; continue; }   /* no blur: the sound as it was */
+		float lo = k > 0 ? st->mag[k - 1] : st->mag[k], hi = k < SP_K - 1 ? st->mag[k + 1] : st->mag[k];
+		float mo = st->mag[k] + q * (0.5f * (lo + hi) - st->mag[k]);
+		float a = st->acc[k] + (float)(k & 3) * 0.25f + st->dev[k];
 		a -= scq_floor(a);
 		st->acc[k] = a;
 		if (k == 0 || k == SP_M) { X[2 * k] = 0.f; X[2 * k + 1] = 0.f; continue; }   /* (nothing to sing at DC or Nyquist) */
+		X[2 * k] = mo * scq_sin2pi(a + 0.25f);
+		X[2 * k + 1] = mo * scq_sin2pi(a);
+	}
+}
+static SP_APART void sp_freeze_bins(node *n, sp_state *st, int k0, int k1)
+{
+	float *X = st->X;
+	const float leak = st->leak, fx = st->fx;
+	for (int k = k0; k < k1; k++) {
+		float re = X[2 * k], im = X[2 * k + 1];
+		float m = scq_sqrt_from(re * re + im * im, scq_abs(re) + scq_abs(im));
+		float ph = sp_atan2t(im, re);
+		float d = sp_wrap(ph - st->prev[k] - (float)(k & 3) * 0.25f);
+		st->prev[k] = ph;
+		if (st->capture) {
+			if (st->capture == 4) { st->fmag[k] = m; st->fdev[k] = d; }
+			else { st->fmag[k] += 0.5f * (m - st->fmag[k]); st->fdev[k] += 0.5f * (d - st->fdev[k]); }
+		} else if (st->gate > 0.5f) {
+			st->fmag[k] += leak * (m - st->fmag[k]);
+			st->fdev[k] += leak * (d - st->fdev[k]);
+		}
+		if (fx <= 0.0001f) { st->acc[k] = ph; continue; }
+		float mo = m + (st->fmag[k] - m) * fx;
+		float adv = d + (st->fdev[k] - d) * fx;
+		float jit = fx * 0.03f * scq_noise(&n->rng);     /* the phases drift around where they belong, never away */
+		float a = st->acc[k] + (float)(k & 3) * 0.25f + adv;
+		a -= scq_floor(a);
+		st->acc[k] = a;
+		if (k == 0 || k == SP_M) { X[2 * k] = 0.f; X[2 * k + 1] = 0.f; continue; }
 		X[2 * k] = mo * scq_sin2pi(a + jit + 0.25f);
 		X[2 * k + 1] = mo * scq_sin2pi(a + jit);
 	}
 }
-static void sp_stage(node *n, sp_state *st, int stage, int mode, float c, float q, float leak)
+static void sp_task(node *n, sp_state *st, int t, int mode)
 {
 	float *z = st->z, *X = st->X;
 	const float *sw = st->sw;
-	if (stage == 0) { sp_fft(z, st->tw, st->rev, 0); return; }
-	if (stage == 1) {
-		for (int k = 0; k <= SP_M; k++) {               /* the split: M complex points into M + 1 real bins */
+	if (t == 0)                                         /* the last SP_N in (run before this hop writes any) */
+		for (int j = 0; j < SP_N; j++) z[j] = st->ring[(st->rw + (uint32_t)j) & (SP_N - 1)] * st->win[j];
+	if (t < 8) { sp_pass(z, st->tw, st->rev, t, 0); return; }
+	if (t < 12) {                                       /* the split: M complex points into M + 1 real bins */
+		int k0 = (t - 8) * 65, k1 = scq_min(k0 + 65, SP_K);
+		for (int k = k0; k < k1; k++) {
 			int a = k & (SP_M - 1), b = (SP_M - k) & (SP_M - 1);
 			float zkr = z[2 * a], zki = z[2 * a + 1], zmr = z[2 * b], zmi = z[2 * b + 1];
 			float fer = 0.5f * (zkr + zmr), fei = 0.5f * (zki - zmi);
@@ -1041,13 +1074,19 @@ static void sp_stage(node *n, sp_state *st, int stage, int mode, float c, float 
 			X[2 * k] = fer + cs * for_ + sn * foi;
 			X[2 * k + 1] = fei + cs * foi - sn * for_;
 		}
-		sp_bins(n, st, 0, SP_K / 2, mode, c, q, leak);
 		return;
 	}
-	if (stage == 2) {
-		sp_bins(n, st, SP_K / 2, SP_K, mode, c, q, leak);
-		X[1] = 0.f; X[2 * SP_M + 1] = 0.f;
-		for (int k = 0; k < SP_M; k++) {                /* and back */
+	if (t < 31) {                                       /* the bins, a 14th in each of these tasks */
+		int c = t < 20 ? t - 12 : (t >= 25 ? t - 17 : -1);
+		if (c < 0) return;
+		int k0 = c * 19, k1 = scq_min(k0 + 19, SP_K);
+		if (mode == SP_FREEZE) sp_freeze_bins(n, st, k0, k1);
+		else sp_smear_bins(st, k0, k1);
+		return;
+	}
+	if (t < 35) {                                       /* and back */
+		if (t == 31) { X[1] = 0.f; X[2 * SP_M + 1] = 0.f; }
+		for (int k = (t - 31) * 64; k < (t - 30) * 64; k++) {
 			int m = SP_M - k;
 			float xkr = X[2 * k], xki = X[2 * k + 1], xmr = X[2 * m], xmi = X[2 * m + 1];
 			float fer = 0.5f * (xkr + xmr), fei = 0.5f * (xki - xmi);
@@ -1059,34 +1098,41 @@ static void sp_stage(node *n, sp_state *st, int stage, int mode, float c, float 
 		}
 		return;
 	}
-	sp_fft(z, st->tw, st->rev, 1);
+	if (t < 43) { sp_pass(z, st->tw, st->rev, t - 35, 1); return; }
 	const float sc = (1.f / SP_M) * (2.f / 3.f);
-	for (int j = 0; j < SP_N; j++) st->ola[j] += z[j] * st->win[j] * sc;
+	for (int j = 0; j < SP_N; j++) st->ola[(st->ob + (uint32_t)j) & (SP_N - 1)] += z[j] * st->win[j] * sc;
 }
+/* where each task's middle falls in the hop's work (twice the running sum of what the tasks
+ * before it cost, plus its own), smear and specfreeze (half frozen, half not): measured on a
+ * Mac in thousandths of a hop; the Wingie and the SP-1 spend in about the same proportions */
+static const uint16_t SP_MID[2][SP_T] = {
+	{ 68, 158, 200, 240, 279, 317, 355, 392, 421, 443, 465, 486, 535, 615, 691, 761, 831, 901, 971, 1042, 1079, 1081, 1083, 1085, 1087, 1123, 1193, 1263, 1333, 1409, 1467, 1495, 1517, 1539, 1561, 1618, 1687, 1731, 1772, 1811, 1849, 1887, 1925, 1970 },
+	{ 80, 186, 237, 285, 331, 376, 420, 465, 502, 529, 555, 580, 628, 694, 753, 811, 869, 927, 985, 1050, 1087, 1089, 1091, 1093, 1095, 1125, 1183, 1241, 1299, 1357, 1400, 1430, 1459, 1485, 1511, 1577, 1656, 1706, 1753, 1799, 1844, 1888, 1933, 1986 } };
+static const uint16_t SP_TOTAL[2] = { 998, 1008 };
 static void sp_run(node *n, const float *const in[MAX_IN], int mode)
 {
 	sp_state *st = (sp_state *)n->mem;
 	if (!st->ready) sp_make(st);
-	float c = 1.f, q = 0.f, leak = 0.f;
-	const float frames = SR / (float)SP_H;
-	if (mode == SP_SMEAR) {
-		float blur = tm_c01(in[1][0]);
-		if (blur > 0.001f) c = scq_coef_time(0.015f * scq_exp2(blur * 8.5f), frames);
-		q = 0.3f * blur;
-	} else {
-		float bl = tm_c01(in[2][0]);
-		leak = bl * bl * scq_coef_time(0.4f, frames);
-	}
 	if (st->rw >= SP_N) st->rw = 0;
 	if (st->cnt >= SP_H) st->cnt = 0;
+	if (st->task > SP_T) st->task = SP_T;
 	int i = 0;
 	while (i < B) {
 		if (st->cnt == 0) {                          /* a hop: the next SP_H out, and the last SP_N in to work on */
-			for (int j = 0; j < SP_H; j++) st->outq[j] = st->ola[j];
-			for (int j = 0; j < SP_N - SP_H; j++) st->ola[j] = st->ola[j + SP_H];
-			for (int j = SP_N - SP_H; j < SP_N; j++) st->ola[j] = 0.f;
-			for (int j = 0; j < SP_N; j++) st->z[j] = st->ring[(st->rw + (uint32_t)j) & (SP_N - 1)] * st->win[j];
-			if (mode == SP_FREEZE) {
+			while (st->task < SP_T) sp_task(n, st, (int)st->task++, mode);   /* (only if a hop was cut short) */
+			st->task = 0;
+			st->ob &= SP_N - 1;                      /* the overlap-add is a ring: its next SP_H out, and cleared */
+			for (int j = 0; j < SP_H; j++) { st->outq[j] = st->ola[st->ob + (uint32_t)j]; st->ola[st->ob + (uint32_t)j] = 0.f; }
+			st->ob = (st->ob + SP_H) & (SP_N - 1);
+			const float frames = SR / (float)SP_H;
+			if (mode == SP_SMEAR) {
+				float blur = tm_c01(in[1][i]);
+				st->c = blur > 0.001f ? scq_coef_time(0.015f * scq_exp2(blur * 8.5f), frames) : 1.f;
+				st->q = 0.3f * blur;
+				st->thru = st->c >= 0.999f;
+			} else {
+				float bl = tm_c01(in[2][i]);
+				st->leak = bl * bl * scq_coef_time(0.4f, frames);
 				float gt = in[1][i] > 0.5f ? 1.f : 0.f;
 				if (gt > 0.5f && st->gate <= 0.5f) st->capture = 4;
 				else if (st->capture) st->capture--;
@@ -1096,10 +1142,9 @@ static void sp_run(node *n, const float *const in[MAX_IN], int mode)
 			}
 		}
 		int chunk = B - i < (int)(SP_H - st->cnt) ? B - i : (int)(SP_H - st->cnt);
-		for (int s = 0; s < 4; s++) {
-			uint32_t at = (uint32_t)s * (SP_H / 4);
-			if (at >= st->cnt && at < st->cnt + (uint32_t)chunk) sp_stage(n, st, s, mode, c, q, leak);
-		}
+		uint32_t want = (2u * (st->cnt + (uint32_t)chunk) * SP_TOTAL[mode]) / SP_H;   /* each task once the hop has reached its middle */
+		if (st->cnt == 0 && st->task == 0) sp_task(n, st, (int)st->task++, mode);    /* the input is read before it is written over */
+		while (st->task < SP_T && SP_MID[mode][st->task] <= want) sp_task(n, st, (int)st->task++, mode);
 		for (int j = 0; j < chunk; j++, i++) {
 			st->ring[st->rw] = tm_in(in[0][i]);
 			st->rw = (st->rw + 1) & (SP_N - 1);
